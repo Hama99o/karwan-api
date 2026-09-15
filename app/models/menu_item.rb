@@ -1,5 +1,7 @@
 class MenuItem < ApplicationRecord
   include Monetary
+  include SoftDeletable
+  include TrigramSearchable
 
   belongs_to :restaurant
   belongs_to :menu_category, inverse_of: :menu_items
@@ -17,8 +19,24 @@ class MenuItem < ApplicationRecord
   validates :price, numericality: { greater_than_or_equal_to: 0 }
   validates :prep_time_minutes, numericality: { greater_than: 0 }, allow_nil: true
 
-  scope :available, -> { where(is_available: true) }
+  scope :available, -> { kept.where(is_available: true) }
   scope :ordered,   -> { order(:position, :id) }
+
+  # Multi-word, each word narrowing, each word matching the dish name or its
+  # description — "chicken kabab" should not need to be a single stored string.
+  def self.search(query)
+    return all if query.blank?
+
+    query.to_s.strip.split(/\s+/).reduce(all) do |result, word|
+      term = "%#{word.downcase}%"
+      result.where("LOWER(menu_items.name) LIKE :t OR LOWER(COALESCE(menu_items.description, '')) LIKE :t", t: term)
+    end
+  end
+
+  # Typo/transliteration fallback, ranked by closeness.
+  def self.fuzzy(query)
+    fuzzy_on(:name, query)
+  end
 
   # The item's own prep time if set, else the restaurant's.
   def effective_prep_time_minutes

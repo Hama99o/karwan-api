@@ -10,9 +10,10 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_15_120900) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_15_121000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+  enable_extension "pg_trgm"
 
   create_table "addresses", force: :cascade do |t|
     t.datetime "created_at", null: false
@@ -45,6 +46,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_120900) do
     t.index ["actor_id"], name: "index_audit_logs_on_actor_id"
     t.index ["created_at"], name: "index_audit_logs_on_created_at"
     t.index ["target_type", "target_id"], name: "index_audit_logs_on_target"
+  end
+
+  create_table "cuisines", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.boolean "is_active", default: true, null: false
+    t.string "name_en", null: false
+    t.string "name_fa", null: false
+    t.string "name_ps", null: false
+    t.integer "position", default: 0, null: false
+    t.string "slug", null: false
+    t.datetime "updated_at", null: false
+    t.index ["is_active", "position"], name: "index_cuisines_on_is_active_and_position"
+    t.index ["name_en"], name: "index_cuisines_on_name_en_trgm", opclass: :gin_trgm_ops, using: :gin
+    t.index ["slug"], name: "index_cuisines_on_slug", unique: true
   end
 
   create_table "device_tokens", force: :cascade do |t|
@@ -115,6 +130,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_120900) do
     t.index ["deleted_at"], name: "index_menu_items_on_kept", where: "(deleted_at IS NULL)"
     t.index ["menu_category_id", "position"], name: "index_menu_items_on_menu_category_id_and_position"
     t.index ["menu_category_id"], name: "index_menu_items_on_menu_category_id"
+    t.index ["name"], name: "index_menu_items_on_name_trgm", opclass: :gin_trgm_ops, using: :gin
     t.index ["restaurant_id", "is_available"], name: "index_menu_items_on_restaurant_id_and_is_available"
     t.index ["restaurant_id"], name: "index_menu_items_on_restaurant_id"
   end
@@ -237,6 +253,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_120900) do
     t.index ["phone", "created_at"], name: "index_otp_verifications_on_phone_and_created_at"
   end
 
+  create_table "restaurant_cuisines", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.bigint "cuisine_id", null: false
+    t.bigint "restaurant_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["cuisine_id"], name: "index_restaurant_cuisines_on_cuisine_id"
+    t.index ["restaurant_id", "cuisine_id"], name: "index_restaurant_cuisines_on_restaurant_id_and_cuisine_id", unique: true
+    t.index ["restaurant_id"], name: "index_restaurant_cuisines_on_restaurant_id"
+  end
+
   create_table "restaurant_opening_hours", force: :cascade do |t|
     t.time "closes_at", null: false
     t.datetime "created_at", null: false
@@ -275,6 +301,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_120900) do
     t.index ["deleted_at"], name: "index_restaurants_on_kept", where: "(deleted_at IS NULL)"
     t.index ["is_open"], name: "index_restaurants_on_is_open"
     t.index ["name"], name: "index_restaurants_on_name"
+    t.index ["name"], name: "index_restaurants_on_name_trgm", opclass: :gin_trgm_ops, using: :gin
     t.index ["owner_id"], name: "index_restaurants_on_owner_id"
     t.index ["owner_phone"], name: "index_restaurants_on_owner_phone"
     t.index ["status"], name: "index_restaurants_on_status"
@@ -423,6 +450,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_120900) do
   add_foreign_key "orders", "restaurants"
   add_foreign_key "orders", "users", column: "customer_id"
   add_foreign_key "orders", "users", column: "rider_id"
+  add_foreign_key "restaurant_cuisines", "cuisines"
+  add_foreign_key "restaurant_cuisines", "restaurants"
   add_foreign_key "restaurant_opening_hours", "restaurants"
   add_foreign_key "restaurants", "users", column: "owner_id"
   add_foreign_key "restaurants", "users", column: "verified_by_id"

@@ -1,6 +1,7 @@
 # Phone number is the identity. There is no password column and no email: the
 # only way in is an OTP to this phone.
 class User < ApplicationRecord
+  include SoftDeletable
   LOCALES = %w[ps fa en].freeze
 
   enum :active_role, Roles::ALL, prefix: :acting_as

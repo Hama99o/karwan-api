@@ -4,6 +4,7 @@
 # Orders snapshot these fields rather than referencing an address, because the
 # customer edits and deletes them and a past order must still say where it went.
 class Address < ApplicationRecord
+  include SoftDeletable
   belongs_to :user
 
   validates :latitude,  presence: true, numericality: { greater_than_or_equal_to: -90,  less_than_or_equal_to: 90 }
