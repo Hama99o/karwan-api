@@ -212,3 +212,70 @@ wrong user; make the current role visible, always.
   commission before confirming. Nobody is ever surprised by a number.
 - **Every screen works offline** by showing last-known data with a quiet "not updated" mark.
   Never a spinner where data already exists — data costs the user real money.
+
+---
+
+# One library, a different design per workspace — the mechanism
+
+Hamma9900: *"the library will be same but the design will be changed for each workspace."*
+Workspace means role mode: customer, merchant, courier. This is how that works without
+rotting, and the wrong ways are both common.
+
+**Wrong way 1 — a component set per role.** Three Buttons is three codebases, three sets of
+bugs, and a fix that lands in one place out of three.
+
+**Wrong way 2 — components that branch on role.** `if (role === 'courier')` inside `button.tsx`
+means every primitive knows about every role, a fourth role edits every file, and the courier's
+size rules leak into the customer's code. This is the trap, because it looks harmless in the
+first component.
+
+**The right way — the role supplies token VALUES; components only know token NAMES.**
+
+Each role's route group wraps its subtree in a theme at the boundary:
+
+```
+app/(customer)/_layout.tsx   → CustomerTheme  → tokens
+app/(merchant)/_layout.tsx   → MerchantTheme  → tokens
+app/(courier)/_layout.tsx    → CourierTheme   → tokens
+```
+
+`button.tsx` reads `color-primary`, `space-control`, `text-action`, `radius-control`. It never
+reads a role. It cannot, because it is not passed one. **Adding a fourth role is one new token
+file and zero component edits** — that is the test of whether this is built correctly.
+
+## Hatiwal already solved this mechanism — extend it, do not invent it
+
+`hatiwal-mobile` has `src/stores/theme.store.ts` and `src/hooks/useColors.ts` for light and
+dark. That is the same problem with one axis. Karwan has two axes: **role × colour scheme**.
+So six token sets, one mechanism, and the mechanism is already tested in production. Read those
+two files before writing anything.
+
+## The detail that will bite: theme SIZE, not just colour
+
+Most theme systems carry colour only. Ours cannot, because the roles differ mostly in **size
+and density**:
+
+| Token | Customer | Merchant | Courier |
+|---|---|---|---|
+| `space-screen` | roomy | dense | roomy |
+| `space-control` | normal | tight | generous |
+| `size-touch-min` | 48dp | 48dp | **64dp** |
+| `text-action` | normal | normal | **large** |
+| `text-data` | normal | **large** | large |
+| `radius-control` | soft | square | soft |
+
+If the token set is colour-only, the first time the courier needs a 64dp button somebody will
+write `role === 'courier'` inside a primitive, and wrong way 2 is in the codebase for good.
+**So the token set includes spacing, radius, font size and touch target from the first commit,
+even while all three roles still share most values.**
+
+Colour is the *smallest* part of what changes between these three. Say that out loud when
+building the token file, because it is the opposite of how a theme is usually shaped.
+
+## What must stay identical across roles
+
+Not just the components — the **behaviour**. A state badge means the same thing everywhere, a
+money amount formats the same way, an offline marker looks the same, a tappable phone number
+behaves the same. A courier and a merchant looking at the same order must not have to translate
+between two visual languages to talk to each other on the phone. **Different density, same
+meaning.**

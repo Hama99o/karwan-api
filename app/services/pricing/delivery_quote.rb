@@ -26,11 +26,12 @@ module Pricing
     end
 
     def call
-      raise Error, "merchant has no location, so a delivery cannot be priced" if distance_km.nil?
+      raise Error, "merchant has no location, so a delivery cannot be priced" if route.nil?
 
       Quote.new(
         distance_km: distance_km,
         duration_minutes: duration_minutes,
+        route: route,
         currency: Monetary::DEFAULT_CURRENCY,
         amounts: {
           items_total: @items_total,
@@ -50,20 +51,29 @@ module Pricing
 
     private
 
-    def distance_km
-      return @distance_km if defined?(@distance_km)
+    # Routed when OSRM is reachable and enabled, straight-line otherwise —
+    # never a failure. An order must not fall over because routing is down.
+    def route
+      return @route if defined?(@route)
 
-      @distance_km = Geo::Distance.km(
+      @route = Routing::DistanceResolver.new(
         from_lat: @merchant.latitude, from_lng: @merchant.longitude,
         to_lat: @delivery_latitude, to_lng: @delivery_longitude
-      )
+      ).call
+    end
+
+    def distance_km
+      route&.distance_km
     end
 
     # Travel time PLUS the kitchen. A customer waiting for food does not care
     # which half of the wait is cooking, and quoting only the ride makes every
     # order look late.
+    #
+    # The travel half comes from `eta_average_speed_kmh`, never from OSRM's own
+    # duration — see Routing::DistanceResolver for why.
     def duration_minutes
-      travel = Geo::Distance.travel_minutes(distance_km)
+      travel = route&.duration_minutes
       return nil if travel.nil?
 
       travel + (@merchant.effective_prep_time_minutes || 0)

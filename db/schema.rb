@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_15_161200) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_15_200000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -340,6 +340,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_161200) do
     t.text "delivery_landmark_note"
     t.decimal "delivery_latitude", precision: 10, scale: 6, null: false
     t.decimal "delivery_longitude", precision: 10, scale: 6, null: false
+    t.decimal "destination_snap_metres", precision: 8, scale: 1
+    t.decimal "distance_km", precision: 8, scale: 3
+    t.string "distance_source"
+    t.integer "duration_minutes"
     t.datetime "failed_at"
     t.integer "failure_reason"
     t.decimal "items_total", precision: 12, scale: 2, default: "0.0", null: false
@@ -347,6 +351,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_161200) do
     t.datetime "merchant_paid_at"
     t.decimal "merchant_payout", precision: 12, scale: 2, default: "0.0", null: false
     t.text "notes"
+    t.decimal "origin_snap_metres", precision: 8, scale: 1
     t.integer "payment_method", default: 0, null: false
     t.integer "payment_status", default: 0, null: false
     t.datetime "picked_up_at"
@@ -355,6 +360,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_161200) do
     t.datetime "ready_at"
     t.datetime "rejected_at"
     t.integer "rejection_reason"
+    t.jsonb "route_geometry"
     t.datetime "settled_at"
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
@@ -363,6 +369,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_161200) do
     t.index ["courier_id"], name: "index_orders_on_courier_id"
     t.index ["created_at"], name: "index_orders_on_created_at"
     t.index ["customer_id"], name: "index_orders_on_customer_id"
+    t.index ["distance_source"], name: "index_orders_on_distance_source"
     t.index ["merchant_id", "status"], name: "index_orders_on_merchant_id_and_status"
     t.index ["merchant_id"], name: "index_orders_on_merchant_id"
     t.index ["payment_status"], name: "index_orders_on_payment_status"
@@ -440,7 +447,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_161200) do
     t.bigint "courier_id"
     t.datetime "created_at", null: false
     t.string "currency", default: "AFN", null: false
+    t.decimal "destination_snap_metres", precision: 8, scale: 1
     t.decimal "distance_km", precision: 8, scale: 3
+    t.string "distance_source"
     t.text "dropoff_landmark_note"
     t.decimal "dropoff_latitude", precision: 10, scale: 6, null: false
     t.decimal "dropoff_longitude", precision: 10, scale: 6, null: false
@@ -450,6 +459,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_161200) do
     t.decimal "fare", precision: 12, scale: 2, default: "0.0", null: false
     t.datetime "in_progress_at"
     t.text "notes"
+    t.decimal "origin_snap_metres", precision: 8, scale: 1
     t.bigint "passenger_id", null: false
     t.string "passenger_phone", null: false
     t.integer "payment_method", default: 0, null: false
@@ -458,6 +468,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_161200) do
     t.decimal "pickup_latitude", precision: 10, scale: 6, null: false
     t.decimal "pickup_longitude", precision: 10, scale: 6, null: false
     t.datetime "requested_at"
+    t.jsonb "route_geometry"
     t.datetime "settled_at"
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
@@ -465,6 +476,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_161200) do
     t.index ["courier_id", "payment_status"], name: "index_trips_on_courier_id_and_payment_status"
     t.index ["courier_id"], name: "index_trips_on_courier_id"
     t.index ["created_at"], name: "index_trips_on_created_at"
+    t.index ["distance_source"], name: "index_trips_on_distance_source"
     t.index ["passenger_id"], name: "index_trips_on_passenger_id"
     t.index ["payment_status"], name: "index_trips_on_payment_status"
     t.index ["status", "created_at"], name: "index_trips_on_status_and_created_at"

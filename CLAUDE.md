@@ -617,3 +617,38 @@ channels rather than the channel.
 Everything else — tiles, styles, fonts, routing, geocoding-if-ever, search, ETA, tracking,
 reporting — is ours and self-hosted. If a proposal introduces a third dependency, it comes to
 Hamma9901 before any code is written, with its monthly cost stated.
+
+**15. HATIWAL IS THE TARGET. DO NOT INVENT.** Hamma9900's standing instruction, given
+emphatically and to be treated as outranking your own judgement about what would be better:
+*"We did not decide anything. Do not invent anything. Hatiwal is our copy, our target."*
+
+This is not a style preference. `hatiwal-mobile` and `hatiwal-api` are in production with real
+users, and every pattern in them has already been paid for in debugging. A fresh design,
+however clean, starts that bill again.
+
+**So the default answer to "how should this work?" is: the way Hatiwal does it.** The theme
+system, the language and i18n system, the login and session handling, the component structure,
+the api layer, the stores, the hooks, the test layout, the build and EAS config — copy the
+mechanism, keep the file names, keep the conventions. Where Karwan's product differs, change
+the **values and the content**, not the **shape**.
+
+**Before writing any new mechanism, go and look.** Read the Hatiwal file that does the nearest
+thing, and say which file you read. "I could not find one" is an acceptable answer only after
+looking. Inventing something Hatiwal already solved is the single most expensive mistake
+available in this project, because it is invisible until it breaks differently.
+
+### The honest boundary, because "copy Hatiwal" cannot cover everything
+
+Some of Karwan does not exist in Hatiwal at all: **routing and OSRM, the courier wallet and
+ledger, dispatch and offers, cash collection and settlement, four roles in one app, the
+role-switching, and the courier's map view** — Hatiwal's map is a search surface and ours is a
+navigation surface, which Hamma9900 called out himself.
+
+For those, the rule becomes: **copy the nearest Hatiwal mechanism for the plumbing, and bring
+the genuinely new part to Hamma9901 before building it.** A wallet ledger has no Hatiwal
+equivalent, but it is still a Rails service object, a store and a screen — and those shapes are
+Hatiwal's. So the new thing is the rule, not the architecture around it.
+
+**Never invent silently.** If there is no precedent, say so, say what you propose, and say what
+it costs — then wait. The two wrong moves are inventing a mechanism Hatiwal already has, and
+inventing one it does not have without saying so.

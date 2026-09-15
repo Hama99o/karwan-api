@@ -20,11 +20,12 @@ module Pricing
     end
 
     def call
-      raise Error, "both pins are required to price a ride" if distance_km.nil?
+      raise Error, "both pins are required to price a ride" if route.nil?
 
       Quote.new(
         distance_km: distance_km,
         duration_minutes: duration_minutes,
+        route: route,
         currency: Monetary::DEFAULT_CURRENCY,
         amounts: {
           fare: fare,
@@ -36,17 +37,22 @@ module Pricing
 
     private
 
-    def distance_km
-      return @distance_km if defined?(@distance_km)
+    def route
+      return @route if defined?(@route)
 
-      @distance_km = Geo::Distance.km(
+      @route = Routing::DistanceResolver.new(
         from_lat: @pickup_latitude, from_lng: @pickup_longitude,
         to_lat: @dropoff_latitude, to_lng: @dropoff_longitude
-      )
+      ).call
     end
 
+    def distance_km
+      route&.distance_km
+    end
+
+    # From `eta_average_speed_kmh`, not OSRM's free-flow estimate.
     def duration_minutes
-      @duration_minutes ||= Geo::Distance.travel_minutes(distance_km)
+      route&.duration_minutes
     end
 
     def fare

@@ -48,6 +48,24 @@ class Setting < ApplicationRecord
     "otp_send_window_minutes"  => { type: :integer, default: "15", description: "Length of the OTP burst window, in minutes" },
     "otp_max_sends_per_day"    => { type: :integer, default: "10", description: "Hard daily cap on OTP messages to one number" },
 
+    # Routing. The OSRM ADDRESS is deliberately NOT here — it comes from
+    # OSRM_BASE_URL in the environment, because a Setting row feeding an
+    # outbound HTTP host is an SSRF surface (brakeman flagged exactly that) and
+    # because a service address is infrastructure rather than a number the
+    # owner tunes. What stays here is policy: the on/off switch, the timeouts
+    # and the snap threshold.
+    # ~500x the measured p95 of 3.9 ms, and still not a hang. A quote sits on
+    # the path an order takes.
+    "routing_open_timeout_seconds" => { type: :integer, default: "1", description: "Connect timeout for a routing call" },
+    "routing_read_timeout_seconds" => { type: :integer, default: "2", description: "Read timeout for a routing call, after which we fall back to a straight line" },
+    # DEFAULTS TO straight_line. Switching to `osrm` raises fares ~29% and is
+    # Hamma9900's decision; a setting means he says yes once with no deploy.
+    "routing_distance_source" => { type: :string, default: "straight_line", description: "Where a fare's distance comes from: straight_line or osrm" },
+    # Above this the pin is not on the road network — Kabul is full of walled
+    # compounds. Recorded, not corrected: the landmark note and the phone
+    # number do the real work.
+    "routing_snap_warning_metres" => { type: :decimal, default: "150.0", description: "Snap distance above which a pin is flagged as off the road network" },
+
     "support_phone"          => { type: :string,  default: "", description: "Shown in all three apps. Delivery is an ops business with an app attached." },
 
     # Ride fares. Present so the numbers are tunable from day one, exactly like

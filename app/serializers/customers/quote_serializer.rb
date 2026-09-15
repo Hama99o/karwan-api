@@ -27,5 +27,26 @@ module Customers
     field :suggested_notes do |quote|
       quote.amounts[:customer_total]
     end
+
+    # How the distance was measured. Exposed rather than hidden because the
+    # fare has to be explainable — and because during the switch from
+    # straight-line to routed, "which did this one use" is the first question.
+    field :distance_source do |quote|
+      quote.route&.source
+    end
+
+    # The drawn line, GeoJSON, consumed directly by MapLibre as a ShapeSource.
+    # Nil on the straight-line fallback, which the app renders as a plain line
+    # between the pins.
+    field :route_geometry do |quote|
+      quote.route&.geometry
+    end
+
+    # True when a pin is not on the mapped road network — a walled compound, a
+    # perimeter, an unmapped lane. The app should lean harder on the landmark
+    # voice note when this is set, rather than trusting the map.
+    field :pin_far_from_road do |quote|
+      quote.route&.pin_far_from_road? || false
+    end
   end
 end
