@@ -58,6 +58,17 @@ RSpec.describe "Api::V1::Merchants::Orders", type: :request do
         expect(line["options"]).to include("Size: Large")
       end
 
+      # The card's one big figure. Without it the board showed a code, an age
+      # and an item count — and a merchant cannot tell a 180 AFN order from a
+      # 920 AFN one, which is the first thing they want to know.
+      it "carries the money on the CARD, not only on the detail screen" do
+        get "/api/v1/merchant/orders", headers: auth
+
+        card = json["orders"].first
+        expect(card).to include("items_total", "merchant_payout")
+        expect(card["merchant_payout"].to_f).to eq(order.merchant_payout.to_f)
+      end
+
       it "can be filtered to one status" do
         ready = create(:order, :ready, merchant: merchant)
 
@@ -217,6 +228,56 @@ RSpec.describe "Api::V1::Merchants::Orders", type: :request do
 
       expect(json["code"]).to eq("reason_required")
       expect(order.reload.status).to eq("placed")
+    end
+  end
+
+  describe "POST /api/v1/merchant/orders/:id/preparing" do
+    # THE GAP THIS CLOSED, found by wiring the mobile board to the real API:
+    # Order::TRANSITIONS goes accepted → preparing → ready, and there was no
+    # route to `preparing`. So an accepted order had no button that worked —
+    # Ready answered 422 `invalid_transition` and the board dead-ended.
+    it "moves an accepted order to preparing, with an actor and a timestamp" do
+      order.update!(status: :accepted, accepted_at: 2.minutes.ago)
+
+      post "/api/v1/merchant/orders/#{order.id}/preparing", headers: auth
+
+      expect(response).to have_http_status(:ok)
+      expect(order.reload.status).to eq("preparing")
+      expect(order.preparing_at).to be_present
+      expect(order.transitions.last).to have_attributes(
+        from_status: "accepted", to_status: "preparing", actor_id: owner.id
+      )
+    end
+
+    # The whole reason this is a separate call rather than `ready` advancing
+    # two states: two transitions written in one request would carry the same
+    # timestamp, and "how long do orders sit in preparing" is the metric that
+    # runs a delivery business. It cannot be backfilled.
+    it "leaves preparing and ready as two separately timed transitions" do
+      order.update!(status: :accepted, accepted_at: 2.minutes.ago)
+
+      post "/api/v1/merchant/orders/#{order.id}/preparing", headers: auth
+      order.reload.update_columns(preparing_at: 4.minutes.ago)
+      post "/api/v1/merchant/orders/#{order.id}/ready", headers: auth
+
+      expect(order.reload.status).to eq("ready")
+      expect(order.ready_at - order.preparing_at).to be >= 200
+    end
+
+    it "refuses to start preparing an order nobody accepted" do
+      post "/api/v1/merchant/orders/#{order.id}/preparing", headers: auth
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(json["code"]).to eq("invalid_transition")
+      expect(order.reload.status).to eq("placed")
+    end
+
+    it "refuses another merchant's order" do
+      other = create(:order, :accepted)
+
+      post "/api/v1/merchant/orders/#{other.id}/preparing", headers: auth
+
+      expect(response).to have_http_status(:not_found)
     end
   end
 

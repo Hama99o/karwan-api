@@ -6,8 +6,13 @@ class Api::V1::Customers::OrdersController < Api::V1::BaseController
   throttle to: 40, within: 1.day, by: :user, only: :create
   # A quote is cheap but it calls the router, so it gets a looser ceiling.
   throttle to: 300, within: 1.hour, by: :user, only: :quote
+  # Polled while a courier is moving — at one call every 10 seconds for a
+  # 40-minute delivery that is 240, so the ceiling is high on purpose. It
+  # exists to stop a client looping on a finished order, not to pace a normal
+  # one.
+  throttle to: 1_200, within: 1.hour, by: :user, only: :track
 
-  before_action :set_order, only: %i[show cancel]
+  before_action :set_order, only: %i[show cancel track]
 
   def index
     orders = policy_scope(Order).includes(:merchant, :order_items).newest_first
@@ -58,6 +63,26 @@ class Api::V1::Customers::OrdersController < Api::V1::BaseController
     render_blue(Customers::OrderSerializer, order, view: :detailed, status: :created)
   rescue Orders::PlaceService::Error, Pricing::DeliveryQuote::Error => e
     render_unprocessable_entity(e.message, code: error_code_for(e))
+  end
+
+  # Where the order is, for the map: the merchant's pin, their own pin, and the
+  # courier's last fix while it is fresh.
+  #
+  # `OrderPolicy#track?` already existed and NOTHING CALLED IT — the exact
+  # failure docs/NOTES.md records from edu-safi, "the correct scope existed,
+  # was correct, and was never consulted". It refuses a terminal order, which
+  # is why this is an endpoint rather than fields on the order: a customer
+  # reading last week's delivered order would otherwise be able to watch that
+  # courier for the rest of their shift.
+  #
+  # Throttled by USER rather than by IP. The app polls this while a courier
+  # moves, so a generous ceiling is normal traffic — but a client left looping
+  # on a dead order is someone spending Hamma9900's bandwidth, and CGNAT means
+  # a whole neighbourhood can share one address.
+  def track
+    authorize @order, :track?
+
+    render_blue(Customers::TrackSerializer, @order)
   end
 
   def cancel

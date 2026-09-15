@@ -1,6 +1,6 @@
 # The order board: the merchant's default and only real screen.
 class Api::V1::Merchants::OrdersController < Api::V1::Merchants::BaseController
-  before_action :set_order, only: %i[show accept reject ready]
+  before_action :set_order, only: %i[show accept reject preparing ready]
 
   # Live orders by default, oldest first — the opposite of the customer's list.
   # A kitchen works the queue from the front; showing newest first would bury
@@ -47,6 +47,11 @@ class Api::V1::Merchants::OrdersController < Api::V1::Merchants::BaseController
     end
 
     transition!(:rejected, already_authorized: true) { @order.update!(rejection_reason: reason) }
+  end
+
+  # "We have started cooking." The step the board had no button for.
+  def preparing
+    transition!(:preparing)
   end
 
   def ready

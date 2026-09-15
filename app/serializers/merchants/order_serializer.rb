@@ -33,6 +33,12 @@ module Merchants
     view :board do
       fields :placed_at, :accepted_at, :ready_at
 
+      # The money, ON THE CARD rather than only on the detail screen.
+      # DESIGN.md gives each board card one big figure, and the figure a
+      # kitchen cares about is what the courier will hand over at pickup —
+      # correction 4, money shown before it is owed.
+      fields :items_total, :merchant_payout
+
       field :items do |order|
         order.order_items.map do |item|
           {

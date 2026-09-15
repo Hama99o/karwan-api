@@ -382,4 +382,96 @@ RSpec.describe "Api::V1::Customers::Orders", type: :request do
       expect(response).to have_http_status(:not_found)
     end
   end
+  describe "GET /api/v1/customer/orders/:id/track" do
+    let!(:order) { create(:order, :picked_up, customer: customer, merchant: merchant) }
+    let(:courier_profile) { order.courier.courier_profile }
+
+    describe "the happy path" do
+      it "gives the map its three points" do
+        courier_profile.record_location!(latitude: 34.5480, longitude: 69.1900)
+
+        get "/api/v1/customer/orders/#{order.id}/track", headers: auth
+
+        expect(response).to have_http_status(:ok)
+        track = json["track"]
+        expect(track.dig("pickup", "latitude").to_f).to eq(merchant.latitude.to_f)
+        expect(track.dig("dropoff", "latitude").to_f).to eq(order.delivery_latitude.to_f)
+        expect(track.dig("courier", "location", "latitude").to_f).to eq(34.548)
+        expect(track.dig("courier", "location_fresh")).to be true
+      end
+
+      # AFGHAN_UX.md §6: the customer — "especially a woman expecting a stranger
+      # at the door" — should be able to reach him before he arrives.
+      it "carries the courier's first name and phone" do
+        get "/api/v1/customer/orders/#{order.id}/track", headers: auth
+
+        expect(json.dig("track", "courier", "phone")).to eq(order.courier.phone)
+        expect(json.dig("track", "courier", "name")).not_to include(" ")
+      end
+
+      # A pin that has not moved in twenty minutes reads as "he is standing
+      # still", which is a worse lie than "we do not know where he is". Same
+      # five minutes dispatch itself refuses a fix past.
+      it "WITHHOLDS a stale position rather than drawing it" do
+        courier_profile.update!(last_latitude: 34.5480, last_longitude: 69.1900,
+                                location_updated_at: (CourierProfile::STALE_AFTER + 1.minute).ago)
+
+        get "/api/v1/customer/orders/#{order.id}/track", headers: auth
+
+        expect(json.dig("track", "courier", "location")).to be_nil
+        expect(json.dig("track", "courier", "location_fresh")).to be false
+        # The age is still sent, so the app can say how old the last sighting is.
+        expect(json.dig("track", "courier", "located_at")).to be_present
+      end
+
+      it "withholds a fresh timestamp that carries no coordinates" do
+        courier_profile.update!(last_latitude: nil, last_longitude: nil,
+                                location_updated_at: Time.current)
+
+        get "/api/v1/customer/orders/#{order.id}/track", headers: auth
+
+        expect(json.dig("track", "courier", "location")).to be_nil
+        expect(json.dig("track", "courier", "location_fresh")).to be false
+      end
+
+      # Before dispatch finds anyone, the map still has two of its three
+      # points — which is the whole screen, minus the moving dot.
+      it "has no courier before one is assigned" do
+        waiting = create(:order, customer: customer, merchant: merchant)
+
+        get "/api/v1/customer/orders/#{waiting.id}/track", headers: auth
+
+        expect(response).to have_http_status(:ok)
+        expect(json.dig("track", "courier")).to be_nil
+        expect(json.dig("track", "pickup")).to be_present
+      end
+    end
+
+    describe "the refused paths" do
+      # THE reason this is an endpoint and not fields on the order serializer.
+      # Without the liveness check a customer could watch a courier for the
+      # rest of their shift from an order delivered last week.
+      it "refuses a terminal order" do
+        order.update!(status: :delivered, delivered_at: Time.current)
+
+        get "/api/v1/customer/orders/#{order.id}/track", headers: auth
+
+        expect(response).to have_http_status(:forbidden)
+      end
+
+      it "is 404 for somebody else's order" do
+        other = create(:order, :picked_up)
+
+        get "/api/v1/customer/orders/#{other.id}/track", headers: auth
+
+        expect(response).to have_http_status(:not_found)
+      end
+
+      it "refuses without a token" do
+        get "/api/v1/customer/orders/#{order.id}/track"
+
+        expect(response).to have_http_status(:unauthorized)
+      end
+    end
+  end
 end

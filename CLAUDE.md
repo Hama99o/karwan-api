@@ -678,3 +678,33 @@ not the ops console — do not spend effort on RTL, photo-led layouts or 64dp to
 **There is also no admin role in the mobile app.** The role switch offers customer, merchant and
 courier only. Nothing that can credit a wallet or cancel an order exists on a phone that gets
 shared or lost — which matters in a cash business.
+
+**17. NO MOCKS IN THE APP. The screens always talk to the real API.** Hamma9900:
+*"we should not have mocks man"* — said after finding five mobile screens running on
+`demoFetch`. He is right, and the reasoning is stronger than a preference:
+
+**Fake data is now the most misleading state the app can be in.** The backend is
+feature-complete — 929 examples green, 35 controllers — so a screen on demo data boots
+looking like it works while proving nothing. It hides the only things still worth finding out:
+whether the client parses real payloads, whether auth actually flows, whether the offline path
+triggers on a real timeout. **An app that looks broken is more useful than one that looks
+finished and isn't.**
+
+So: no demo module, no fixture data, no hardcoded sample arrays, no fake server, no
+"temporarily returning a stub until the endpoint exists" — if an endpoint does not exist yet,
+the screen shows its real empty or error state, which is a state that has to work anyway.
+
+### The honest exception: test doubles in tests
+
+Hamma9900 asked to be corrected when he is wrong, and taken literally this rule would forbid
+unit testing. You cannot test an HTTP client without controlling its transport, and a Node test
+environment cannot load native fonts. So `src/__tests__/mocks/googleFontsStub.js` is
+legitimate, and stubbing a transport in a spec is legitimate.
+
+The line is: **a double may stand in for the outside world in a test. It may never ship inside
+the app.** And a double must never stand in for the thing under test — `docs/NOTES.md` already
+records that trap as *"a check that cannot fail is worse than no check"*, and a test that mocks
+its own subject is exactly that.
+
+**The measure to hold:** if the API is unreachable, every screen must show a real failure or a
+real last-known state. If any screen still shows content, something is faking — find it.

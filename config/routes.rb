@@ -163,6 +163,15 @@ Rails.application.routes.draw do
           member do
             post :accept
             post :reject
+            # `preparing` is not ceremony. Order::TRANSITIONS goes
+            # accepted → preparing → ready, so without this route the board
+            # dead-ended at `accepted`: the Ready button answered 422
+            # `invalid_transition` and there was no way forward. Collapsing the
+            # two into one call was the alternative and it is worse — both
+            # transitions would carry the same timestamp, and "how long do
+            # orders sit in preparing" is the metric that runs a delivery
+            # business and cannot be backfilled.
+            post :preparing
             post :ready
           end
         end
@@ -178,6 +187,11 @@ Rails.application.routes.draw do
         resources :orders, only: %i[index show create] do
           post :quote, on: :collection
           post :cancel, on: :member
+          # Where the order is, for the map. Its own endpoint because it is the
+          # one payload polled while a courier moves, and because it must
+          # refuse a TERMINAL order — which a field on the order serializer
+          # could not.
+          get :track, on: :member
         end
       end
     end
