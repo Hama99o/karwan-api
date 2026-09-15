@@ -13,6 +13,57 @@ Two rules from the wider workspace that apply to this file:
 
 ## Open problems — not yet fixed
 
+### Found by wiring the mobile screens — three gaps, three lessons
+
+Every one of these was invisible from the server side and obvious the moment a
+screen asked for it. Worth recording as a method, not just as fixes: **the
+client is a test the specs cannot write.**
+
+1. **The merchant board dead-ended at `accepted`.** `Order::TRANSITIONS` goes
+   accepted → preparing → ready and there was no route to `preparing`, so the
+   only button an accepted order had answered 422 `invalid_transition`. 965
+   examples were green over that hole because every spec that exercised `ready`
+   set the order to `preparing` by hand first. **A spec that arranges its own
+   precondition cannot notice that nothing else can produce it.** Fixed:
+   `POST /merchant/orders/:id/preparing`, plus a spec asserting the two
+   transitions stay separately timed.
+2. **The board card had no money.** `items_total` and `merchant_payout` were on
+   the detail view only, so a card carried a code, an age and an item count. A
+   merchant cannot tell a 180 AFN order from a 920 AFN one, which is the first
+   thing they want to know. Added to `:board`.
+3. **`OrderPolicy#track?` was written, correct, and dead.** Nothing called it —
+   the same shape as the edu-safi lesson at the bottom of this file. It is why
+   the customer's map had no data source: the order serializer carries the
+   delivery pin but never the merchant's and never the courier's position.
+   Fixed: `GET /customer/orders/:id/track`. Also added
+   `spec/policies/order_policy_spec.rb`, because **a request spec proves the
+   endpoints that exist behave, and says nothing about a predicate nothing
+   calls.**
+
+### Small gaps the mobile wiring exposed and did not close
+
+- **The active order costs two requests.** There is no `/customer/orders/active`.
+  The LIST is the only thing that says which order is live (`is_live`), and the
+  DETAIL is the only thing carrying the timeline and the courier's phone. The
+  app fetches both. Cheap enough (two tiny responses on a screen the customer
+  lives on) that a third shape of the same record is not yet worth the drift
+  risk. **Trigger:** if the status screen ever feels slow on a real Kabul
+  connection, collapse it.
+- **`Customers::QuoteSerializer#suggested_notes` returns the total unchanged.**
+  So "have change for 500" is computed on the device
+  (`src/lib/orderStatus.ts`: round up to the next 500, stay quiet on a multiple
+  of 100). That is a presentation rule and it is tested, but the rule belongs
+  here once Hamma9900 settles it — he knows which notes people actually carry.
+  The old hardcoded copy advised "change for 500" on a 1,250 AFN order.
+- **`Couriers::JobSteps` sends `completed` but no timestamp per step.** The
+  courier's stepper therefore shows ticks and no times, while the customer's —
+  built from the transition log — shows both. Correct for a man being told what
+  to do next; add `at` if he ever needs to prove when he paid.
+- **A `ready` order has nothing to say to the merchant.** No merchant action
+  exists (the COURIER records the handover, which is the right side of the
+  transaction to trust), so the card carries no button and no copy. It needs a
+  Pashto string meaning "waiting for the courier" — Hamma9900's.
+
 ### Map tiles stop at the Afghan border, but the app does not
 `hatiwal-map` builds its tileset from `afghanistan-latest.osm.pbf`, so anyone
 just over the border gets blank tiles. The app itself has no country

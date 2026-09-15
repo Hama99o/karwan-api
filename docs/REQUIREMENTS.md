@@ -418,3 +418,36 @@ log; `docs/NOTES.md` carries every gap and lesson; and non-obvious decisions are
 commented **where the code is**, because a decision recorded only in a commit
 message is invisible to the person reading the file.
 
+
+### R22 — No mocks. The screens talk to the real API.
+> "we should not have mocks man" / "it should not fake as we have all api no?"
+
+Said after finding that five mobile screens were still running on `demoFetch`.
+He is right, and the reasoning is stronger than a preference: the backend is
+feature-complete, so a screen on fake data boots **looking like it works while
+proving nothing**. It hides the only things still worth finding out — whether
+the client parses real payloads, whether auth actually flows, whether the
+offline path triggers on a real timeout.
+
+Done: `src/data/demo.ts` is **deleted**, not adapted — an adapted demo type
+becomes a second source of truth that quietly disagrees with the server. All six
+data-bearing screens now call `karwan-api`, and
+`src/__tests__/noFakeData.test.ts` fails the build if a demo module, a
+`demoFetch`-style stub, an msw/nock handler or a hardcoded sample array
+reappears anywhere shipped.
+
+The measure to hold, in his framing: **if the API is unreachable, every screen
+must show a real failure or a real last-known state.** If any screen still shows
+content, something is faking.
+
+The one honest exception, which he asked to be told about: **test doubles in
+tests.** An HTTP client cannot be tested without controlling its transport, and
+a Node test environment cannot load native fonts. A double may stand in for the
+outside world in a test; it may never ship inside the app, and it must never
+stand in for the thing under test.
+
+**And it paid for itself immediately.** Wiring the screens found three server
+bugs that 965 green examples had not: the merchant board could not leave
+`accepted` (no `preparing` route), the board card carried no money, and
+`OrderPolicy#track?` was written, correct, and called by nothing. Recorded in
+`docs/NOTES.md` — the client is a test the specs cannot write.
