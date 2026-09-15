@@ -23,7 +23,7 @@ class CreateDispatchAndTransitions < ActiveRecord::Migration[8.1]
       t.string     :from_status
       t.string     :to_status, null: false
       # Nullable actor = the system did it, i.e. a timeout fired. That is the
-      # difference between "the restaurant rejected it" and "the restaurant
+      # difference between "the merchant rejected it" and "the merchant
       # never answered", and support needs to tell them apart.
       t.references :actor, null: true, foreign_key: { to_table: :users }
       t.integer    :actor_role

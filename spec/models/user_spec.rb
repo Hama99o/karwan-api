@@ -38,7 +38,7 @@ RSpec.describe User, type: :model do
 
   describe "enums" do
     it "defines the four roles once, shared with UserRole" do
-      expect(described_class.active_roles.keys).to eq(%w[customer courier restaurant_owner admin])
+      expect(described_class.active_roles.keys).to eq(%w[customer courier merchant_owner admin])
       expect(described_class.active_roles).to eq(UserRole.roles)
     end
 

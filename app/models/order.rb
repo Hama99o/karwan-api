@@ -2,7 +2,7 @@
 #
 # What the two share — the courier, the wallet, the commission, dispatch offers,
 # the transition log, cash tracking — comes from Dispatchable. What is here is
-# only what is actually about food: a restaurant, line items, a prep time, and a
+# only what is actually about food: a merchant, line items, a prep time, and a
 # courier who advances money out of their own pocket at the counter.
 class Order < ApplicationRecord
   include Monetary
@@ -20,14 +20,14 @@ class Order < ApplicationRecord
   # who instead gets explicit entries. An undeclared transition is how an order
   # ends up delivered without ever being picked up.
   #
-  # Role names MUST be keys of Roles::ALL. They read `:restaurant` at first,
+  # Role names MUST be keys of Roles::ALL. They read `:merchant` at first,
   # which is not a role, so `can_transition_to?` silently returned false and the
-  # restaurant could not accept its own orders. The spec now asserts every role
+  # merchant could not accept its own orders. The spec now asserts every role
   # and status named in this table is real, so it cannot drift again.
   TRANSITIONS = {
-    placed:    { accepted: %i[restaurant_owner admin], rejected: %i[restaurant_owner admin], cancelled: %i[customer admin] },
-    accepted:  { preparing: %i[restaurant_owner admin], cancelled: %i[restaurant_owner admin] },
-    preparing: { ready: %i[restaurant_owner admin], cancelled: %i[restaurant_owner admin] },
+    placed:    { accepted: %i[merchant_owner admin], rejected: %i[merchant_owner admin], cancelled: %i[customer admin] },
+    accepted:  { preparing: %i[merchant_owner admin], cancelled: %i[merchant_owner admin] },
+    preparing: { ready: %i[merchant_owner admin], cancelled: %i[merchant_owner admin] },
     ready:     { picked_up: %i[courier admin], cancelled: %i[admin] },
     picked_up: { delivered: %i[courier admin], failed: %i[courier admin] },
     delivered: {},
@@ -44,7 +44,7 @@ class Order < ApplicationRecord
   # order is silently abandoned. Enforced by a job, not by this constant — but
   # the numbers live here so admin config can override them in one place.
   TIMEOUTS = {
-    placed:    2.minutes,   # restaurant has not answered
+    placed:    2.minutes,   # merchant has not answered
     accepted:  45.minutes,  # accepted but never started
     preparing: 60.minutes,  # preparing forever
     ready:     20.minutes,  # sitting on the counter, no courier
@@ -59,14 +59,14 @@ class Order < ApplicationRecord
   enum :payment_method, { cash: 0 }, prefix: :pay_by
 
   enum :rejection_reason,    { out_of_stock: 0, too_busy: 1, closing: 2, other: 3 }, prefix: :rejected_for
-  enum :cancellation_reason, { customer_changed_mind: 0, restaurant_unavailable: 1,
+  enum :cancellation_reason, { customer_changed_mind: 0, merchant_unavailable: 1,
                                no_courier_available: 2, duplicate: 3, other: 4 }, prefix: :cancelled_for
   enum :failure_reason,      { customer_refused: 0, nobody_home: 1, customer_unreachable: 2,
                                wrong_address: 3, other: 4 }, prefix: :failed_for
   enum :cancelled_by_role,   Roles::ALL, prefix: :cancelled_by
 
   belongs_to :customer,   class_name: User.name, inverse_of: :orders
-  belongs_to :restaurant
+  belongs_to :merchant
   # The UI calls this person the rider. The column is role-neutral because it is
   # the same human, and the same wallet, that carries passengers in the ride tab.
   belongs_to :courier, class_name: User.name, optional: true, inverse_of: :courier_orders
@@ -77,20 +77,20 @@ class Order < ApplicationRecord
   validates :customer_phone, presence: true
   validates :delivery_latitude,  presence: true, numericality: { greater_than_or_equal_to: -90,  less_than_or_equal_to: 90 }
   validates :delivery_longitude, presence: true, numericality: { greater_than_or_equal_to: -180, less_than_or_equal_to: 180 }
-  validates :food_total, :delivery_fee, :commission, :courier_fee, :restaurant_payout,
+  validates :food_total, :delivery_fee, :commission, :courier_fee, :merchant_payout,
             :customer_total, numericality: { greater_than_or_equal_to: 0 }
   validate  :totals_add_up
 
   before_validation :assign_code, on: :create
 
-  scope :for_restaurant, ->(restaurant) { where(restaurant: restaurant) }
+  scope :for_merchant, ->(merchant) { where(merchant: merchant) }
 
-  # What the courier hands the restaurant at pickup: the food, less our
+  # What the courier hands the merchant at pickup: the food, less our
   # commission. They fund this out of their own pocket, which is why the refusal
   # policy reimburses them the same day — losing 400 AFN through someone else's
   # behaviour is how we lose couriers, and they tell every other courier.
   def courier_advance
-    restaurant_payout
+    merchant_payout
   end
 
   # What the courier is left holding for us once the customer has paid and they

@@ -12,7 +12,7 @@ class User < ApplicationRecord
   has_many :user_sessions, dependent: :destroy
   has_many :device_tokens, dependent: :destroy
 
-  has_many :owned_restaurants, class_name: Restaurant.name, foreign_key: :owner_id,
+  has_many :owned_merchants, class_name: Merchant.name, foreign_key: :owner_id,
                                inverse_of: :owner, dependent: :restrict_with_error
   # Demand side: what this person ordered or booked.
   has_many :orders, class_name: Order.name, foreign_key: :customer_id,

@@ -1,12 +1,12 @@
-class AddRestaurantOnboarding < ActiveRecord::Migration[8.1]
+class AddMerchantOnboarding < ActiveRecord::Migration[8.1]
   # Customer registration is a phone number, an OTP and a name — nothing more,
   # because every extra field is a customer lost.
   #
-  # A restaurant is nothing like it: it takes our customers' orders under our
+  # A merchant is nothing like it: it takes our customers' orders under our
   # name, so it needs the owner as an identifiable person, a licence, and a
   # human approval. The courier equivalent lives in `courier_profiles`.
   def change
-    change_table :restaurants, bulk: true do |t|
+    change_table :merchants, bulk: true do |t|
       # The owner as a person, separate from the business. In v0 the owner may
       # have no account at all (admin onboards them), so these are plain columns
       # rather than a join to users.
@@ -25,7 +25,7 @@ class AddRestaurantOnboarding < ActiveRecord::Migration[8.1]
       t.text     :rejection_reason
     end
 
-    add_index :restaurants, :owner_phone
-    add_foreign_key :restaurants, :users, column: :verified_by_id
+    add_index :merchants, :owner_phone
+    add_foreign_key :merchants, :users, column: :verified_by_id
   end
 end

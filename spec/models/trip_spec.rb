@@ -99,7 +99,7 @@ RSpec.describe Trip, type: :model do
     let(:trip) { create(:trip) }
 
     # This is the whole reason rides are the simpler half of Model A: on a food
-    # order the courier advances the restaurant payout out of their own pocket.
+    # order the courier advances the merchant payout out of their own pocket.
     # On a ride they advance nothing.
     it "advances nothing to anybody" do
       expect(trip.courier_advance).to eq(0)

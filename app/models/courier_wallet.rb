@@ -11,7 +11,7 @@
 #
 # One wallet per person, across both demand types. This is where food and rides
 # converge, and why Model A generalises: for food the courier advances the
-# restaurant payout and is left holding our commission; for a trip they keep the
+# merchant payout and is left holding our commission; for a trip they keep the
 # fare and owe commission from this balance. No advance to anybody on a ride.
 class CourierWallet < ApplicationRecord
   include Monetary
@@ -37,7 +37,7 @@ class CourierWallet < ApplicationRecord
   end
 
   # Can this courier fund this job? What the WALLET must cover is our
-  # commission — on a food order the restaurant payout is the courier's own
+  # commission — on a food order the merchant payout is the courier's own
   # advance out of pocket, and on a trip there is no advance at all. Either way
   # the only money of ours they end up holding is the commission.
   def can_fund?(job)

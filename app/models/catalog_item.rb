@@ -1,13 +1,13 @@
-class MenuItem < ApplicationRecord
+class CatalogItem < ApplicationRecord
   include Monetary
   include SoftDeletable
   include TrigramSearchable
 
-  belongs_to :restaurant
-  belongs_to :menu_category, inverse_of: :menu_items
+  belongs_to :merchant
+  belongs_to :catalog_category, inverse_of: :catalog_items
 
-  has_many :options, -> { order(:position) }, class_name: MenuItemOption.name,
-           dependent: :destroy, inverse_of: :menu_item
+  has_many :options, -> { order(:position) }, class_name: CatalogItemOption.name,
+           dependent: :destroy, inverse_of: :catalog_item
   # Nullified, not destroyed: order_items reference this for provenance only and
   # carry their own name/price snapshot, so deleting a menu item must not delete
   # order history.
@@ -29,7 +29,7 @@ class MenuItem < ApplicationRecord
 
     query.to_s.strip.split(/\s+/).reduce(all) do |result, word|
       term = "%#{word.downcase}%"
-      result.where("LOWER(menu_items.name) LIKE :t OR LOWER(COALESCE(menu_items.description, '')) LIKE :t", t: term)
+      result.where("LOWER(catalog_items.name) LIKE :t OR LOWER(COALESCE(catalog_items.description, '')) LIKE :t", t: term)
     end
   end
 
@@ -38,19 +38,21 @@ class MenuItem < ApplicationRecord
     fuzzy_on(:name, query)
   end
 
-  # The item's own prep time if set, else the restaurant's.
+  # The item's own prep time if set, else the merchant's — and nil for anything
+  # that is not prepared. A book has no prep time and must not inherit a
+  # kitchen's.
   def effective_prep_time_minutes
-    prep_time_minutes || restaurant.prep_time_minutes
+    prep_time_minutes || merchant.effective_prep_time_minutes
   end
 
-  # Keep the denormalised restaurant_id honest — it is what every scope filters
+  # Keep the denormalised merchant_id honest — it is what every scope filters
   # on, so a row where it disagrees with the category is invisible to the menu
   # it belongs to.
-  before_validation :inherit_restaurant_from_category
+  before_validation :inherit_merchant_from_category
 
   private
 
-  def inherit_restaurant_from_category
-    self.restaurant_id ||= menu_category&.restaurant_id
+  def inherit_merchant_from_category
+    self.merchant_id ||= catalog_category&.merchant_id
   end
 end

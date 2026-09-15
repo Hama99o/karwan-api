@@ -39,7 +39,7 @@ module SoftDeletable
 
   private
 
-  # Override where discarding a parent must hide its children — a restaurant
+  # Override where discarding a parent must hide its children — a merchant
   # that is gone must not leave an orderable menu behind.
   def discard_dependents!
     nil

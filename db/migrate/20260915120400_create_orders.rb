@@ -6,7 +6,7 @@ class CreateOrders < ActiveRecord::Migration[8.1]
       t.string     :code, null: false
 
       t.references :customer,   null: false, foreign_key: { to_table: :users }
-      t.references :restaurant, null: false, foreign_key: true
+      t.references :merchant, null: false, foreign_key: true
       # One courier pool across both demand types. The column is role-neutral
       # because the same human fulfils a food order and a trip, with one wallet
       # and one commission; the UI says "rider" in the food tab and "driver" in
@@ -16,7 +16,7 @@ class CreateOrders < ActiveRecord::Migration[8.1]
       # ---- Money -------------------------------------------------------------
       # Model A, worked example: food 400, delivery_fee 100, commission 50.
       #   customer_total    = 500  (food_total + delivery_fee)
-      #   restaurant_payout = 350  (food_total - commission) — rider advances it
+      #   merchant_payout = 350  (food_total - commission) — rider advances it
       #   courier_fee       = 100  (the courier keeps it)
       # After delivery the courier is holding our 50. That is the entire exposure.
       #
@@ -31,7 +31,7 @@ class CreateOrders < ActiveRecord::Migration[8.1]
       t.decimal :delivery_fee,      precision: 12, scale: 2, null: false, default: "0.0"
       t.decimal :commission,        precision: 12, scale: 2, null: false, default: "0.0"
       t.decimal :courier_fee,       precision: 12, scale: 2, null: false, default: "0.0"
-      t.decimal :restaurant_payout, precision: 12, scale: 2, null: false, default: "0.0"
+      t.decimal :merchant_payout, precision: 12, scale: 2, null: false, default: "0.0"
       t.decimal :customer_total,    precision: 12, scale: 2, null: false, default: "0.0"
       t.string  :currency, null: false, default: "AFN"
 
@@ -69,7 +69,7 @@ class CreateOrders < ActiveRecord::Migration[8.1]
       t.datetime :preparing_at
       t.datetime :ready_at
       t.datetime :picked_up_at
-      t.datetime :restaurant_paid_at
+      t.datetime :merchant_paid_at
       t.datetime :delivered_at
       t.datetime :cancelled_at
       t.datetime :failed_at
@@ -88,17 +88,17 @@ class CreateOrders < ActiveRecord::Migration[8.1]
     add_index :orders, :payment_status
     add_index :orders, :created_at
     add_index :orders, [ :status, :created_at ]
-    add_index :orders, [ :restaurant_id, :status ]
+    add_index :orders, [ :merchant_id, :status ]
     # This one IS the "has the money reached me" query. Keep it.
     add_index :orders, [ :courier_id, :payment_status ]
 
     # Snapshot of name, price and options AT ORDER TIME. Never join live to
-    # menu_items for a historical order — menus change daily.
+    # catalog_items for a historical order — menus change daily.
     create_table :order_items do |t|
       t.references :order, null: false, foreign_key: true
       # Reference only, and nullable: the menu item may be renamed or deleted.
       # Nothing user-facing reads through it.
-      t.references :menu_item, null: true, foreign_key: true
+      t.references :catalog_item, null: true, foreign_key: true
 
       t.string  :name, null: false
       t.decimal :unit_price,    precision: 12, scale: 2, null: false

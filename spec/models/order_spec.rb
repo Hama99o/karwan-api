@@ -58,8 +58,8 @@ RSpec.describe Order, type: :model do
     end
 
     # The class-level fix for the bug this spec found: TRANSITIONS listed
-    # `:restaurant`, which is not a role, so every restaurant transition
-    # silently returned false and the restaurant could not accept its own
+    # `:merchant`, which is not a role, so every merchant transition
+    # silently returned false and the merchant could not accept its own
     # orders. Worse, the "customer cannot accept" example passed anyway —
     # vacuously, because no role matched. This guard makes the whole table
     # checkable rather than relying on someone writing an example per cell.
@@ -83,8 +83,8 @@ RSpec.describe Order, type: :model do
     end
 
     describe "#can_transition_to?" do
-      it "lets the restaurant accept a placed order" do
-        expect(build(:order, status: :placed).can_transition_to?(:accepted, actor_role: :restaurant_owner)).to be true
+      it "lets the merchant accept a placed order" do
+        expect(build(:order, status: :placed).can_transition_to?(:accepted, actor_role: :merchant_owner)).to be true
       end
 
       it "does not let the customer accept their own order" do
@@ -157,9 +157,9 @@ RSpec.describe Order, type: :model do
   describe "the Model A money identities" do
     let(:order) { create(:order) }
 
-    it "hands the restaurant the food less our commission" do
+    it "hands the merchant the food less our commission" do
       expect(order.courier_advance).to eq(350)
-      expect(order.food_total - order.commission).to eq(order.restaurant_payout)
+      expect(order.food_total - order.commission).to eq(order.merchant_payout)
     end
 
     it "leaves the courier holding exactly our commission, which is our whole exposure" do
@@ -167,7 +167,7 @@ RSpec.describe Order, type: :model do
     end
 
     it "reconciles from the courier's side: collected - advanced - fee == our commission" do
-      expect(order.customer_total - order.restaurant_payout - order.courier_fee).to eq(order.commission)
+      expect(order.customer_total - order.merchant_payout - order.courier_fee).to eq(order.commission)
     end
   end
 
@@ -180,7 +180,7 @@ RSpec.describe Order, type: :model do
       expect(described_class.payment_methods.keys).to eq(%w[cash])
     end
 
-    it "gives the restaurant a fixed reason list to reject with" do
+    it "gives the merchant a fixed reason list to reject with" do
       expect(described_class.rejection_reasons.keys).to eq(%w[out_of_stock too_busy closing other])
     end
   end

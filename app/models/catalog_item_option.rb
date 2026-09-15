@@ -1,11 +1,11 @@
 # One level deep, deliberately: values have no children. This is a menu, not a
 # configurator.
-class MenuItemOption < ApplicationRecord
+class CatalogItemOption < ApplicationRecord
   enum :selection_type, { single: 0, multiple: 1 }, prefix: :select
 
-  belongs_to :menu_item, inverse_of: :options
-  has_many :values, -> { order(:position) }, class_name: MenuItemOptionValue.name,
-           dependent: :destroy, inverse_of: :menu_item_option
+  belongs_to :catalog_item, inverse_of: :options
+  has_many :values, -> { order(:position) }, class_name: CatalogItemOptionValue.name,
+           dependent: :destroy, inverse_of: :catalog_item_option
 
   validates :name, presence: true
   validates :min_selections, numericality: { greater_than_or_equal_to: 0 }

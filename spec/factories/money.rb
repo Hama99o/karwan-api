@@ -4,8 +4,7 @@ FactoryBot.define do
     is_available { false }
     vehicle_type { :motorbike }
     verification_status { :pending }
-    accepts_food_orders { true }
-    accepts_trips { false }
+    accepted_job_kinds { [ "food_order" ] }
     full_name { Faker::Name.name }
     father_name { Faker::Name.first_name }
     sequence(:national_id_number) { |n| "1400#{n.to_s.rjust(8, '0')}" }
@@ -39,12 +38,15 @@ FactoryBot.define do
     end
 
     trait :takes_trips do
-      accepts_trips { true }
+      accepted_job_kinds { [ "trip" ] }
+    end
+
+    trait :takes_both do
+      accepted_job_kinds { [ "food_order", "trip" ] }
     end
 
     trait :takes_nothing do
-      accepts_food_orders { false }
-      accepts_trips { false }
+      accepted_job_kinds { [] }
     end
   end
 

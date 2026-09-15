@@ -1,7 +1,7 @@
-class MenuItemOptionValue < ApplicationRecord
+class CatalogItemOptionValue < ApplicationRecord
   include Monetary
 
-  belongs_to :menu_item_option, inverse_of: :values
+  belongs_to :catalog_item_option, inverse_of: :values
 
   validates :name, presence: true
   # Negative deltas are legal — "no rice, -20" is a real menu line.

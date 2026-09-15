@@ -7,7 +7,7 @@ class CreateTrips < ActiveRecord::Migration[8.1]
   # screens rather than a restructure of everything that references an order.
   #
   # `trips` is a SEPARATE table from `orders` on purpose. Food has line items,
-  # options, a restaurant, a prep time and one destination; a ride has two pins,
+  # options, a merchant, a prep time and one destination; a ride has two pins,
   # no items and no third party. Forcing one table to serve both would mean a
   # dozen columns that are always null for half the rows, and a status enum
   # where half the values are meaningless. What they genuinely share — the
@@ -42,7 +42,7 @@ class CreateTrips < ActiveRecord::Migration[8.1]
       # ---- Money -------------------------------------------------------------
       # Model A generalises, and the ride flow is the SIMPLER half: the courier
       # collects the fare, keeps it, and owes commission from their prepaid
-      # wallet. There is no advance to anybody, no restaurant payout, and
+      # wallet. There is no advance to anybody, no merchant payout, and
       # nothing for us to reimburse if a passenger refuses to pay beyond the
       # fare itself.
       #

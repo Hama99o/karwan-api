@@ -1,5 +1,5 @@
 # Where to send a push. A missed "new order" alert is a lost order, so this is
-# never the only delivery mechanism for the restaurant — see docs/NOTES.md.
+# never the only delivery mechanism for the merchant — see docs/NOTES.md.
 class DeviceToken < ApplicationRecord
   enum :platform, { android: 0, ios: 1 }, prefix: true
 

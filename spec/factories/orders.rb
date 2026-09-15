@@ -1,18 +1,18 @@
 FactoryBot.define do
   # The money here follows the brief's own worked example exactly, so a spec
   # reading it can be checked against the document: food 400, delivery 100,
-  # commission 50, customer pays 500, restaurant is handed 350, courier keeps 100
+  # commission 50, customer pays 500, merchant is handed 350, courier keeps 100
   # and is left holding our 50.
   factory :order do
     customer { create(:user, :customer) }
-    restaurant
+    merchant
     courier { nil }
 
     food_total        { 400 }
     delivery_fee      { 100 }
     commission        { 50 }
     courier_fee       { 100 }
-    restaurant_payout { 350 }
+    merchant_payout { 350 }
     customer_total    { 500 }
     currency { "AFN" }
 
@@ -47,7 +47,7 @@ FactoryBot.define do
       status { :picked_up }
       courier { create(:user, :courier) }
       picked_up_at { Time.current }
-      restaurant_paid_at { Time.current }
+      merchant_paid_at { Time.current }
     end
 
     trait :delivered do
@@ -94,7 +94,7 @@ FactoryBot.define do
 
   factory :order_item do
     order
-    menu_item { nil }
+    catalog_item { nil }
     name { "Chicken Kabab" }
     unit_price { 400 }
     options_total { 0 }
@@ -127,12 +127,12 @@ FactoryBot.define do
     # which have different status vocabularies.
     from_status { "placed" }
     to_status { "accepted" }
-    actor { create(:user, :restaurant_owner) }
-    actor_role { :restaurant_owner }
+    actor { create(:user, :merchant_owner) }
+    actor_role { :merchant_owner }
     created_at { Time.current }
 
     # A nil actor means a timeout fired rather than a person acting — the
-    # difference between "the restaurant rejected it" and "the restaurant never
+    # difference between "the merchant rejected it" and "the merchant never
     # answered".
     trait :system do
       actor { nil }

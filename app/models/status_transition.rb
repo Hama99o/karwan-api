@@ -11,7 +11,7 @@
 # happened to this order in March".
 #
 # A nil actor means the system did it — i.e. a timeout fired. That distinction
-# is the difference between "the restaurant rejected it" and "the restaurant
+# is the difference between "the merchant rejected it" and "the merchant
 # never answered", and support needs to know which.
 class StatusTransition < ApplicationRecord
   enum :actor_role, Roles::ALL, prefix: :by

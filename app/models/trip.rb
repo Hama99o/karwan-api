@@ -70,13 +70,13 @@ class Trip < ApplicationRecord
 
   # Model A on a ride is the simpler half: the courier collects the fare, keeps
   # it, and owes us commission from their prepaid wallet. There is NO advance to
-  # anybody — no restaurant payout, nothing of ours in their pocket before the
+  # anybody — no merchant payout, nothing of ours in their pocket before the
   # job starts.
   def platform_cash_held
     commission
   end
 
-  # Kept for symmetry with Order, where it is the restaurant payout. On a trip
+  # Kept for symmetry with Order, where it is the merchant payout. On a trip
   # it is always zero, and saying so explicitly is cheaper than every caller
   # remembering which demand type advances money.
   def courier_advance

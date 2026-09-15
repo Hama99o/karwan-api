@@ -12,17 +12,37 @@
 module TrigramSearchable
   extend ActiveSupport::Concern
 
-  # Tuned low on purpose. 0.3 is Postgres' default and it drops "kabob" against
-  # "kabab"; the cost of a looser threshold here is an extra result, and the
-  # cost of a tighter one is a customer concluding we do not sell the dish.
-  SIMILARITY_THRESHOLD = 0.2
+  # `word_similarity`, NOT `similarity`. This was a real bug: `similarity()`
+  # compares the query against the WHOLE column value, so "kebab" against
+  # "Kabab House" scores about 0.15 — below any threshold you would dare set —
+  # and the fuzzy fallback returned nothing for exactly the queries it existed
+  # to catch. `word_similarity(query, column)` scores the query against the best
+  # matching extent within the column, which is what a person searching a shop
+  # name actually means.
+  #
+  # Threshold MEASURED against "Kabab House", not guessed — the first two
+  # guesses (0.2 with `similarity`, then 0.4 with `word_similarity`) both failed
+  # the only cases that matter:
+  #
+  #   query         similarity   word_similarity
+  #   kabab           0.500          1.000
+  #   kebab           0.200          0.333   <- must match
+  #   kabob           0.200          0.500   <- must match
+  #   pharmacy        0.000          0.000   <- must not
+  #   pizza           0.000          0.000   <- must not
+  #
+  # 0.3 sits under "kebab" at 0.333 and far above unrelated terms at 0. The gap
+  # between the two groups is wide, so this is not a fragile number — but it is
+  # an empirical one, and re-tune it by re-running that query rather than by
+  # reasoning about trigrams.
+  SIMILARITY_THRESHOLD = 0.3
 
   class_methods do
     def fuzzy_on(column, query, threshold: SIMILARITY_THRESHOLD)
       return none if query.blank?
 
-      where("similarity(#{quoted_column(column)}, :q) > :threshold", q: query.to_s, threshold: threshold)
-        .order(Arel.sql(sanitize_sql_array([ "similarity(#{quoted_column(column)}, ?) DESC", query.to_s ])))
+      where("word_similarity(:q, #{quoted_column(column)}) > :threshold", q: query.to_s, threshold: threshold)
+        .order(Arel.sql(sanitize_sql_array([ "word_similarity(?, #{quoted_column(column)}) DESC", query.to_s ])))
     end
 
     private

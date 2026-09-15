@@ -10,14 +10,43 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_15_121100) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_15_161200) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
 
+  create_table "active_storage_attachments", force: :cascade do |t|
+    t.bigint "blob_id", null: false
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.bigint "record_id", null: false
+    t.string "record_type", null: false
+    t.index ["blob_id"], name: "index_active_storage_attachments_on_blob_id"
+    t.index ["record_type", "record_id", "name", "blob_id"], name: "index_active_storage_attachments_uniqueness", unique: true
+  end
+
+  create_table "active_storage_blobs", force: :cascade do |t|
+    t.bigint "byte_size", null: false
+    t.string "checksum"
+    t.string "content_type"
+    t.datetime "created_at", null: false
+    t.string "filename", null: false
+    t.string "key", null: false
+    t.text "metadata"
+    t.string "service_name", null: false
+    t.index ["key"], name: "index_active_storage_blobs_on_key", unique: true
+  end
+
+  create_table "active_storage_variant_records", force: :cascade do |t|
+    t.bigint "blob_id", null: false
+    t.string "variation_digest", null: false
+    t.index ["blob_id", "variation_digest"], name: "index_active_storage_variant_records_uniqueness", unique: true
+  end
+
   create_table "addresses", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.datetime "deleted_at"
+    t.boolean "has_voice_note", default: false, null: false
     t.boolean "is_default", default: false, null: false
     t.string "label"
     t.text "landmark_note"
@@ -26,7 +55,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_121100) do
     t.string "phone"
     t.datetime "updated_at", null: false
     t.bigint "user_id", null: false
+    t.integer "voice_note_seconds"
     t.index ["deleted_at"], name: "index_addresses_on_kept", where: "(deleted_at IS NULL)"
+    t.index ["has_voice_note"], name: "index_addresses_with_voice_notes", where: "(has_voice_note = true)"
     t.index ["user_id", "is_default"], name: "index_addresses_on_user_id_and_is_default"
     t.index ["user_id"], name: "index_addresses_on_user_id"
   end
@@ -48,9 +79,68 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_121100) do
     t.index ["target_type", "target_id"], name: "index_audit_logs_on_target"
   end
 
+  create_table "catalog_categories", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "deleted_at"
+    t.bigint "merchant_id", null: false
+    t.string "name", null: false
+    t.integer "position", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["deleted_at"], name: "index_catalog_categories_on_kept", where: "(deleted_at IS NULL)"
+    t.index ["merchant_id", "position"], name: "index_catalog_categories_on_merchant_id_and_position"
+    t.index ["merchant_id"], name: "index_catalog_categories_on_merchant_id"
+  end
+
+  create_table "catalog_item_option_values", force: :cascade do |t|
+    t.bigint "catalog_item_option_id", null: false
+    t.datetime "created_at", null: false
+    t.string "currency", default: "AFN", null: false
+    t.boolean "is_available", default: true, null: false
+    t.string "name", null: false
+    t.integer "position", default: 0, null: false
+    t.decimal "price_delta", precision: 12, scale: 2, default: "0.0", null: false
+    t.datetime "updated_at", null: false
+    t.index ["catalog_item_option_id", "position"], name: "idx_on_catalog_item_option_id_position_9bcccf5f26"
+    t.index ["catalog_item_option_id"], name: "index_catalog_item_option_values_on_catalog_item_option_id"
+  end
+
+  create_table "catalog_item_options", force: :cascade do |t|
+    t.bigint "catalog_item_id", null: false
+    t.datetime "created_at", null: false
+    t.integer "max_selections"
+    t.integer "min_selections", default: 0, null: false
+    t.string "name", null: false
+    t.integer "position", default: 0, null: false
+    t.boolean "required", default: false, null: false
+    t.integer "selection_type", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["catalog_item_id", "position"], name: "index_catalog_item_options_on_catalog_item_id_and_position"
+    t.index ["catalog_item_id"], name: "index_catalog_item_options_on_catalog_item_id"
+  end
+
+  create_table "catalog_items", force: :cascade do |t|
+    t.bigint "catalog_category_id", null: false
+    t.datetime "created_at", null: false
+    t.string "currency", default: "AFN", null: false
+    t.datetime "deleted_at"
+    t.text "description"
+    t.boolean "is_available", default: true, null: false
+    t.bigint "merchant_id", null: false
+    t.string "name", null: false
+    t.integer "position", default: 0, null: false
+    t.integer "prep_time_minutes"
+    t.decimal "price", precision: 12, scale: 2, null: false
+    t.datetime "updated_at", null: false
+    t.index ["catalog_category_id", "position"], name: "index_catalog_items_on_catalog_category_id_and_position"
+    t.index ["catalog_category_id"], name: "index_catalog_items_on_catalog_category_id"
+    t.index ["deleted_at"], name: "index_catalog_items_on_kept", where: "(deleted_at IS NULL)"
+    t.index ["merchant_id", "is_available"], name: "index_catalog_items_on_merchant_id_and_is_available"
+    t.index ["merchant_id"], name: "index_catalog_items_on_merchant_id"
+    t.index ["name"], name: "index_catalog_items_on_name_trgm", opclass: :gin_trgm_ops, using: :gin
+  end
+
   create_table "courier_profiles", force: :cascade do |t|
-    t.boolean "accepts_food_orders", default: true, null: false
-    t.boolean "accepts_trips", default: false, null: false
+    t.string "accepted_job_kinds", default: ["food_order"], null: false, array: true
     t.datetime "created_at", null: false
     t.string "father_name"
     t.string "full_name"
@@ -71,8 +161,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_121100) do
     t.datetime "verified_at"
     t.bigint "verified_by_id"
     t.text "work_area"
-    t.index ["accepts_food_orders", "is_available"], name: "index_courier_profiles_on_food_availability"
-    t.index ["accepts_trips", "is_available"], name: "index_courier_profiles_on_trip_availability"
+    t.index ["accepted_job_kinds"], name: "index_courier_profiles_on_accepted_job_kinds", using: :gin
     t.index ["is_available"], name: "index_courier_profiles_on_is_available"
     t.index ["national_id_number"], name: "index_courier_profiles_on_national_id_number"
     t.index ["user_id"], name: "index_courier_profiles_on_user_id", unique: true
@@ -91,20 +180,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_121100) do
     t.index ["user_id"], name: "index_courier_wallets_on_user_id", unique: true
   end
 
-  create_table "cuisines", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.boolean "is_active", default: true, null: false
-    t.string "name_en", null: false
-    t.string "name_fa", null: false
-    t.string "name_ps", null: false
-    t.integer "position", default: 0, null: false
-    t.string "slug", null: false
-    t.datetime "updated_at", null: false
-    t.index ["is_active", "position"], name: "index_cuisines_on_is_active_and_position"
-    t.index ["name_en"], name: "index_cuisines_on_name_en_trgm", opclass: :gin_trgm_ops, using: :gin
-    t.index ["slug"], name: "index_cuisines_on_slug", unique: true
-  end
-
   create_table "device_tokens", force: :cascade do |t|
     t.boolean "active", default: true, null: false
     t.datetime "created_at", null: false
@@ -118,64 +193,87 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_121100) do
     t.index ["user_id"], name: "index_device_tokens_on_user_id"
   end
 
-  create_table "menu_categories", force: :cascade do |t|
+  create_table "merchant_categories", force: :cascade do |t|
     t.datetime "created_at", null: false
-    t.datetime "deleted_at"
-    t.string "name", null: false
+    t.boolean "is_active", default: true, null: false
+    t.string "name_en", null: false
+    t.string "name_fa", null: false
+    t.string "name_ps", null: false
     t.integer "position", default: 0, null: false
-    t.bigint "restaurant_id", null: false
+    t.string "slug", null: false
     t.datetime "updated_at", null: false
-    t.index ["deleted_at"], name: "index_menu_categories_on_kept", where: "(deleted_at IS NULL)"
-    t.index ["restaurant_id", "position"], name: "index_menu_categories_on_restaurant_id_and_position"
-    t.index ["restaurant_id"], name: "index_menu_categories_on_restaurant_id"
+    t.index ["is_active", "position"], name: "index_merchant_categories_on_is_active_and_position"
+    t.index ["name_en"], name: "index_merchant_categories_on_name_en_trgm", opclass: :gin_trgm_ops, using: :gin
+    t.index ["slug"], name: "index_merchant_categories_on_slug", unique: true
   end
 
-  create_table "menu_item_option_values", force: :cascade do |t|
+  create_table "merchant_category_assignments", force: :cascade do |t|
     t.datetime "created_at", null: false
-    t.string "currency", default: "AFN", null: false
-    t.boolean "is_available", default: true, null: false
-    t.bigint "menu_item_option_id", null: false
-    t.string "name", null: false
-    t.integer "position", default: 0, null: false
-    t.decimal "price_delta", precision: 12, scale: 2, default: "0.0", null: false
+    t.bigint "merchant_category_id", null: false
+    t.bigint "merchant_id", null: false
     t.datetime "updated_at", null: false
-    t.index ["menu_item_option_id", "position"], name: "idx_on_menu_item_option_id_position_6e3df27dc8"
-    t.index ["menu_item_option_id"], name: "index_menu_item_option_values_on_menu_item_option_id"
+    t.index ["merchant_category_id"], name: "index_merchant_category_assignments_on_merchant_category_id"
+    t.index ["merchant_id", "merchant_category_id"], name: "idx_on_merchant_id_merchant_category_id_c13cfacd85", unique: true
+    t.index ["merchant_id"], name: "index_merchant_category_assignments_on_merchant_id"
   end
 
-  create_table "menu_item_options", force: :cascade do |t|
+  create_table "merchant_kinds", force: :cascade do |t|
     t.datetime "created_at", null: false
-    t.integer "max_selections"
-    t.bigint "menu_item_id", null: false
-    t.integer "min_selections", default: 0, null: false
-    t.string "name", null: false
+    t.boolean "is_active", default: true, null: false
+    t.string "name_en", null: false
+    t.string "name_fa", null: false
+    t.string "name_ps", null: false
     t.integer "position", default: 0, null: false
-    t.boolean "required", default: false, null: false
-    t.integer "selection_type", default: 0, null: false
+    t.string "slug", null: false
     t.datetime "updated_at", null: false
-    t.index ["menu_item_id", "position"], name: "index_menu_item_options_on_menu_item_id_and_position"
-    t.index ["menu_item_id"], name: "index_menu_item_options_on_menu_item_id"
+    t.index ["is_active", "position"], name: "index_merchant_kinds_on_is_active_and_position"
+    t.index ["slug"], name: "index_merchant_kinds_on_slug", unique: true
   end
 
-  create_table "menu_items", force: :cascade do |t|
+  create_table "merchant_opening_hours", force: :cascade do |t|
+    t.time "closes_at", null: false
     t.datetime "created_at", null: false
-    t.string "currency", default: "AFN", null: false
+    t.integer "day_of_week", null: false
+    t.bigint "merchant_id", null: false
+    t.time "opens_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["merchant_id", "day_of_week"], name: "index_merchant_opening_hours_on_merchant_id_and_day_of_week"
+    t.index ["merchant_id"], name: "index_merchant_opening_hours_on_merchant_id"
+  end
+
+  create_table "merchants", force: :cascade do |t|
+    t.decimal "commission_rate", precision: 5, scale: 4, default: "0.125", null: false
+    t.string "contact_person_name"
+    t.string "contact_person_phone"
+    t.datetime "created_at", null: false
     t.datetime "deleted_at"
     t.text "description"
-    t.boolean "is_available", default: true, null: false
-    t.bigint "menu_category_id", null: false
+    t.boolean "is_open", default: false, null: false
+    t.text "landmark_note"
+    t.decimal "latitude", precision: 10, scale: 6
+    t.string "license_number"
+    t.decimal "longitude", precision: 10, scale: 6
+    t.bigint "merchant_kind_id", null: false
     t.string "name", null: false
-    t.integer "position", default: 0, null: false
+    t.bigint "owner_id"
+    t.string "owner_name"
+    t.string "owner_national_id_number"
+    t.string "owner_phone"
+    t.string "phone", null: false
     t.integer "prep_time_minutes"
-    t.decimal "price", precision: 12, scale: 2, null: false
-    t.bigint "restaurant_id", null: false
+    t.text "rejection_reason"
+    t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
-    t.index ["deleted_at"], name: "index_menu_items_on_kept", where: "(deleted_at IS NULL)"
-    t.index ["menu_category_id", "position"], name: "index_menu_items_on_menu_category_id_and_position"
-    t.index ["menu_category_id"], name: "index_menu_items_on_menu_category_id"
-    t.index ["name"], name: "index_menu_items_on_name_trgm", opclass: :gin_trgm_ops, using: :gin
-    t.index ["restaurant_id", "is_available"], name: "index_menu_items_on_restaurant_id_and_is_available"
-    t.index ["restaurant_id"], name: "index_menu_items_on_restaurant_id"
+    t.datetime "verified_at"
+    t.bigint "verified_by_id"
+    t.index ["deleted_at"], name: "index_merchants_on_kept", where: "(deleted_at IS NULL)"
+    t.index ["is_open"], name: "index_merchants_on_is_open"
+    t.index ["merchant_kind_id"], name: "index_merchants_on_merchant_kind_id"
+    t.index ["name"], name: "index_merchants_on_name"
+    t.index ["name"], name: "index_merchants_on_name_trgm", opclass: :gin_trgm_ops, using: :gin
+    t.index ["owner_id"], name: "index_merchants_on_owner_id"
+    t.index ["owner_phone"], name: "index_merchants_on_owner_phone"
+    t.index ["status"], name: "index_merchants_on_status"
   end
 
   create_table "offers", force: :cascade do |t|
@@ -208,10 +306,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_121100) do
   end
 
   create_table "order_items", force: :cascade do |t|
+    t.bigint "catalog_item_id"
     t.datetime "created_at", null: false
     t.string "currency", default: "AFN", null: false
     t.decimal "line_total", precision: 12, scale: 2, null: false
-    t.bigint "menu_item_id"
     t.string "name", null: false
     t.text "notes"
     t.decimal "options_total", precision: 12, scale: 2, default: "0.0", null: false
@@ -219,7 +317,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_121100) do
     t.integer "quantity", default: 1, null: false
     t.decimal "unit_price", precision: 12, scale: 2, null: false
     t.datetime "updated_at", null: false
-    t.index ["menu_item_id"], name: "index_order_items_on_menu_item_id"
+    t.index ["catalog_item_id"], name: "index_order_items_on_catalog_item_id"
     t.index ["order_id"], name: "index_order_items_on_order_id"
   end
 
@@ -245,6 +343,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_121100) do
     t.datetime "failed_at"
     t.integer "failure_reason"
     t.decimal "food_total", precision: 12, scale: 2, default: "0.0", null: false
+    t.bigint "merchant_id", null: false
+    t.datetime "merchant_paid_at"
+    t.decimal "merchant_payout", precision: 12, scale: 2, default: "0.0", null: false
     t.text "notes"
     t.integer "payment_method", default: 0, null: false
     t.integer "payment_status", default: 0, null: false
@@ -254,9 +355,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_121100) do
     t.datetime "ready_at"
     t.datetime "rejected_at"
     t.integer "rejection_reason"
-    t.bigint "restaurant_id", null: false
-    t.datetime "restaurant_paid_at"
-    t.decimal "restaurant_payout", precision: 12, scale: 2, default: "0.0", null: false
     t.datetime "settled_at"
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
@@ -265,9 +363,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_121100) do
     t.index ["courier_id"], name: "index_orders_on_courier_id"
     t.index ["created_at"], name: "index_orders_on_created_at"
     t.index ["customer_id"], name: "index_orders_on_customer_id"
+    t.index ["merchant_id", "status"], name: "index_orders_on_merchant_id_and_status"
+    t.index ["merchant_id"], name: "index_orders_on_merchant_id"
     t.index ["payment_status"], name: "index_orders_on_payment_status"
-    t.index ["restaurant_id", "status"], name: "index_orders_on_restaurant_id_and_status"
-    t.index ["restaurant_id"], name: "index_orders_on_restaurant_id"
     t.index ["status", "created_at"], name: "index_orders_on_status_and_created_at"
     t.index ["status"], name: "index_orders_on_status"
   end
@@ -282,60 +380,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_121100) do
     t.datetime "updated_at", null: false
     t.index ["expires_at"], name: "index_otp_verifications_on_expires_at"
     t.index ["phone", "created_at"], name: "index_otp_verifications_on_phone_and_created_at"
-  end
-
-  create_table "restaurant_cuisines", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.bigint "cuisine_id", null: false
-    t.bigint "restaurant_id", null: false
-    t.datetime "updated_at", null: false
-    t.index ["cuisine_id"], name: "index_restaurant_cuisines_on_cuisine_id"
-    t.index ["restaurant_id", "cuisine_id"], name: "index_restaurant_cuisines_on_restaurant_id_and_cuisine_id", unique: true
-    t.index ["restaurant_id"], name: "index_restaurant_cuisines_on_restaurant_id"
-  end
-
-  create_table "restaurant_opening_hours", force: :cascade do |t|
-    t.time "closes_at", null: false
-    t.datetime "created_at", null: false
-    t.integer "day_of_week", null: false
-    t.time "opens_at", null: false
-    t.bigint "restaurant_id", null: false
-    t.datetime "updated_at", null: false
-    t.index ["restaurant_id", "day_of_week"], name: "idx_on_restaurant_id_day_of_week_50cf7ea8db"
-    t.index ["restaurant_id"], name: "index_restaurant_opening_hours_on_restaurant_id"
-  end
-
-  create_table "restaurants", force: :cascade do |t|
-    t.decimal "commission_rate", precision: 5, scale: 4, default: "0.125", null: false
-    t.string "contact_person_name"
-    t.string "contact_person_phone"
-    t.datetime "created_at", null: false
-    t.datetime "deleted_at"
-    t.text "description"
-    t.boolean "is_open", default: false, null: false
-    t.text "landmark_note"
-    t.decimal "latitude", precision: 10, scale: 6
-    t.string "license_number"
-    t.decimal "longitude", precision: 10, scale: 6
-    t.string "name", null: false
-    t.bigint "owner_id"
-    t.string "owner_name"
-    t.string "owner_national_id_number"
-    t.string "owner_phone"
-    t.string "phone", null: false
-    t.integer "prep_time_minutes", default: 20, null: false
-    t.text "rejection_reason"
-    t.integer "status", default: 0, null: false
-    t.datetime "updated_at", null: false
-    t.datetime "verified_at"
-    t.bigint "verified_by_id"
-    t.index ["deleted_at"], name: "index_restaurants_on_kept", where: "(deleted_at IS NULL)"
-    t.index ["is_open"], name: "index_restaurants_on_is_open"
-    t.index ["name"], name: "index_restaurants_on_name"
-    t.index ["name"], name: "index_restaurants_on_name_trgm", opclass: :gin_trgm_ops, using: :gin
-    t.index ["owner_id"], name: "index_restaurants_on_owner_id"
-    t.index ["owner_phone"], name: "index_restaurants_on_owner_phone"
-    t.index ["status"], name: "index_restaurants_on_status"
   end
 
   create_table "settings", force: :cascade do |t|
@@ -483,29 +527,32 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_121100) do
     t.index ["source_type", "source_id"], name: "index_wallet_entries_on_source"
   end
 
+  add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "addresses", "users"
   add_foreign_key "audit_logs", "users", column: "actor_id"
+  add_foreign_key "catalog_categories", "merchants"
+  add_foreign_key "catalog_item_option_values", "catalog_item_options"
+  add_foreign_key "catalog_item_options", "catalog_items"
+  add_foreign_key "catalog_items", "catalog_categories"
+  add_foreign_key "catalog_items", "merchants"
   add_foreign_key "courier_profiles", "users"
   add_foreign_key "courier_profiles", "users", column: "verified_by_id"
   add_foreign_key "courier_wallets", "users"
   add_foreign_key "device_tokens", "users"
-  add_foreign_key "menu_categories", "restaurants"
-  add_foreign_key "menu_item_option_values", "menu_item_options"
-  add_foreign_key "menu_item_options", "menu_items"
-  add_foreign_key "menu_items", "menu_categories"
-  add_foreign_key "menu_items", "restaurants"
+  add_foreign_key "merchant_category_assignments", "merchant_categories"
+  add_foreign_key "merchant_category_assignments", "merchants"
+  add_foreign_key "merchant_opening_hours", "merchants"
+  add_foreign_key "merchants", "merchant_kinds"
+  add_foreign_key "merchants", "users", column: "owner_id"
+  add_foreign_key "merchants", "users", column: "verified_by_id"
   add_foreign_key "offers", "users", column: "courier_id"
   add_foreign_key "order_item_options", "order_items"
-  add_foreign_key "order_items", "menu_items"
+  add_foreign_key "order_items", "catalog_items"
   add_foreign_key "order_items", "orders"
-  add_foreign_key "orders", "restaurants"
+  add_foreign_key "orders", "merchants"
   add_foreign_key "orders", "users", column: "courier_id"
   add_foreign_key "orders", "users", column: "customer_id"
-  add_foreign_key "restaurant_cuisines", "cuisines"
-  add_foreign_key "restaurant_cuisines", "restaurants"
-  add_foreign_key "restaurant_opening_hours", "restaurants"
-  add_foreign_key "restaurants", "users", column: "owner_id"
-  add_foreign_key "restaurants", "users", column: "verified_by_id"
   add_foreign_key "settings", "users", column: "updated_by_id"
   add_foreign_key "settlements", "users", column: "counted_by_id"
   add_foreign_key "settlements", "users", column: "courier_id"

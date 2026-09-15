@@ -39,7 +39,7 @@ FactoryBot.define do
 
   factory :device_token do
     user
-    sequence(:token) { |n| "ExponentPushToken[dastarkhwan#{n}]" }
+    sequence(:token) { |n| "ExponentPushToken[karwan#{n}]" }
     platform { :android }
     active { true }
     last_seen_at { Time.current }

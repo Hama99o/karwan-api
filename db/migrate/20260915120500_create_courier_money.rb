@@ -23,14 +23,18 @@ class CreateCourierMoney < ActiveRecord::Migration[8.1]
       t.decimal  :last_longitude, precision: 10, scale: 6
       t.datetime :location_updated_at
 
-      # Which demand types this courier may be offered. Two booleans rather than
-      # an array: dispatch queries stay trivial and indexable, and a third
-      # demand type is a column rather than a guess about what the array holds.
+      # Which demand types this courier may be offered.
+      #
+      # An ARRAY, reversing an earlier decision to use one boolean per kind.
+      # Two booleans were simpler to query and I preferred them — but the
+      # supply side has now been broadened twice in an hour, a third demand
+      # type (a person-to-person parcel) is already under discussion, and a
+      # boolean-per-kind means a migration for each one. The array costs a GIN
+      # index and buys immunity to that.
       #
       # Not implied by vehicle, deliberately. A car driver may want passengers
       # and not other people's dinner, and that is theirs to choose.
-      t.boolean :accepts_food_orders, null: false, default: true
-      t.boolean :accepts_trips, null: false, default: false
+      t.string :accepted_job_kinds, array: true, null: false, default: [ "food_order" ]
 
       # Identity, because a courier carries our cash and food we have paid for.
       # An Afghan tazkira, and a father's name — two couriers called Ahmad are
@@ -62,10 +66,7 @@ class CreateCourierMoney < ActiveRecord::Migration[8.1]
     add_index :courier_profiles, :is_available
     add_index :courier_profiles, :verification_status
     add_index :courier_profiles, :national_id_number
-    add_index :courier_profiles, [ :accepts_food_orders, :is_available ],
-              name: "index_courier_profiles_on_food_availability"
-    add_index :courier_profiles, [ :accepts_trips, :is_available ],
-              name: "index_courier_profiles_on_trip_availability"
+    add_index :courier_profiles, :accepted_job_kinds, using: :gin
     add_foreign_key :courier_profiles, :users, column: :verified_by_id
 
     # PREPAID, never a debt.
@@ -75,7 +76,7 @@ class CreateCourierMoney < ActiveRecord::Migration[8.1]
     # they cannot work without credit — the same mental model as phone credit.
     #
     # This is where the two demand types converge, and why Model A generalises
-    # cleanly: for food the courier advances the restaurant payout and is left
+    # cleanly: for food the courier advances the merchant payout and is left
     # holding our commission; for a trip they simply keep the fare and owe
     # commission from this balance. No advance to anybody, so the ride flow is
     # strictly the simpler of the two.

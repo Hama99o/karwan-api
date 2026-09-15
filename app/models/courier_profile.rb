@@ -8,7 +8,7 @@
 #
 # Courier registration is nothing like a customer's. A customer is a phone, an
 # OTP and a name, because every extra field is a customer lost. A courier
-# advances our restaurants' food out of their own pocket and carries our cash,
+# advances our merchants' food out of their own pocket and carries our cash,
 # so they need identity, a guarantor, documents, and a human approval with a
 # name attached. None of it can be collected after the fact.
 class CourierProfile < ApplicationRecord
@@ -16,6 +16,12 @@ class CourierProfile < ApplicationRecord
   # not a location, it is a memory — dispatch must not offer work based on where
   # someone was an hour ago.
   STALE_AFTER = 5.minutes
+
+  # The demand types a courier can be offered. A third — a person-to-person
+  # parcel — is already under discussion, and adding it here is a constant
+  # change and a seed, not a migration. That is the whole reason this is an
+  # array rather than a boolean per kind.
+  JOB_KINDS = %w[food_order trip].freeze
 
   enum :vehicle_type, { motorbike: 0, bicycle: 1, car: 2, on_foot: 3 }, prefix: :by
   enum :verification_status, { pending: 0, approved: 1, rejected: 2, suspended: 3 },
@@ -33,12 +39,14 @@ class CourierProfile < ApplicationRecord
   validates :full_name, :national_id_number, :guarantor_name, :guarantor_phone,
             presence: true, if: :verification_approved?
   validate :accepts_at_least_one_demand_type, if: :verification_approved?
+  validate :accepted_job_kinds_are_known
 
   scope :available, -> { where(is_available: true) }
-  # The only couriers dispatch may consider for each demand type: approved, on
-  # shift, and willing to take that kind of work.
-  scope :for_food_orders, -> { verification_approved.available.where(accepts_food_orders: true) }
-  scope :for_trips,       -> { verification_approved.available.where(accepts_trips: true) }
+  scope :accepting, ->(job_kind) { where("accepted_job_kinds @> ARRAY[?]::varchar[]", job_kind.to_s) }
+  # The only couriers dispatch may consider for a demand type: approved, on
+  # shift, and willing to take that kind of work. One scope for every kind,
+  # including ones that do not exist yet.
+  scope :dispatchable_for, ->(job_kind) { verification_approved.available.accepting(job_kind) }
 
   def location_fresh?
     location_updated_at.present? && location_updated_at > STALE_AFTER.ago
@@ -69,14 +77,14 @@ class CourierProfile < ApplicationRecord
 
   # Can this courier be offered this kind of job at all? A funded wallet is
   # checked separately, per job, because it depends on that job's commission.
-  def dispatchable_for?(demand_type)
+  def dispatchable_for?(job_kind)
     return false unless verification_approved? && is_available?
 
-    case demand_type.to_sym
-    when :food_order then accepts_food_orders?
-    when :trip       then accepts_trips?
-    else false
-    end
+    accepted_job_kinds.include?(job_kind.to_s)
+  end
+
+  def accepts?(job_kind)
+    accepted_job_kinds.include?(job_kind.to_s)
   end
 
   private
@@ -86,8 +94,17 @@ class CourierProfile < ApplicationRecord
   # loop — and it would look like "no couriers available" rather than a
   # misconfigured account.
   def accepts_at_least_one_demand_type
-    return if accepts_food_orders? || accepts_trips?
+    return if accepted_job_kinds.present?
 
-    errors.add(:base, "an approved courier must accept food orders, trips, or both")
+    errors.add(:accepted_job_kinds, "an approved courier must accept at least one kind of job")
+  end
+
+  # An unknown kind in this array is a typo that silently makes the courier
+  # undispatchable — it would read as "no couriers available" rather than as a
+  # misconfigured account.
+  def accepted_job_kinds_are_known
+    unknown = accepted_job_kinds.to_a.map(&:to_s) - JOB_KINDS
+
+    errors.add(:accepted_job_kinds, "unknown job kinds: #{unknown.join(', ')}") if unknown.any?
   end
 end

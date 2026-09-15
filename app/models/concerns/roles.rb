@@ -7,5 +7,5 @@
 # in the food tab and "driver" in the ride tab; the model says courier and
 # stays true for both.
 module Roles
-  ALL = { customer: 0, courier: 1, restaurant_owner: 2, admin: 3 }.freeze
+  ALL = { customer: 0, courier: 1, merchant_owner: 2, admin: 3 }.freeze
 end

@@ -35,11 +35,11 @@ class CreatePhoneAuthTables < ActiveRecord::Migration[8.1]
     add_index :user_sessions, :token_digest, unique: true
 
     # Push targets. A missed "new order" alert is a lost order, not an
-    # annoyance, and the restaurant alert must never rely on one mechanism —
+    # annoyance, and the merchant alert must never rely on one mechanism —
     # push here, plus in-app polling, plus an SMS/phone path.
     #
     # NOT in the brief's data model section; added because v0 scope includes
-    # restaurant alerts and they need somewhere to send. Flagged to Hamma9901.
+    # merchant alerts and they need somewhere to send. Flagged to Hamma9901.
     create_table :device_tokens do |t|
       t.references :user, null: false, foreign_key: true
       t.string     :token, null: false

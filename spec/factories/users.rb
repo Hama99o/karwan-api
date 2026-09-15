@@ -42,14 +42,14 @@ FactoryBot.define do
       active_role { :courier }
       after(:create) do |user|
         create(:user_role, user: user, role: :courier)
-        create(:courier_profile, :approved, user: user, accepts_food_orders: false, accepts_trips: true)
+        create(:courier_profile, :approved, user: user, accepted_job_kinds: [ "trip" ])
         create(:courier_wallet, user: user)
       end
     end
 
-    trait :restaurant_owner do
-      active_role { :restaurant_owner }
-      after(:create) { |user| create(:user_role, user: user, role: :restaurant_owner) }
+    trait :merchant_owner do
+      active_role { :merchant_owner }
+      after(:create) { |user| create(:user_role, user: user, role: :merchant_owner) }
     end
 
     trait :admin do

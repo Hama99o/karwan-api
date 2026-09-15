@@ -95,13 +95,13 @@ RSpec.describe CourierWallet, type: :model do
       expect(wallet.can_fund?(order)).to be false
     end
 
-    # It checks OUR commission, not the restaurant payout. The payout is the
+    # It checks OUR commission, not the merchant payout. The payout is the
     # courier's own advance out of pocket; the commission is the only money of
     # ours they end up holding.
-    it "ignores the restaurant payout, which is the courier's own money" do
+    it "ignores the merchant payout, which is the courier's own money" do
       wallet = build(:courier_wallet, balance: 0, credit_line: 100)
       big_order = create(:order, food_total: 4_000, delivery_fee: 100, customer_total: 4_100,
-                                 commission: 50, restaurant_payout: 3_950)
+                                 commission: 50, merchant_payout: 3_950)
 
       expect(wallet.can_fund?(big_order)).to be true
     end

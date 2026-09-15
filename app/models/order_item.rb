@@ -1,11 +1,11 @@
 # A snapshot of what was ordered, at the price it was ordered at. Never join
-# live to menu_items to render a historical order — menus change daily.
+# live to catalog_items to render a historical order — menus change daily.
 class OrderItem < ApplicationRecord
   include Monetary
 
   belongs_to :order
   # Provenance only, and nullable: the menu item may be renamed or deleted.
-  belongs_to :menu_item, optional: true
+  belongs_to :catalog_item, optional: true
 
   has_many :selected_options, class_name: OrderItemOption.name, dependent: :destroy,
            inverse_of: :order_item
