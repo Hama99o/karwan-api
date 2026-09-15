@@ -127,6 +127,24 @@ Rails.application.routes.draw do
       end
 
       namespace :merchants, path: "merchant" do
+        # The open/closed toggle and the sold-out toggle are their own routes
+        # rather than fields on an update form. Both are used in a hurry —
+        # PRODUCT.md calls the sold-out one "one tap from the order board" —
+        # and a form that could fail validation for an unrelated reason must
+        # not be able to leave a shop marked open that isn't.
+        resource :profile, only: :show, controller: "profiles" do
+          post :open_now
+          post :close_now
+        end
+
+        resources :catalog_categories, only: %i[create update destroy]
+        resources :catalog_items, only: %i[index create update destroy] do
+          member do
+            post :sold_out
+            post :available
+          end
+        end
+
         resources :orders, only: %i[index show] do
           member do
             post :accept
