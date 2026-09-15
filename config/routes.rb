@@ -109,6 +109,12 @@ Rails.application.routes.draw do
       end
 
       namespace :couriers, path: "courier" do
+        # APPLYING. Deliberately NOT behind the approved-courier gate the rest
+        # of this namespace sits behind — an applicant has no approved profile
+        # and no wallet, so that gate would lock out exactly the people who
+        # need this. Its controller inherits Api::V1::BaseController directly.
+        resource :registration, only: %i[show create update], controller: "registrations"
+
         # Singular: a courier has one shift state, so it is a resource rather
         # than a collection.
         resource :shift, only: %i[show update], controller: "shifts" do

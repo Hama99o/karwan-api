@@ -13,6 +13,21 @@ FactoryBot.define do
     guarantor_relation { "cousin" }
     work_area { "Shar-e-Naw" }
 
+    # An application complete enough to APPROVE. Approval is made against the
+    # documents — a tazkira photo and a face — so without them
+    # `ready_for_approval?` is false and the console refuses, which is the
+    # point: an approval without the documents is a rubber stamp.
+    trait :documented do
+      after(:build) do |profile|
+        %i[id_document selfie].each do |name|
+          profile.public_send(name).attach(
+            io: File.open(Rails.root.join("spec/fixtures/files/photo.png")),
+            filename: "#{name}.png", content_type: "image/png"
+          )
+        end
+      end
+    end
+
     trait :approved do
       verification_status { :approved }
       verified_at { Time.current }

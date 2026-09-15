@@ -12,6 +12,7 @@
 # so they need identity, a guarantor, documents, and a human approval with a
 # name attached. None of it can be collected after the fact.
 class CourierProfile < ApplicationRecord
+  include AttachableDocuments
   # Foreground tracking only, while a job is active. A fix older than this is
   # not a location, it is a memory — dispatch must not offer work based on where
   # someone was an hour ago.
@@ -37,13 +38,32 @@ class CourierProfile < ApplicationRecord
        prefix: :verification
 
   belongs_to :user
+  # Two approver columns, because there are two kinds of approver and only one
+  # of them is real today. `verified_by` is a `User` (an admin-role account
+  # acting through the API, which nothing does yet); `verified_by_admin_user`
+  # is the Administrate console operator, which is how every approval actually
+  # happens. An AdminUser cannot be assigned to a `User` association, so before
+  # this the column could only ever hold nil on the one path that approves
+  # anyone — and CLAUDE.md is explicit that a nil approver is not a valid state.
   belongs_to :verified_by, class_name: User.name, optional: true
+  belongs_to :verified_by_admin_user, class_name: AdminUser.name, optional: true
 
   # A tazkira photo and a face. Held because someone carrying cash and food we
   # paid for has to be identifiable, not because anyone enjoys collecting them.
   has_one_attached :id_document
   has_one_attached :selfie
   has_one_attached :vehicle_photo
+
+  # `has_one_attached` validates nothing on its own — not the type, not the
+  # size. See AttachableDocuments for why that matters on this VPS.
+  validates_attached :id_document, :selfie, :vehicle_photo
+
+  # What a human must see before approving. Checked HERE rather than on
+  # submission, because an application is built up over several attempts on a
+  # bad connection and refusing the whole form for one missing photo is how an
+  # application is abandoned. `approve!` cannot pass without them.
+  REQUIRED_FOR_APPROVAL = %i[full_name national_id_number guarantor_name guarantor_phone].freeze
+  REQUIRED_DOCUMENTS = %i[id_document selfie].freeze
 
   validates :full_name, :national_id_number, :guarantor_name, :guarantor_phone,
             presence: true, if: :verification_approved?
@@ -56,6 +76,19 @@ class CourierProfile < ApplicationRecord
   # shift, and willing to take that kind of work. One scope for every kind,
   # including ones that do not exist yet.
   scope :dispatchable_for, ->(job_kind) { verification_approved.available.accepting(job_kind) }
+
+  # What the applicant still owes, as field names the app can translate. Never
+  # an English sentence: the courier reads Pashto.
+  def missing_for_approval
+    missing = REQUIRED_FOR_APPROVAL.select { |field| public_send(field).blank? }
+    missing += REQUIRED_DOCUMENTS.reject { |doc| public_send(doc).attached? }
+    missing << :accepted_job_kinds if accepted_job_kinds.blank?
+    missing
+  end
+
+  def ready_for_approval?
+    missing_for_approval.empty?
+  end
 
   def location_fresh?
     location_updated_at.present? && location_updated_at > STALE_AFTER.ago
@@ -74,9 +107,37 @@ class CourierProfile < ApplicationRecord
   # Approval is a human decision and must carry a name. A nil approver on an
   # approved courier is not a valid state — it is how "who let this person in?"
   # becomes unanswerable.
+  # Approval is what brings a courier into existence operationally, and it
+  # takes THREE things — not one. Getting only the first is a courier who
+  # believes they were approved and cannot work:
+  #
+  #   1. the status, so dispatch will consider them
+  #   2. the ROLE, without which `OrderPolicy::CourierScope` resolves to
+  #      `none` (they see no jobs), `User#switch_role!` refuses (they cannot
+  #      reach the courier tab), and every symptom points at the app rather
+  #      than at the missing row
+  #   3. a WALLET, without which they cannot be charged commission — so
+  #      `Couriers::BaseController` refuses them with `no_wallet`
+  #
+  # The role and the wallet were both missing from this path. They are here, in
+  # ONE transaction, because a courier approved with two of the three is a
+  # support call nobody can diagnose from the outside.
   def approve!(by:)
-    update!(verification_status: :approved, verified_at: Time.current, verified_by: by,
-            rejection_reason: nil)
+    # Whichever kind of approver this is, it is recorded — and one of them must
+    # be present. "Who let this person in?" has to be answerable from the row,
+    # not only by scanning an audit log, because a question that needs a log
+    # scan is a question nobody asks.
+    raise ArgumentError, "an approval must name its approver" if by.nil?
+
+    approver = by.is_a?(AdminUser) ? { verified_by_admin_user: by } : { verified_by: by }
+
+    transaction do
+      update!({ verification_status: :approved, verified_at: Time.current,
+                rejection_reason: nil }.merge(approver))
+      user.user_roles.find_or_create_by!(role: :courier)
+      CourierWallet.create!(user: user, balance: 0,
+                            credit_line: Setting.fetch("default_credit_line")) if user.courier_wallet.nil?
+    end
   end
 
   def reject!(by:, reason:)

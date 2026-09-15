@@ -1,4 +1,5 @@
 class Merchant < ApplicationRecord
+  include AttachableDocuments
   include SoftDeletable
   include TrigramSearchable
   include Searchable
@@ -12,7 +13,10 @@ class Merchant < ApplicationRecord
   # words the UI uses change, which is a client concern.
   belongs_to :merchant_kind
   belongs_to :owner, class_name: User.name, optional: true, inverse_of: :owned_merchants
+  # See CourierProfile for why there are two: the console operator is an
+  # AdminUser, which cannot be assigned to a `User` association.
   belongs_to :verified_by, class_name: User.name, optional: true
+  belongs_to :verified_by_admin_user, class_name: AdminUser.name, optional: true
 
   has_many :opening_hours, class_name: MerchantOpeningHour.name, dependent: :destroy,
                            inverse_of: :merchant
@@ -25,6 +29,12 @@ class Merchant < ApplicationRecord
   has_one_attached :logo
   has_one_attached :storefront_photo
   has_one_attached :license_photo
+
+  # `has_one_attached` validates neither type nor size. The storefront photo is
+  # downloaded by every customer who opens the app, on a connection where data
+  # costs them real money (AFGHAN_UX.md §5) — so a 12 MB upload here is a bill
+  # paid by every user, not just a large file on our disk.
+  validates_attached :logo, :storefront_photo, :license_photo
 
   validates :name, presence: true
   validates :phone, presence: true

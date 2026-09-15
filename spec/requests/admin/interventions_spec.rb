@@ -123,7 +123,9 @@ RSpec.describe "Admin interventions", type: :request do
   end
 
   describe "couriers" do
-    let(:profile) { create(:courier_profile) }
+    # `:documented` — approval is made AGAINST the tazkira and the selfie, so a
+    # profile without them is correctly refused now. See the example below.
+    let(:profile) { create(:courier_profile, :documented) }
 
     it "approves a courier and gives them a wallet with the configured credit line" do
       patch "/admin/courier_profiles/#{profile.id}/approve"
@@ -132,6 +134,35 @@ RSpec.describe "Admin interventions", type: :request do
       wallet = profile.user.reload.courier_wallet
       expect(wallet).to be_present
       expect(wallet.credit_line).to eq(Setting.fetch("default_credit_line"))
+    end
+
+    # The three things approval means. The ROLE was never granted at all, which
+    # left couriers "approved" and unable to see a single job — every
+    # courier-scoped query resolves to `none` without it.
+    it "grants the courier ROLE, without which they can see no jobs at all" do
+      patch "/admin/courier_profiles/#{profile.id}/approve"
+
+      expect(profile.user.reload.role?(:courier)).to be true
+    end
+
+    it "records WHICH admin approved, on the row" do
+      patch "/admin/courier_profiles/#{profile.id}/approve"
+
+      # The existing `verified_by` points at `users` and the console operator is
+      # an `AdminUser`, so it could only ever be nil — and CLAUDE.md says a nil
+      # approver is not a valid state.
+      expect(profile.reload.verified_by_admin_user).to eq(admin)
+    end
+
+    # An approval made without seeing the documents is a rubber stamp, and the
+    # documents are the entire reason they are collected.
+    it "refuses to approve an application with no documents attached" do
+      undocumented = create(:courier_profile)
+
+      patch "/admin/courier_profiles/#{undocumented.id}/approve"
+
+      expect(undocumented.reload.verification_status).to eq("pending")
+      expect(flash[:alert]).to match(/id_document|selfie/)
     end
 
     # An incomplete application must not be waved through — the tazkira and

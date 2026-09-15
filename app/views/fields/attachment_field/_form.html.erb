@@ -1,0 +1,20 @@
+<%#
+  Uploading from the console.
+
+  This is how a MERCHANT gets a logo and a storefront photo: merchants are not
+  self-serve in v0 — admin onboards them (MerchantPolicy) — so without this
+  field the photo-led customer home has no photographs at all, on a platform
+  whose first design rule is "a photo sells and explains where a description
+  cannot" (AFGHAN_UX.md §1).
+%>
+<div class="field-unit__label">
+  <%= f.label field.attribute %>
+</div>
+<div class="field-unit__field">
+  <%= f.file_field field.attribute %>
+  <% if field.attached? %>
+    <p style="color:#666; font-size: 0.85em;">
+      currently: <%= field.filename %> — choosing a file replaces it
+    </p>
+  <% end %>
+</div>

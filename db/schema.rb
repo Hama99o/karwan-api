@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_15_220000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_15_231900) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -185,6 +185,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_220000) do
     t.integer "vehicle_type", default: 0, null: false
     t.integer "verification_status", default: 0, null: false
     t.datetime "verified_at"
+    t.bigint "verified_by_admin_user_id"
     t.bigint "verified_by_id"
     t.text "work_area"
     t.index ["accepted_job_kinds"], name: "index_courier_profiles_on_accepted_job_kinds", using: :gin
@@ -192,6 +193,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_220000) do
     t.index ["national_id_number"], name: "index_courier_profiles_on_national_id_number"
     t.index ["user_id"], name: "index_courier_profiles_on_user_id", unique: true
     t.index ["verification_status"], name: "index_courier_profiles_on_verification_status"
+    t.index ["verified_by_admin_user_id"], name: "index_courier_profiles_on_verified_by_admin_user_id"
   end
 
   create_table "courier_wallets", force: :cascade do |t|
@@ -292,6 +294,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_220000) do
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
     t.datetime "verified_at"
+    t.bigint "verified_by_admin_user_id"
     t.bigint "verified_by_id"
     t.index ["deleted_at"], name: "index_merchants_on_kept", where: "(deleted_at IS NULL)"
     t.index ["is_open"], name: "index_merchants_on_is_open"
@@ -302,6 +305,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_220000) do
     t.index ["owner_phone"], name: "index_merchants_on_owner_phone"
     t.index ["search_text"], name: "index_merchants_on_search_text_trgm", opclass: :gin_trgm_ops, using: :gin
     t.index ["status"], name: "index_merchants_on_status"
+    t.index ["verified_by_admin_user_id"], name: "index_merchants_on_verified_by_admin_user_id"
   end
 
   create_table "offers", force: :cascade do |t|
@@ -577,6 +581,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_220000) do
   add_foreign_key "catalog_item_options", "catalog_items"
   add_foreign_key "catalog_items", "catalog_categories"
   add_foreign_key "catalog_items", "merchants"
+  add_foreign_key "courier_profiles", "admin_users", column: "verified_by_admin_user_id"
   add_foreign_key "courier_profiles", "users"
   add_foreign_key "courier_profiles", "users", column: "verified_by_id"
   add_foreign_key "courier_wallets", "users"
@@ -584,6 +589,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_220000) do
   add_foreign_key "merchant_category_assignments", "merchant_categories"
   add_foreign_key "merchant_category_assignments", "merchants"
   add_foreign_key "merchant_opening_hours", "merchants"
+  add_foreign_key "merchants", "admin_users", column: "verified_by_admin_user_id"
   add_foreign_key "merchants", "merchant_kinds"
   add_foreign_key "merchants", "users", column: "owner_id"
   add_foreign_key "merchants", "users", column: "verified_by_id"

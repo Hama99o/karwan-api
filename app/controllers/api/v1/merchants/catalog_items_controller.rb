@@ -30,6 +30,7 @@ class Api::V1::Merchants::CatalogItemsController < Api::V1::Merchants::BaseContr
     category = current_merchant.catalog_categories.kept.find(item_params[:catalog_category_id])
     item = category.catalog_items.build(item_params.except(:catalog_category_id))
     item.merchant = current_merchant
+    attach_photo(item)
 
     if item.save
       render_blue(Merchants::CatalogItemSerializer, item, status: :created)
@@ -40,6 +41,8 @@ class Api::V1::Merchants::CatalogItemsController < Api::V1::Merchants::BaseContr
 
   def update
     authorize current_merchant, :manage_catalog?
+
+    attach_photo(@item)
 
     if @item.update(item_params.except(:catalog_category_id))
       render_blue(Merchants::CatalogItemSerializer, @item)
@@ -93,5 +96,19 @@ class Api::V1::Merchants::CatalogItemsController < Api::V1::Merchants::BaseContr
     params.require(:catalog_item).permit(
       :catalog_category_id, :name, :description, :price, :prep_time_minutes, :position
     )
+  end
+
+  # THE PHOTO, which is not decoration on this platform.
+  #
+  # AFGHAN_UX.md §1 puts photos first — "a photo sells and explains where a
+  # description cannot" — and that is a literacy argument before it is an
+  # aesthetic one: a customer who reads Pashto slowly still recognises kabab.
+  # `CatalogItem` has declared `has_one_attached :photo` since the first
+  # migration and no endpoint ever accepted one, so every dish in the app was
+  # a name and a price.
+  #
+  # Only when sent, so an edit that changes a price does not delete the photo.
+  def attach_photo(item)
+    item.photo.attach(params[:photo]) if params[:photo].present?
   end
 end

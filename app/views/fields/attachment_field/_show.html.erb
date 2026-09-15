@@ -1,0 +1,33 @@
+<%#
+  One attachment on a show page.
+
+  `disposition: "inline"` so a tazkira opens in the browser rather than landing
+  in a downloads folder — an operator checks it and moves on, and a console that
+  litters the disk gets used less.
+%>
+<% if field.attached? %>
+  <div class="attachment">
+    <% if field.image? %>
+      <a href="<%= main_app.rails_blob_path(field.data, disposition: "inline") %>" target="_blank" rel="noopener">
+        <%= image_tag main_app.rails_blob_path(field.data, disposition: "inline"),
+                      alt: field.filename, style: "max-width: 420px; max-height: 420px; display:block;" %>
+      </a>
+    <% elsif field.audio? %>
+      <%# The landmark voice note. AFGHAN_UX.md §2 makes this the answer to low
+          literacy, so an operator resolving a failed delivery has to be able to
+          PLAY it, not just see that it exists. %>
+      <audio controls preload="none" src="<%= main_app.rails_blob_path(field.data, disposition: "inline") %>"></audio>
+    <% else %>
+      <a href="<%= main_app.rails_blob_path(field.data, disposition: "inline") %>" target="_blank" rel="noopener">
+        <%= field.filename %>
+      </a>
+    <% end %>
+    <p style="color:#666; font-size: 0.85em;">
+      <%= field.filename %> · <%= number_to_human_size(field.byte_size) %> · <%= field.content_type %>
+    </p>
+  </div>
+<% else %>
+  <%# Said plainly. An empty cell reads as "loading" or as a console bug, and an
+      operator has to know the difference between "no document" and "not shown". %>
+  <span style="color:#a00;">not provided</span>
+<% end %>

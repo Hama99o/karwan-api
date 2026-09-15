@@ -1,0 +1,8 @@
+<%# On a table row, whether it EXISTS — never the image. A list of couriers with
+    nine inline photographs is unreadable and slow, and the question a queue
+    answers is "which applications are complete?" %>
+<% if field.attached? %>
+  <span title="<%= field.filename %>">✓</span>
+<% else %>
+  <span style="color:#a00;" title="not provided">✗</span>
+<% end %>

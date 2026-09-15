@@ -84,3 +84,14 @@ FactoryBot.define do
     end
   end
 end
+
+FactoryBot.define do
+  # The ops console operator. A SEPARATE TABLE from `users` on purpose: this
+  # person can cancel any order and credit any wallet, so a customer's session
+  # token must never be able to reach them (config/routes.rb).
+  factory :admin_user do
+    sequence(:name) { |n| "Ops #{n}" }
+    sequence(:email) { |n| "ops#{n}@karwan.af" }
+    password { "a-long-test-password" }
+  end
+end

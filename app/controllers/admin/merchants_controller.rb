@@ -20,7 +20,13 @@ module Admin
 
     def approve
       merchant = requested_resource
-      merchant.update!(status: :active, verified_at: Time.current, rejection_reason: nil)
+      # The approver's NAME, on the row. It was not recorded at all here —
+      # `verified_by` points at `users` and the console operator is an
+      # `AdminUser`, so the column could only ever be nil. Signing a merchant
+      # is the hardest problem in this business and "who signed this one?" is
+      # the first question when a deal is disputed.
+      merchant.update!(status: :active, verified_at: Time.current, rejection_reason: nil,
+                       verified_by_admin_user: current_admin_user)
 
       log_intervention("merchant.approved", target: merchant, after: { status: "active" })
       redirect_back fallback_location: admin_merchant_path(merchant), notice: "Merchant approved."

@@ -4,6 +4,7 @@
 # Orders snapshot these fields rather than referencing an address, because the
 # customer edits and deletes them and a past order must still say where it went.
 class Address < ApplicationRecord
+  include AttachableDocuments
   include SoftDeletable
 
   # An address is a PIN, a VOICE NOTE and a PHONE NUMBER. The landmark text is
@@ -14,6 +15,11 @@ class Address < ApplicationRecord
   belongs_to :user
 
   has_one_attached :voice_note
+  # AUDIO, not an image — and a much tighter ceiling. A landmark note is "blue
+  # gate near the park, second floor" spoken in ten seconds; anything measured
+  # in megabytes is a recording that will not finish uploading on a Kabul
+  # connection and will not be listened to by a courier in traffic.
+  validates_attached :voice_note, as: :audio
 
   validates :voice_note_seconds, numericality: { greater_than: 0, less_than_or_equal_to: MAX_VOICE_NOTE_SECONDS },
                                  allow_nil: true

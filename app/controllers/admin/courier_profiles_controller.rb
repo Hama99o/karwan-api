@@ -9,18 +9,30 @@ module Admin
     def approve
       profile = requested_resource
 
-      # `approve!` validates identity and guarantor presence, so an incomplete
-      # application cannot be waved through.
-      if profile.update(verification_status: :approved, verified_at: Time.current,
-                        verified_by: nil, rejection_reason: nil)
-        ensure_wallet(profile.user)
+      # `approve!` rather than `update` — it does all THREE things approval
+      # means (status, role, wallet) in one transaction. This used to update
+      # the status here and create the wallet separately, and never granted the
+      # courier ROLE at all: the courier was "approved", saw no jobs because
+      # `CourierScope` resolved to none, and could not even switch into the
+      # courier tab. Two of three is a support call nobody can diagnose.
+      #
+      # It also validates identity and guarantor presence, so an incomplete
+      # application cannot be waved through — and `missing_for_approval` says
+      # what is outstanding before anyone tries.
+      unless profile.ready_for_approval?
+        return redirect_back fallback_location: admin_courier_profile_path(profile),
+                             alert: "Cannot approve — still missing: #{profile.missing_for_approval.join(', ')}"
+      end
+
+      begin
+        profile.approve!(by: current_admin_user)
         log_intervention("courier.approved", target: profile,
                                              before: { verification_status: "pending" },
                                              after: { verification_status: "approved" })
         redirect_back fallback_location: admin_courier_profile_path(profile), notice: "Courier approved."
-      else
+      rescue ActiveRecord::RecordInvalid => e
         redirect_back fallback_location: admin_courier_profile_path(profile),
-                      alert: "Cannot approve: #{profile.errors.full_messages.join('; ')}"
+                      alert: "Cannot approve: #{e.record.errors.full_messages.join('; ')}"
       end
     end
 
@@ -51,14 +63,8 @@ module Admin
 
     private
 
-    # A courier without a wallet cannot be charged commission, so approval
-    # creates one. The credit line comes from the setting, which is what makes
-    # "a new courier can start with nothing" true.
-    def ensure_wallet(user)
-      return if user.nil? || user.courier_wallet.present?
-
-      CourierWallet.create!(user: user, balance: 0,
-                            credit_line: Setting.fetch("default_credit_line"))
-    end
+    # The wallet lives in `CourierProfile#approve!` now, with the role and the
+    # status, in one transaction — a courier approved with two of the three
+    # cannot work and cannot be told why.
   end
 end

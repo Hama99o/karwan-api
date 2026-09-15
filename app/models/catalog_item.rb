@@ -1,4 +1,5 @@
 class CatalogItem < ApplicationRecord
+  include AttachableDocuments
   include Monetary
   include SoftDeletable
   include TrigramSearchable
@@ -15,6 +16,9 @@ class CatalogItem < ApplicationRecord
   has_many :order_items, dependent: :nullify
 
   has_one_attached :photo
+  # Same reasoning as the merchant's storefront: this image is fetched by every
+  # customer who opens the menu.
+  validates_attached :photo
 
   validates :name, presence: true
   validates :price, numericality: { greater_than_or_equal_to: 0 }
