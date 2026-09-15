@@ -1,0 +1,33 @@
+# =============================================================================
+# DEVELOPMENT DATA STORES ONLY — use with: docker compose up -d
+#
+# Unlike hatiwal-api, the Rails app itself is NOT containerised here: Ruby 3.4.8
+# and Rails 8.1 are on the host, the box runs five sessions at once, and one
+# fewer container per project is the difference between a responsive machine and
+# a swapping one. Run the app with `bin/rails s -p 3017`.
+#
+# Ports are offset to avoid every other project on this box:
+#   5432 booklet · 5443 multi_magic · 5456 studio · 5407 hatiwal · 5417 us
+# For production deployment, use Kamal: kamal deploy
+# =============================================================================
+
+services:
+  postgres:
+    image: "postgres:16"
+    restart: unless-stopped
+    environment:
+      - "POSTGRES_PASSWORD=password"
+      - "POSTGRES_DB=dastarkhwan_development"
+      - "POSTGRES_USER=dastarkhwan"
+    volumes:
+      - "postgres:/var/lib/postgresql/data"
+    ports:
+      - "5417:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dastarkhwan -d dastarkhwan_development"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  postgres:

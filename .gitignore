@@ -31,3 +31,17 @@
 # Ignore key files for decrypting credentials and more.
 /config/*.key
 
+
+# OS and editor cruft.
+.DS_Store
+/.idea
+/.vscode
+*.swp
+
+# RSpec / SimpleCov output.
+/coverage
+.rspec_status
+
+# Claude Code local session settings (the checked-in .claude/ is shared;
+# settings.local.json is per-machine).
+/.claude/settings.local.json

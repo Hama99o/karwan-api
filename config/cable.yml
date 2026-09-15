@@ -4,7 +4,12 @@ development:
 test:
   adapter: test
 
+# Postgres-backed, not Redis — see the note in docker-compose.yml. The `cable`
+# database is declared in config/database.yml's production block.
 production:
-  adapter: redis
-  url: <%= ENV.fetch("REDIS_URL") { "redis://localhost:6379/1" } %>
-  channel_prefix: dastarkhwan_api_production
+  adapter: solid_cable
+  connects_to:
+    database:
+      writing: cable
+  polling_interval: 0.1.seconds
+  message_retention: 1.day

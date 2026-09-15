@@ -31,11 +31,10 @@ gem "pagy", "~> 8.0"
 # CORS
 gem "rack-cors"
 
-# Solid adapters (cache, queue, cable)
+# Solid adapters (cache, queue, cable) — all Postgres-backed, so no Redis in v0
 gem "solid_cache"
 gem "solid_queue"
 gem "solid_cable"
-gem "redis", "~> 5.0"
 
 # Swagger API docs served at /api-docs (admin-gated in routes). Available in all
 # environments so production can serve them; rswag-specs (below) stays in test
