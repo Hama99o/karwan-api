@@ -15,6 +15,17 @@ def find_user!(phone, name:, role:, locale: "fa")
   user
 end
 
+seed_section "ops console account" do
+  # So the console is reachable the moment the stack is up. Development and
+  # test only — db/seeds.rb refuses to load this file in production, and the
+  # password is deliberately obvious because it must never exist anywhere real.
+  admin = AdminUser.find_or_initialize_by(email: "ops@karwan.af")
+  admin.name = "Karwan Operations"
+  admin.password = "karwan-dev-password"
+  admin.password_confirmation = "karwan-dev-password"
+  admin.save!
+end
+
 seed_section "admin and support" do
   find_user!("+93700000001", name: "Karwan Admin", role: :admin, locale: "en")
   find_user!("+93700000002", name: "Najibullah (Kabul ops)", role: :admin)

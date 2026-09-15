@@ -1,0 +1,72 @@
+<%#
+  THE LIVE ORDER BOARD — the screen someone watches all evening.
+
+  A default Administrate index is a table of rows; this is a work queue. Two
+  things it must do that the generic index cannot:
+
+  * COLOUR BY STALENESS. An order sitting in one state too long turns red, so
+    it is visible from across a room without reading. The threshold is the same
+    `TIMEOUTS` table the timeout job reads, so the board and the job cannot
+    disagree about what "late" means.
+  * SHOW AGE IN THE CURRENT STATE, not since placement. An order accepted a
+    minute ago is not late; one unaccepted for ten minutes is.
+
+  Overriding a view is the Hatiwal-sanctioned escape hatch — it does exactly
+  this for dashboard, users, reports and listings.
+%>
+<header class="main-content__header">
+  <h1 class="main-content__page-title">Orders</h1>
+  <div>
+    <%= link_to "Live", admin_orders_path, class: "button button--alt" %>
+    <%= link_to "Overdue", admin_orders_path(filter: "overdue"), class: "button button--alt" %>
+    <%= link_to "No courier", admin_orders_path(filter: "unassigned"), class: "button button--alt" %>
+    <%= link_to "Unsettled", admin_orders_path(filter: "unsettled"), class: "button button--alt" %>
+  </div>
+</header>
+
+<section class="main-content__body">
+  <table class="karwan-table">
+    <thead>
+      <tr>
+        <th>Code</th><th>State</th><th>Age in state</th><th>Merchant</th>
+        <th>Courier</th><th>Total</th><th>Money</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% resources.each do |order| %>
+        <%
+          minutes = ((Time.current - order.state_entered_at) / 60).floor
+          # Amber at half the timeout, red past it. Half is not arbitrary: it
+          # is the point at which somebody can still fix it by telephone
+          # before the customer notices.
+          timeout = order.timeout_for_current_state
+          row_class = if order.overdue? then "karwan-row--alert"
+                      elsif timeout.present? && minutes > (timeout / 120) then "karwan-row--warn"
+                      end
+        %>
+        <tr class="<%= row_class %>">
+          <td><%= link_to order.code, admin_order_path(order) %></td>
+          <td><%= order.status %></td>
+          <td><%= order.terminal? ? "—" : "#{minutes} min" %></td>
+          <td><%= order.merchant&.name %></td>
+          <td><%= order.courier&.display_name || "—" %></td>
+          <td><%= order.customer_total %> <%= order.currency %></td>
+          <td><%= order.payment_status %></td>
+          <td>
+            <%# The interventions, reachable from the board rather than two
+                clicks away — during a rush nobody navigates. %>
+            <% unless order.terminal? %>
+              <%= button_to "Redispatch", redispatch_admin_order_path(order), method: :patch,
+                            class: "button button--alt" %>
+            <% end %>
+          </td>
+        </tr>
+      <% end %>
+      <% if resources.empty? %>
+        <tr><td colspan="8">Nothing here.</td></tr>
+      <% end %>
+    </tbody>
+  </table>
+
+  <%= render "administrate/application/pagination", resources: resources %>
+</section>

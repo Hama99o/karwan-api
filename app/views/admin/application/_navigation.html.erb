@@ -1,0 +1,36 @@
+<%#
+  Navigation, overridden.
+
+  Two reasons, and the first is functional: Administrate builds this from every
+  admin controller with an index action, which includes the hand-built
+  `dashboard#index` — and then looks for a `DashboardDashboard` that does not
+  and should not exist, raising `uninitialized constant DashboardDashboard`.
+
+  The second is that an ops console's menu should be ordered by WHAT MATTERS,
+  not alphabetically by model. The live order board is the screen someone
+  watches all evening, so it comes first; the audit log comes last because it
+  is read after the fact, not during a rush.
+%>
+<nav class="navigation">
+  <%= link_to "Operations", admin_root_path,
+              class: "navigation__link navigation__link--#{'active' if controller_name == 'dashboard'}" %>
+
+  <% [
+       [ "Orders", admin_orders_path, "orders" ],
+       [ "Rides", admin_trips_path, "trips" ],
+       [ "Couriers", admin_courier_profiles_path, "courier_profiles" ],
+       [ "Wallets", admin_courier_wallets_path, "courier_wallets" ],
+       [ "Merchants", admin_merchants_path, "merchants" ],
+       [ "People", admin_users_path, "users" ],
+       [ "Settlements", admin_settlements_path, "settlements" ],
+       [ "Ledger", admin_wallet_entries_path, "wallet_entries" ],
+       [ "Config", admin_settings_path, "settings" ],
+       [ "Audit log", admin_audit_logs_path, "audit_logs" ]
+     ].each do |label, path, controller| %>
+    <%= link_to label, path,
+                class: "navigation__link navigation__link--#{'active' if controller_name == controller}" %>
+  <% end %>
+
+  <%= button_to "Sign out", destroy_admin_user_session_path, method: :delete,
+                class: "button button--alt button--nav" %>
+</nav>

@@ -7,6 +7,8 @@ require "active_job/railtie"
 require "active_record/railtie"
 require "active_storage/engine"
 require "action_controller/railtie"
+# Needed by Administrate, which renders HTML. An --api app omits it.
+require "action_view/railtie"
 require "action_mailer/railtie"
 # require "action_mailbox/engine"
 # require "action_text/engine"
@@ -40,5 +42,36 @@ module KarwanApi
     # Middleware like session, flash, cookies can be added back manually.
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
+
+    # ---- Middleware Administrate needs, which api_only strips out ----------
+    #
+    # All four of these are lifted from hatiwal-api, where each one was added
+    # after the symptom it causes. Keeping the comments because the symptoms
+    # are not guessable from the code.
+
+    # Devise (for AdminUser) references the session, which api_only removes —
+    # without it every protected admin page raises
+    # ActionDispatch::Request::Session::DisabledSessionError.
+    config.session_store :cookie_store, key: "_karwan_admin_session"
+    config.middleware.use ActionDispatch::Cookies
+    config.middleware.use config.session_store, config.session_options
+
+    # Administrate shows flash messages on top of the session above. The JSON
+    # API never uses flash, so this only affects the admin views.
+    config.middleware.use ActionDispatch::Flash
+
+    # Administrate's edit/update/destroy and the sign-out button submit HTML
+    # forms that tunnel PATCH/PUT/DELETE through POST plus a `_method` param.
+    # api_only omits Rack::MethodOverride, so those verbs never reach the
+    # router. The JSON API uses real verbs and is unaffected.
+    config.middleware.use Rack::MethodOverride
+
+    # Devise inserts Warden::Manager early in the api_only stack — ahead of the
+    # session middleware re-added above. Normal requests survive because the
+    # session is populated by the time a controller calls `set_user`, but
+    # Warden's test `login_as` sets the user on the way IN, before the session
+    # exists, which breaks :timeoutable. Move Warden after session and flash so
+    # it always has a session to read.
+    config.middleware.move_after ActionDispatch::Flash, Warden::Manager
   end
 end

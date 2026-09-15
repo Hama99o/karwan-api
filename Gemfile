@@ -29,6 +29,17 @@ gem "aws-sdk-s3", require: false
 # the clear.
 gem "bcrypt", "~> 3.1.7"
 
+# Server-rendered ops console at /admin. Same mechanism as hatiwal-api:
+# Administrate, inside the API repo rather than a second app. One repo, one
+# deploy.
+gem "administrate"
+gem "propshaft"
+# Devise is here for the ADMIN ONLY. The mobile side is phone + OTP with no
+# password, which is right for a courier on a cheap phone and wrong for a human
+# at a desk with power to change anything. A separate table means a customer can
+# never escalate into an admin, and the two surfaces share no auth code.
+gem "devise"
+
 # Authorization
 gem "pundit"
 

@@ -1,0 +1,83 @@
+<%#
+  The ops console landing page. Not a chart wall — the questions somebody
+  actually opens this to answer, in the order they matter: what needs attention
+  now, what have we earned, who is available.
+%>
+<header class="main-content__header">
+  <h1 class="main-content__page-title">Operations</h1>
+</header>
+
+<section class="main-content__body">
+  <div class="karwan-tiles">
+    <a class="karwan-tile <%= "karwan-tile--alert" if @overdue_orders.positive? %>" href="<%= admin_orders_path(search: "") %>">
+      <span class="karwan-tile__number"><%= @overdue_orders %></span>
+      <span class="karwan-tile__label">orders overdue</span>
+    </a>
+    <a class="karwan-tile <%= "karwan-tile--warn" if @unassigned_orders.positive? %>" href="<%= admin_orders_path %>">
+      <span class="karwan-tile__number"><%= @unassigned_orders %></span>
+      <span class="karwan-tile__label">orders with no courier</span>
+    </a>
+    <a class="karwan-tile" href="<%= admin_orders_path %>">
+      <span class="karwan-tile__number"><%= @live_orders %></span>
+      <span class="karwan-tile__label">orders live</span>
+    </a>
+    <a class="karwan-tile <%= "karwan-tile--alert" if @overdue_trips.positive? %>" href="<%= admin_trips_path %>">
+      <span class="karwan-tile__number"><%= @live_trips %></span>
+      <span class="karwan-tile__label">rides live (<%= @overdue_trips %> overdue)</span>
+    </a>
+    <a class="karwan-tile" href="<%= admin_courier_profiles_path %>">
+      <span class="karwan-tile__number"><%= @couriers_on_shift %></span>
+      <span class="karwan-tile__label">couriers on shift</span>
+    </a>
+    <a class="karwan-tile <%= "karwan-tile--warn" if @couriers_pending.positive? %>" href="<%= admin_courier_profiles_path %>">
+      <span class="karwan-tile__number"><%= @couriers_pending %></span>
+      <span class="karwan-tile__label">couriers awaiting approval</span>
+    </a>
+    <a class="karwan-tile" href="<%= admin_merchants_path %>">
+      <span class="karwan-tile__number"><%= @merchants_open %>/<%= @merchants_total %></span>
+      <span class="karwan-tile__label">merchants open</span>
+    </a>
+  </div>
+
+  <h2>Money</h2>
+  <%# Grouped by currency, never summed across it. %>
+  <table class="karwan-table">
+    <thead><tr><th>Measure</th><th>Currency</th><th>Amount</th></tr></thead>
+    <tbody>
+      <% @commission_today.each do |currency, amount| %>
+        <tr><td>Commission today</td><td><%= currency %></td><td><%= amount %></td></tr>
+      <% end %>
+      <% @commission_week.each do |currency, amount| %>
+        <tr><td>Commission, 7 days</td><td><%= currency %></td><td><%= amount %></td></tr>
+      <% end %>
+      <% @cash_outstanding.each do |currency, amount| %>
+        <tr class="karwan-row--warn">
+          <td>Cash couriers are holding (our exposure)</td><td><%= currency %></td><td><%= amount %></td>
+        </tr>
+      <% end %>
+      <% if @commission_today.empty? && @commission_week.empty? && @cash_outstanding.empty? %>
+        <tr><td colspan="3">Nothing yet.</td></tr>
+      <% end %>
+    </tbody>
+  </table>
+
+  <h2>Last ten interventions</h2>
+  <%# Every one names the admin who did it. That is a one-way door in
+      CLAUDE.md, and this is where it becomes visible. %>
+  <table class="karwan-table">
+    <thead><tr><th>When</th><th>Action</th><th>By</th><th>Target</th></tr></thead>
+    <tbody>
+      <% @recent_interventions.each do |log| %>
+        <tr>
+          <td><%= log.created_at.strftime("%d %b %H:%M") %></td>
+          <td><%= log.action %></td>
+          <td><%= log.author %></td>
+          <td><%= [ log.target_type, log.target_id ].compact.join(" #") %></td>
+        </tr>
+      <% end %>
+      <% if @recent_interventions.empty? %>
+        <tr><td colspan="4">No interventions recorded.</td></tr>
+      <% end %>
+    </tbody>
+  </table>
+</section>

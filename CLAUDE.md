@@ -652,3 +652,29 @@ Hatiwal's. So the new thing is the rule, not the architecture around it.
 **Never invent silently.** If there is no precedent, say so, say what you propose, and say what
 it costs — then wait. The two wrong moves are inventing a mechanism Hatiwal already has, and
 inventing one it does not have without saying so.
+
+**16. There is NO web app. Two deliverables only: the API (with its admin) and the mobile app.**
+Hamma9900, explicitly: *"we don't do web for this app, only api has admin part and mobile."*
+
+So the whole project is:
+
+| Repo | What it is |
+|---|---|
+| `karwan-api` | Rails API **plus** the Administrate ops console, server-rendered, browser-only |
+| `karwan-mobile` | Expo app, three role modes — customer, merchant, courier |
+| `karwan-map` | a worktree of the shared map service, not a product |
+
+**Do not create `karwan-web`.** Hatiwal has two separate things — `hatiwal-web`, a public web app,
+and the Administrate console inside `hatiwal-api`. Karwan takes **only the second**. No customer
+web ordering, no merchant web dashboard, no marketing site in this repo, no separate frontend
+build, no second deploy target. If a screen is needed for a human at a desk, it is an
+Administrate page inside the API.
+
+**The useful consequence:** the admin console is the one surface where none of the mobile
+constraints apply. It is a laptop on a desk, so it may be dense, table-heavy, keyboard-driven
+and English-only if that is faster for Hamma9900 to operate. `AFGHAN_UX.md` governs the phone,
+not the ops console — do not spend effort on RTL, photo-led layouts or 64dp touch targets there.
+
+**There is also no admin role in the mobile app.** The role switch offers customer, merchant and
+courier only. Nothing that can credit a wallet or cancel an order exists on a phone that gets
+shared or lost — which matters in a cash business.

@@ -1,0 +1,9 @@
+<%= form_with model: @admin_user, scope: :admin_user, url: admin_user_session_path do |form| %>
+  <%= form.label :email, "Email" %>
+  <%= form.email_field :email, autofocus: true, autocomplete: "username" %>
+
+  <%= form.label :password, "Password" %>
+  <%= form.password_field :password, autocomplete: "current-password" %>
+
+  <%= form.submit "Sign in" %>
+<% end %>

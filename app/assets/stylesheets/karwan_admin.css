@@ -1,0 +1,17 @@
+/* Small additions to Administrate's own stylesheet. Deliberately minimal —
+   this is an ops console for one or two people, not a product surface. */
+.karwan-tiles { display: flex; flex-wrap: wrap; gap: .75rem; margin-bottom: 2rem; }
+.karwan-tile { display: block; padding: 1rem 1.25rem; border-radius: 8px;
+               background: #f3f4f6; min-width: 9rem; text-decoration: none; color: inherit; }
+.karwan-tile__number { display: block; font-size: 1.75rem; font-weight: 600; }
+.karwan-tile__label { display: block; font-size: .8rem; opacity: .75; }
+/* Colour by staleness: an order sitting in one state too long turns red. This
+   is the screen someone watches all evening, so the alert has to be visible
+   from across a room. */
+.karwan-tile--alert { background: #fdecea; color: #8a1c13; }
+.karwan-tile--warn { background: #fff6e5; color: #7a4a00; }
+.karwan-table { width: 100%; border-collapse: collapse; margin-bottom: 2rem; }
+.karwan-table th, .karwan-table td { text-align: left; padding: .45rem .6rem;
+                                     border-bottom: 1px solid #e5e7eb; font-size: .9rem; }
+.karwan-row--warn { background: #fff6e5; }
+.karwan-row--alert { background: #fdecea; }

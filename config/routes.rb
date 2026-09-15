@@ -1,4 +1,79 @@
 Rails.application.routes.draw do
+  # ---- The ops console --------------------------------------------------
+  #
+  # Administrate, inside this repo rather than a second app. Browser sessions
+  # and a password, NOT the mobile phone+OTP auth: this is a human at a desk
+  # with power to cancel any order and credit any wallet, and AdminUser is a
+  # separate table so a customer token can never reach it.
+  devise_for :admin_users, skip: %i[registrations sessions], path: "admin"
+  # No public registration route, ever — admin accounts are created out of band.
+  as :admin_user do
+    get "admin/login", to: "admin/sessions#new", as: :new_admin_user_session
+    post "admin/login", to: "admin/sessions#create", as: :admin_user_session
+    delete "admin/logout", to: "admin/sessions#destroy", as: :destroy_admin_user_session
+  end
+
+  namespace :admin do
+    # THE INTERVENTIONS ARE THE POINT. A default Administrate install gives a
+    # CRUD form; what makes a delivery business operable is being able to
+    # reassign a courier or mark an order failed, each one logged with who did
+    # it — which a generic form edit could never record.
+    resources :orders, only: %i[index show] do
+      member do
+        patch :reassign
+        patch :cancel
+        patch :fail
+        patch :redispatch
+      end
+    end
+
+    resources :trips, only: %i[index show]
+
+    resources :merchants do
+      member do
+        patch :open_merchant
+        patch :close_merchant
+        patch :approve
+        patch :suspend
+      end
+    end
+
+    resources :courier_profiles, only: %i[index show edit update] do
+      member do
+        patch :approve
+        patch :reject
+        patch :take_off_shift
+      end
+    end
+
+    resources :courier_wallets, only: %i[index show edit update] do
+      member do
+        post :top_up
+        post :adjust
+        post :reimburse
+        post :settle
+      end
+    end
+
+    resources :users, only: %i[index show edit update] do
+      member do
+        patch :suspend
+        patch :reinstate
+      end
+    end
+
+    # The Config screen. Editable with no deploy is the whole point.
+    resources :settings, only: %i[index show edit update]
+
+    # Read-only by design: an editable audit log is not an audit log, and a
+    # ledger whose entries can be rewritten cannot be reconciled.
+    resources :audit_logs, only: %i[index show]
+    resources :wallet_entries, only: %i[index show]
+    resources :settlements, only: %i[index show]
+
+    root to: "dashboard#index"
+  end
+
   # Health check, used by Kamal and by the load balancer.
   get "up" => "rails/health#show", as: :rails_health_check
 
