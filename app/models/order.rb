@@ -12,10 +12,15 @@ class Order < ApplicationRecord
   # transition — there is no "any state to any state" path, including for admin,
   # who instead gets explicit entries. An undeclared transition is how an order
   # ends up delivered without ever being picked up.
+  # Role names here MUST be keys of Roles::ALL — `:restaurant_owner`, not
+  # `:restaurant`. They were `:restaurant` first, which silently disabled every
+  # restaurant transition: `can_transition_to?` just returned false and the
+  # restaurant could not accept its own orders. `OrderSpec` now asserts every
+  # role named in this table is a real role, so it cannot drift again.
   TRANSITIONS = {
-    placed:    { accepted: %i[restaurant admin], rejected: %i[restaurant admin], cancelled: %i[customer admin] },
-    accepted:  { preparing: %i[restaurant admin], cancelled: %i[restaurant admin] },
-    preparing: { ready: %i[restaurant admin], cancelled: %i[restaurant admin] },
+    placed:    { accepted: %i[restaurant_owner admin], rejected: %i[restaurant_owner admin], cancelled: %i[customer admin] },
+    accepted:  { preparing: %i[restaurant_owner admin], cancelled: %i[restaurant_owner admin] },
+    preparing: { ready: %i[restaurant_owner admin], cancelled: %i[restaurant_owner admin] },
     ready:     { picked_up: %i[rider admin], cancelled: %i[admin] },
     picked_up: { delivered: %i[rider admin], failed: %i[rider admin] },
     delivered: {},

@@ -40,6 +40,52 @@ commission/fee values must come from `Setting.fetch`, not from
 
 ## Solved, with the reasoning
 
+### `Order::TRANSITIONS` named a role that does not exist — and one spec passed anyway
+The table said `:restaurant`. The role is `:restaurant_owner`. So
+`can_transition_to?(:accepted, actor_role: :restaurant_owner)` returned false
+for every restaurant transition: **the restaurant could not accept its own
+orders**, and nothing raised, because a missing key in that table is
+indistinguishable from a forbidden transition.
+
+The part worth remembering is the second half. The example
+*"does not let the customer accept their own order"* **passed** — vacuously,
+because no role matched at all, so the negative assertion was true for the wrong
+reason. A suite of per-cell examples would have shown one red and several
+misleading greens.
+
+Fixed by checking the whole table instead of sampling it: two specs assert that
+every role and every status named anywhere in `TRANSITIONS` is a real one.
+Proven to fail by planting the original bug back:
+
+```
+TRANSITIONS names roles that do not exist: [:restaurant]
+1 example, 1 failure
+```
+
+**Lesson: when a lookup table's keys are strings or symbols that must match an
+enum, assert the whole table against the enum.** A negative assertion that
+passes because the key is absent is the worst kind of green.
+
+### A `bin/rails runner` in RAILS_ENV=test leaves rows behind, and the failure blames your factory
+Linting the factories through `bin/rails runner` (not transactional) left users
+in the test database. The next `rspec` run restarted its sequences at 1, hit
+those rows, and reported:
+
+```
+ActiveRecord::RecordInvalid: Validation failed: Phone has already been taken
+  # ./spec/factories/orders.rb:7
+```
+
+which points at the factory. The factory was fine. Fixed properly with
+`DatabaseCleaner.clean_with(:truncation)` in a `before(:suite)` hook — per-example
+transactions isolate examples from each other but do nothing about rows that were
+already there when the suite started.
+
+Same class of problem as hatiwal's "Two sessions, one database — fixture state is
+shared, and it bites". **If a unique-column collision surfaces from inside a
+factory, check what is already in the database before reading the factory.**
+
+
 ### `has_many` takes its scope BEFORE the options hash
 `has_many :options, class_name: X, -> { order(:position) }, dependent: :destroy`
 is a syntax error — Ruby sees a lambda where a hash value should be:
