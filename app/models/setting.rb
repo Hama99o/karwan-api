@@ -66,6 +66,13 @@ class Setting < ApplicationRecord
     # number do the real work.
     "routing_snap_warning_metres" => { type: :decimal, default: "150.0", description: "Snap distance above which a pin is flagged as off the road network" },
 
+    # Shown to a courier as their top-up instructions. Settings rather than
+    # constants because the bank details will change and a courier stranded by
+    # a stale account number cannot work.
+    "wallet_low_balance_warning" => { type: :decimal, default: "200.0", currency: "AFN", description: "Warn a courier when available credit falls below this" },
+    "top_up_bank_name"       => { type: :string, default: "", description: "Bank shown in a courier's top-up instructions" },
+    "top_up_account_number"  => { type: :string, default: "", description: "Account number shown in a courier's top-up instructions" },
+
     "support_phone"          => { type: :string,  default: "", description: "Shown in all three apps. Delivery is an ops business with an app attached." },
 
     # Ride fares. Present so the numbers are tunable from day one, exactly like

@@ -118,6 +118,12 @@ Rails.application.routes.draw do
           end
         end
 
+        # Singular: one courier, one wallet.
+        resource :wallet, only: :show, controller: "wallet" do
+          get :entries
+          get :settlements
+        end
+
         # The one job in front of them, not a list.
         resource :job, only: :show, controller: "jobs"
         # `kind` is in the path because the two demand types are separate
