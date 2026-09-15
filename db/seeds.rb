@@ -35,6 +35,15 @@ else
   load Rails.root.join("db/seeds/sample.rb")
 end
 
+# E2E fixtures: the small, FIXED, named set the QA rig drives and asserts
+# against by value. Loaded with the sample data because it has the same
+# never-in-production rule — but kept in its own file, because mixing it with
+# the demo world means a cosmetic tweak there silently breaks the suite.
+if !Rails.env.production? && sample_wanted
+  puts "Seeding e2e fixtures (#{Rails.env})"
+  load Rails.root.join("db/seeds/e2e.rb")
+end
+
 # Volume, opt-in. See db/seeds/stress.rb for scales and for the honest
 # caveat about insert_all skipping validations.
 if ActiveModel::Type::Boolean.new.cast(ENV.fetch("KARWAN_SEED_STRESS", "false"))
