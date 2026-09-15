@@ -1,0 +1,121 @@
+# Kamal deployment for karwan_api.
+#
+# ── This is a FOURTH APP ON THE EXISTING OVH VPS, not a new server ────────
+# multi_magic, edu_safi and hatiwal_api already share one box: kamal-proxy
+# routes by hostname, so there is no HTTP port conflict and no second bill.
+# Correction 6 — "the per-order marginal cost must be effectively zero" — makes
+# that the right default, and `hatiwal-api/config/deploy.yml` is the working
+# example this is copied from (correction 15: Hatiwal is the target).
+#
+# ACCESSORY HOST PORTS MUST BE UNIQUE PER APP. Already taken on that box:
+#   multi_magic → PG 5432 / Redis 6379
+#   edu_safi    → PG 5433 / Redis 6380
+#   hatiwal_api → PG 5434 / Redis 6381
+#   karwan_api  → PG 5435 / NO REDIS   ← this app
+#
+# ── Karwan takes NO REDIS, unlike all three of its neighbours ─────────────
+# Correction 3: solid_queue, solid_cache and solid_cable all run on Postgres,
+# so a Redis container would be a process earning nothing. One fewer container,
+# one fewer port, one fewer thing to back up.
+#
+# ── FOUR databases, not one ───────────────────────────────────────────────
+# `config/database.yml` declares primary, cache, queue and cable in production.
+# The accessory's `POSTGRES_DB` creates only the primary; `bin/docker-entrypoint`
+# runs `db:prepare`, which creates the other three — it can, because the
+# accessory's user is the image's superuser. If that ever changes, the user
+# needs CREATEDB or the queue silently has nowhere to run.
+service: karwan_api
+
+image: <%= ENV.fetch("KAMAL_IMAGE", "hama99o/karwan_api") %>
+
+servers:
+  web:
+    hosts:
+      - <%= ENV.fetch("KAMAL_HOST") %>
+    options:
+      network: karwan_api-net
+
+proxy:
+  ssl: true
+  host: <%= ENV.fetch("KAMAL_PROXY_HOST") %>
+  app_port: 80
+  healthcheck:
+    path: /up
+    interval: 5
+
+ssh:
+  user: <%= ENV.fetch("SSH_USER", "kamal") %>
+  keys_only: true
+  keys:
+    - <%= ENV.fetch("SSH_KEY_PATH", "~/.ssh/id_ed25519") %>
+
+registry:
+  username: <%= ENV.fetch("KAMAL_REGISTRY_USERNAME", "hama99o") %>
+  password:
+    - KAMAL_REGISTRY_PASSWORD
+
+env:
+  secret:
+    - RAILS_MASTER_KEY
+    - DATABASE_PASSWORD
+    # Push. Correction 14 exception 2: FCM is a Google dependency we cannot
+    # self-host, and it is one of THREE merchant alert channels rather than the
+    # channel. Absent these, `Notifications::FcmClient` stays quiet rather than
+    # raising — a missing push must not fail an order.
+    - FCM_PROJECT_ID
+    - FCM_ACCESS_TOKEN
+  clear:
+    DATABASE_HOST: karwan_api-db
+    DATABASE_PORT: 5432
+    DATABASE_USERNAME: karwan
+    RAILS_LOG_TO_STDOUT: true
+    # One process serves web and jobs. At v0 volume a separate worker host is a
+    # second container earning nothing; the trigger to split it is in
+    # docs/REALTIME_AND_SCALE.md.
+    SOLID_QUEUE_IN_PUMA: true
+    # OSRM is DELIBERATELY UNSET. `Routing::DistanceResolver` falls back to
+    # straight-line distance when it is absent, which is the v0 decision —
+    # routed distance raises fares ~29% and that is Hamma9900's call, not a
+    # config default. Set it only when he has decided.
+    # OSRM_BASE_URL: http://karwan_api-osrm:5000
+
+aliases:
+  console: app exec --interactive --reuse "bin/rails console"
+  shell: app exec --interactive --reuse "bash"
+  logs: app logs -f
+  dbc: app exec --interactive --reuse "bin/rails dbconsole"
+  # `db:prepare`, not `db:migrate`: it creates the cache/queue/cable databases
+  # on a first deploy and migrates on every one after.
+  migrate: app exec "bin/rails db:prepare"
+  # Reference data only. `db/seeds.rb` refuses sample data in production.
+  seed: app exec "bin/rails db:seed"
+  admin: app exec --interactive --reuse "bin/rails runner 'puts AdminUser.count'"
+
+volumes:
+  # Active Storage's local disk service. Eight attachments are declared —
+  # merchant photos, catalog photos, courier documents, the landmark voice note
+  # — and losing this volume loses every one of them.
+  - "karwan_api_storage:/rails/storage"
+
+builder:
+  dockerfile: Dockerfile
+  arch: amd64
+  driver: docker
+
+accessories:
+  db:
+    image: postgres:16
+    host: <%= ENV.fetch("KAMAL_HOST") %>
+    # Bound to 127.0.0.1 so Postgres is never exposed to the public internet.
+    # 5435 is the next free port on the shared box — see the header.
+    port: "127.0.0.1:5435:5432"
+    options:
+      network: karwan_api-net
+    env:
+      clear:
+        POSTGRES_USER: karwan
+        POSTGRES_DB: karwan_production
+      secret:
+        - POSTGRES_PASSWORD
+    directories:
+      - data:/var/lib/postgresql/data
