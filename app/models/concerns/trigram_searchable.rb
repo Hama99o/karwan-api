@@ -38,24 +38,49 @@ module TrigramSearchable
   SIMILARITY_THRESHOLD = 0.3
 
   class_methods do
+    # Ranked by closeness, loosest match first in the WHERE and best match first
+    # in the ORDER BY.
+    #
+    # Built with Arel rather than an interpolated SQL string. The previous
+    # version validated the column against `column_names` and quoted it, which
+    # was genuinely safe — but brakeman flagged it as a possible SQL injection
+    # (exit 3, so CI went red) and it was right to: a human reading
+    # `"...#{quoted_column(column)}..."` cannot tell the guard exists without
+    # following the method, and the guard is one careless edit from being
+    # dropped. Arel takes the column as an identifier, not as text, so there is
+    # no string to get wrong and nothing to audit.
     def fuzzy_on(column, query, threshold: SIMILARITY_THRESHOLD)
       return none if query.blank?
 
-      where("word_similarity(:q, #{quoted_column(column)}) > :threshold", q: query.to_s, threshold: threshold)
-        .order(Arel.sql(sanitize_sql_array([ "word_similarity(?, #{quoted_column(column)}) DESC", query.to_s ])))
+      score = word_similarity_score(column, query)
+
+      where(score.gt(threshold)).order(Arel::Nodes::Descending.new(score))
     end
 
     private
 
-    # The column name comes from our own code, never from params, but it is
-    # interpolated into SQL — so it is validated against the real column list
-    # rather than trusted. A typo here would otherwise be an injection-shaped
-    # hole waiting for the first person who wires it to a query string.
-    def quoted_column(column)
+    # word_similarity(:query, "table"."column") as an Arel node.
+    #
+    # Argument order matters and is easy to get backwards: word_similarity(a, b)
+    # scores `a` against the best matching extent within `b`, so the QUERY goes
+    # first and the column second. Reversed, it scores the whole column value
+    # against the query and behaves like plain `similarity()` — which is the bug
+    # this concern was rewritten to fix.
+    def word_similarity_score(column, query)
+      Arel::Nodes::NamedFunction.new(
+        "word_similarity",
+        [ Arel::Nodes.build_quoted(query.to_s), arel_attribute_for(column) ]
+      )
+    end
+
+    # The column name always comes from our own code, never from params, but it
+    # is still checked against the real column list: a typo would otherwise
+    # produce a confusing Postgres error at runtime instead of a clear one here.
+    def arel_attribute_for(column)
       name = column.to_s
       raise ArgumentError, "#{name.inspect} is not a column of #{table_name}" unless column_names.include?(name)
 
-      "#{connection.quote_table_name(table_name)}.#{connection.quote_column_name(name)}"
+      arel_table[name]
     end
   end
 end
