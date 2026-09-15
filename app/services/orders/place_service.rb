@@ -53,6 +53,10 @@ module Orders
         # can explain.
         order.save!
         record_placement(order)
+        # A missed "new order" alert is a lost order. Enqueued inside the
+        # transaction so it cannot fire for an order that failed to save;
+        # ActiveJob delivers after commit.
+        Notifications::MerchantOrderAlertJob.perform_later(order.id)
         order
       end
     end
