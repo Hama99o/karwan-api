@@ -15,7 +15,17 @@ RSpec.describe "db/seeds/e2e.rb" do
   # this spec for an unrelated reason. The shim must CALL the block; a first
   # version silently swallowed it and every example failed against an empty
   # database, which read as "the seed is broken" rather than "the harness is".
-  before(:all) do
+  #
+  # `before`, NOT `before(:all)` — and that cost a real failure to learn.
+  # With `use_transactional_fixtures`, a `before(:all)` runs OUTSIDE the
+  # per-example transaction, so its rows are COMMITTED and live for the rest of
+  # the suite. "QA Kabab House" then leaked into a cross-script search spec
+  # three directories away and failed an assertion about multi-word narrowing.
+  #
+  # A spec that makes OTHER specs unreliable is worse than no spec, and it
+  # fails somewhere that gives no hint where to look. Per-example is a couple
+  # of seconds slower and cannot do that.
+  before do
     Object.send(:define_method, :seed_section) { |_title, &block| block.call }
     load Rails.root.join("db/seeds/reference.rb")
     load Rails.root.join("db/seeds/e2e.rb")
