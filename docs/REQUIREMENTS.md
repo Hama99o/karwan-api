@@ -219,3 +219,106 @@ Concretely, and verified rather than assumed:
   see no map. Recorded in `docs/NOTES.md` rather than solved, since the map
   decision is still Hamma9900's.
 
+### R14 — Seeds must be big enough to stress test, not just to demo
+> "the goal is like replication should be good the seed should be enough uh, big
+> country so we can real uh, test like uh, stress test where we can see the
+> pagination and everything is doing well in the live thing"
+
+Two different seed jobs, and they should not be confused:
+
+- **Sample** (`db/seeds/sample.rb`) — a small, hand-written world you can place
+  an order in and read end to end. Every order state, every courier state, real
+  Afghan dishes. For development and for looking at.
+- **Stress** (`db/seeds/stress.rb`) — volume. Enough merchants, items, couriers
+  and order history that pagination, indexes and the admin board are exercised
+  under something like real load. Afghanistan is ~40m people; a neighbourhood
+  in Kabul is the start, not the ceiling.
+
+Opt-in and scaled by env var, because nobody wants 20k orders on every
+`db:seed`. Uses bulk inserts, so it must not be trusted to exercise
+validations — that is what the suite is for.
+
+Built: `db/seeds/stress.rb`, `KARWAN_SEED_STRESS=1`.
+
+### R15 — Live GPS tracking, visible to BOTH sides
+> "if the order is taken the GPS system I don't know if uh, you have think about
+> that it's important also to tracking the thing for both ... the client can see
+> how it's going on, the user can see like everything this should be working
+> also"
+
+Both the customer and the merchant need to see where the job actually is, not
+just what state it is in. A status list answers "has it left?"; a position
+answers "where is it?", which is the question people actually ask.
+
+What exists now: `courier_profiles.last_latitude/longitude/location_updated_at`
+— one current position per courier, with `location_fresh?` refusing a fix older
+than 5 minutes, because a stale fix is a memory and not a location.
+
+What that is enough for: live tracking in v0. The customer app polls the
+courier's current position while their job is active. **Foreground only, while
+a job is active** — background location is explicitly out of v0.
+
+What is NOT built, and needs deciding rather than assuming:
+
+1. **Who may read a courier's position.** Only the customer and merchant of that
+   courier's ACTIVE job, only while it is active, and never the whole fleet.
+   This is an authorization rule, and the edu-safi lesson applies exactly:
+   write the scope *and* use it, with a request spec proving both the refusal
+   and the legitimate path.
+2. **Position at the moments that get disputed.** Where the courier was when
+   they marked picked up and delivered. Cheap to store, and it is the only
+   evidence when a customer says the food never arrived. Recommended; not built.
+3. **Breadcrumbs / route replay.** A position history per job. Genuinely useful
+   for calibrating the ETA speed setting from real deliveries, which CLAUDE.md
+   already calls for. v1 — it is a table and a retention policy, not a v0
+   feature.
+
+### R16 — Pricing and courier earnings are algorithms, and different per demand type
+> "we will need an algorithm how we will decide how much we will give to person
+> and how much we will [take]. Like how it will work, same for driving cars. So
+> how it will work? Like there is will there will be different algorithm for
+> driving uh, and rider."
+> "You will check the professional application, and we will do same as they have
+> done, and we will use same algorithm, everything."
+
+**Deliveries and rides price differently, and this is already reflected in the
+schema** — they are separate tables with separate money columns precisely so
+the two algorithms cannot be forced into one formula:
+
+| | Delivery | Ride |
+|---|---|---|
+| Customer pays | `items_total + delivery_fee` | `fare` |
+| Priced from | flat fee (per-distance later) | base + per-km + per-minute, floored |
+| Courier keeps | `courier_fee` | `fare − commission` |
+| Courier advances | `merchant_payout` — out of their own pocket | nothing |
+| We take | `commission` on the items | `commission` on the fare |
+
+All of the inputs are already **Setting rows**, tunable with no deploy:
+`commission_rate`, `delivery_fee`, `courier_fee`, `trip_base_fare`,
+`trip_fare_per_km`, `trip_fare_per_minute`, `trip_minimum_fare`,
+`trip_commission_rate`, `eta_average_speed_kmh`.
+
+**No calculator is built yet**, deliberately — the numbers that decide it are
+three of Hamma9900's own open questions (what a Kabul courier expects to earn
+per day, what a customer will pay for delivery, how many orders ten merchants
+actually sell). Writing a formula before those are known is guessing with extra
+steps.
+
+What the code must keep true whatever the algorithm turns out to be, and does:
+
+- **Amounts are snapshots.** An order renders the numbers it was priced with,
+  never a recomputation from today's settings.
+- **The parts sum to the whole**, enforced as a validation, so no formula can
+  produce a total nobody can explain at the door.
+- **The server computes and sends totals.** Never assembled on the client.
+- **Money is shown before it is owed** — the customer's total before ordering,
+  the courier's advance before accepting, the commission before confirming.
+
+On copying the professional apps: what is worth taking from Snapp, Meituan,
+Uber and Careem is the **shape** — one wallet, one pool, prepaid commission,
+distance-banded fares, a floor on short jobs, a visible quote before accepting.
+What is not transferable is their **numbers**, which come from their own
+markets and their own cost of living. Surge and incentive pricing in particular
+are on the v0 OUT list and should stay there until utilisation is real and
+measured.
+

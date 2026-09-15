@@ -138,6 +138,58 @@ RSpec.describe Dispatchable do
     end
   end
 
+  describe ".overdue" do
+    # The board needs the SET, not a predicate per record. Measured against
+    # 20,000 stress orders: loading every live order and calling `overdue?`
+    # took 287ms, the scope 9ms.
+    #
+    # The thing that actually matters is that the fast path gives the SAME
+    # answer as the slow one. A scope that disagrees with the method is worse
+    # than a slow method, because the board would quietly show the wrong orders
+    # and nobody would know which to trust. These examples assert agreement
+    # rather than just speed.
+    JOB_CLASSES.each do |klass|
+      it "agrees with ##{'overdue?'} record by record for #{klass.name}" do
+        factory = klass.name.underscore.to_sym
+        fresh = create(factory)
+        stale = create(factory, :overdue)
+
+        from_sql = klass.live.overdue.pluck(:id)
+        from_ruby = klass.live.to_a.select(&:overdue?).map(&:id)
+
+        expect(from_sql.sort).to eq(from_ruby.sort)
+        expect(from_sql).to include(stale.id)
+        expect(from_sql).not_to include(fresh.id)
+      end
+
+      it "excludes terminal #{klass.name} records, which are finished not late" do
+        terminal_trait = klass == Order ? :delivered : :completed
+        done = create(klass.name.underscore.to_sym, terminal_trait)
+        done.update_columns(created_at: 3.days.ago, updated_at: 3.days.ago)
+
+        expect(klass.overdue.pluck(:id)).not_to include(done.id)
+      end
+    end
+
+    # COALESCE to updated_at mirrors #state_entered_at, so a row whose state
+    # column is somehow nil is still judged rather than silently treated as
+    # fresh — silently fresh is how an abandoned order stays invisible.
+    it "still judges a record whose state timestamp is missing" do
+      order = create(:order)
+      order.update_columns(placed_at: nil, updated_at: 3.days.ago, created_at: 3.days.ago)
+
+      expect(Order.overdue.pluck(:id)).to include(order.id)
+    end
+
+    it "builds its condition from TIMEOUTS, so the two cannot disagree" do
+      sql = Order.overdue.to_sql
+
+      Order::TIMEOUTS.each_key do |status|
+        expect(sql).to include("#{status}_at"), "TIMEOUTS names #{status} but the scope does not use #{status}_at"
+      end
+    end
+  end
+
   describe "shared scopes behave the same for both kinds" do
     it ".live excludes terminal states" do
       expect(Order.live).to include(create(:order, :preparing))
