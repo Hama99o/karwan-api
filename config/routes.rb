@@ -94,6 +94,10 @@ Rails.application.routes.draw do
           get :catalog, on: :member
         end
         resources :merchant_categories, only: :index
+
+        # The settings a CLIENT may know, before anyone logs in. Singular: it
+        # is one small object, not a collection to page through.
+        resource :app_config, only: :show, controller: "app_config"
       end
 
       # Namespaced by ROLE. Three thin controllers beat one fat one branching

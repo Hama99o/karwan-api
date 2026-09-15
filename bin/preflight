@@ -108,6 +108,18 @@ else
   note "bin/rails db:seed           (sample data is skipped in production only)"
 fi
 
+# ── A warning, not a failure: SMS ─────────────────────────────────────────
+# The log adapter is correct for development and fatal in production — every
+# user waits for a code that never arrives while the server looks healthy. It
+# does not block a local run, so it warns rather than failing.
+step "SMS (warning only)"
+if [ "${SMS_PROVIDER:-log}" = "log" ]; then
+  say "  · SMS_PROVIDER is 'log' — codes are written to the log, not sent."
+  note "fine locally; in production nobody can sign in. Hamma9900 picks the gateway."
+else
+  ok "SMS_PROVIDER=$SMS_PROVIDER"
+fi
+
 # ── Handover ──────────────────────────────────────────────────────────────
 say ""
 if [ "$FAILED" = 0 ]; then

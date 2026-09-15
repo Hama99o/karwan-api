@@ -103,4 +103,46 @@ RSpec.describe "POST /api/v1/auth/otp", type: :request do
       expect(json).not_to have_key("development_code")
     end
   end
+  # THE SMS ITSELF — there was no message at all before: a code was logged and
+  # no text was ever composed, on the one thing a Kabul user reads from us
+  # first.
+  describe "the message that actually gets sent" do
+    it "sends a body containing the code, through the one adapter class" do
+      expect(Notifications::SmsClient).to receive(:deliver) do |to:, body:|
+        expect(to).to eq("+93700000001")
+        expect(body).to match(/\d{4,8}/)
+        Notifications::SmsClient::Result.new(delivered: true, provider: "log")
+      end
+
+      post "/api/v1/auth/otp", params: { phone: "+93700000001" }
+
+      expect(response).to have_http_status(:ok)
+    end
+
+    it "sends the Pashto template when the app asks in Pashto" do
+      Setting.find_or_initialize_by(key: "otp_sms_body_ps")
+             .update!(value: "کاروان: کوډ %{code}", value_type: :string)
+
+      expect(Notifications::SmsClient).to receive(:deliver) do |to:, body:|
+        expect(body).to start_with("کاروان")
+        Notifications::SmsClient::Result.new(delivered: true, provider: "log")
+      end
+
+      post "/api/v1/auth/otp", params: { phone: "+93700000002", locale: "ps" }
+    end
+
+    # A failed send must not look like a successful one to the server's own
+    # logs — "nobody can log in" and "nothing happened" are different problems.
+    it "logs a failed delivery rather than swallowing it" do
+      allow(Notifications::SmsClient).to receive(:deliver)
+        .and_return(Notifications::SmsClient::Result.new(delivered: false, provider: "log", error: "gateway down"))
+      expect(Rails.logger).to receive(:error).with(/gateway down/)
+
+      post "/api/v1/auth/otp", params: { phone: "+93700000003" }
+
+      # Still 200: the code WAS issued and a retry may land, and telling a
+      # caller which numbers fail is not information worth giving away.
+      expect(response).to have_http_status(:ok)
+    end
+  end
 end

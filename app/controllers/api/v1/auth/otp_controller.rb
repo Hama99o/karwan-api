@@ -33,11 +33,27 @@ class Api::V1::Auth::OtpController < ApplicationController
 
   private
 
-  # No SMS provider is wired yet, deliberately — choosing one is the owner's
-  # decision and it costs money. Logged for now so the flow is exercisable end
-  # to end, and the log line is the thing to replace with the provider call.
+  # Composes the message and hands it to the ONE adapter class.
+  #
+  # There was no message at all before this — a code was logged and no text was
+  # ever written, on the SMS that is the first thing anybody reads from this
+  # platform. The words live in `Setting` rows because an SMS has no device to
+  # translate it (see Notifications::OtpSms), and the locale comes from the
+  # request so a Pashto speaker is not sent English.
+  #
+  # A failed send is LOGGED AND REPORTED, never swallowed: "nobody can log in"
+  # must not look like "nothing happened". The response still says `sent: true`
+  # because the code WAS issued and the user may still receive it on a retry —
+  # and telling an attacker which numbers fail is not information worth giving.
   def deliver(phone, code)
-    Rails.logger.info("[otp] code for #{phone}: #{code}")
+    result = Notifications::SmsClient.deliver(
+      to: phone,
+      body: Notifications::OtpSms.body(code: code, locale: params[:locale])
+    )
+
+    return if result.delivered?
+
+    Rails.logger.error("[otp] delivery failed via #{result.provider}: #{result.error}")
   end
 
   # Returns the code in the response OUTSIDE production only, so the mobile app

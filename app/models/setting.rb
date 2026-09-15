@@ -75,6 +75,20 @@ class Setting < ApplicationRecord
 
     "support_phone"          => { type: :string,  default: "", description: "Shown in all three apps. Delivery is an ops business with an app attached." },
 
+    # THE OTP MESSAGE, per locale. Settings rather than Ruby constants for two
+    # reasons: it is the first thing anybody ever reads from this platform, and
+    # an SMS has no device to translate it — so unlike every other user-facing
+    # string in the system the server must hold the words. Hamma9900 pastes the
+    # real Pashto and Dari into the console with no deploy.
+    #
+    # The defaults are ENGLISH PLACEHOLDERS on purpose: a plausible-but-wrong
+    # guess at Pashto ships unnoticed, and an obviously untranslated string
+    # does not. `%{code}` is required and checked — a template pasted without
+    # it would send a message containing no code.
+    "otp_sms_body_ps"        => { type: :string, default: "Karwan: your code is %{code}", description: "OTP message, Pashto. AWAITING TRANSLATION. Must contain %{code}." },
+    "otp_sms_body_fa"        => { type: :string, default: "Karwan: your code is %{code}", description: "OTP message, Dari. AWAITING TRANSLATION. Must contain %{code}." },
+    "otp_sms_body_en"        => { type: :string, default: "Karwan: your code is %{code}", description: "OTP message, English. Must contain %{code}." },
+
     # Ride fares. Present so the numbers are tunable from day one, exactly like
     # the delivery fee — NOT because the ride product is built. Distance comes
     # from the straight line and eta_average_speed_kmh, not from a router.
