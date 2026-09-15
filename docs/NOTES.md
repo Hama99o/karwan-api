@@ -42,6 +42,19 @@ poor result, it is **zero** results, and a user concludes the app is empty.
 Needs a transliteration map or a normalised search column holding both forms.
 Not built.
 
+### Map tiles stop at the Afghan border, but the app does not
+`hatiwal-map` builds its tileset from `afghanistan-latest.osm.pbf`, so anyone
+just over the border gets blank tiles. The app itself has no country
+restriction and is deliberately usable on a Pakistani or Iranian number
+(R13) — so the map is the one place where "for Afghanistan" is enforced in
+infrastructure rather than by choice.
+
+Not a v0 problem: the first neighbourhood is in Kabul. Worth knowing before
+anyone reports "the map is broken" from Peshawar. Fixing it means a wider
+`--bounds` in planetiler AND the matching `bounds` in `build-styles.mjs` — the
+runbook is explicit that a mismatch makes MapLibre request tiles that do not
+exist.
+
 ### Shamsi dates and Eastern Arabic numerals are not implemented
 Afghanistan does not run on the Gregorian calendar. Store UTC, **render Shamsi**
 in Dari and Pashto. Digits render as ۰۱۲۳۴۵۶۷۸۹ per locale, with two exceptions

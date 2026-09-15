@@ -20,6 +20,22 @@ RSpec.describe User, type: :model do
     end
   end
 
+    # Karwan is FOR Afghanistan, but like Hatiwal it is not technically
+    # restricted to it — the app works for a neighbouring number without that
+    # being advertised. Hamma9900: "this app is only for afg but as we have
+    # done for hatiwal its open in side country pakistan but we did not mention
+    # it".
+    #
+    # So: no country validator, no format validator, no geofence. This example
+    # exists to stop someone adding a `+93` format rule in good faith, which
+    # would lock out every user across the border with no error a person could
+    # act on.
+    it "accepts a phone number from outside Afghanistan" do
+      expect(build(:user, phone: "+923001234567")).to be_valid   # Pakistan
+      expect(build(:user, phone: "+989121234567")).to be_valid   # Iran
+      expect(build(:user, phone: "+93700123456")).to be_valid    # Afghanistan
+    end
+
   describe "associations" do
     it { is_expected.to have_many(:user_roles).dependent(:destroy) }
     it { is_expected.to have_many(:addresses).dependent(:destroy) }

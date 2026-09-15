@@ -193,3 +193,29 @@ rendering, Eastern Arabic numerals per locale (with phone numbers and order
 codes staying Latin and LTR), and cross-script search — trigram similarity
 cannot bridge `کباب` and `kabab`, so that needs a transliteration map or a
 normalised search column. Recorded in `docs/NOTES.md`.
+
+### R13 — For Afghanistan, but not technically restricted to it
+> "remeber this app is only for afg but as we have done for hatiwal its open in
+> side country pakistan but we did not mention it"
+
+The market, the language, the money model and the whole of `AFGHAN_UX.md` are
+Afghanistan. But the app is **not locked to it**, exactly as Hatiwal is not —
+someone on a Pakistani or Iranian number can use it, and that is simply not
+advertised.
+
+Concretely, and verified rather than assumed:
+
+- **No phone format or country validator anywhere.** `users.phone` is validated
+  for presence and uniqueness only. A spec in `user_spec.rb` now asserts that
+  +92, +98 and +93 numbers are all valid, specifically so nobody adds a `+93`
+  rule in good faith and locks out everyone across the border.
+- **No geofence and no country check** in any model or config.
+- **Currency stays AFN-only for v0**, and that is not a contradiction: the
+  `Monetary` concern is the single place a second currency gets added, and every
+  amount already stores its currency explicitly. A PKR merchant later is an edit
+  to `SUPPORTED_CURRENCIES`, not archaeology.
+- **Map bounds are the one place this could bite.** `hatiwal-map` builds its
+  tileset from an Afghanistan extract, so a courier just over the border would
+  see no map. Recorded in `docs/NOTES.md` rather than solved, since the map
+  decision is still Hamma9900's.
+

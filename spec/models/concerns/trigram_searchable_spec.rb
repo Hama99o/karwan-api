@@ -19,7 +19,7 @@ RSpec.describe TrigramSearchable do
     # It was guarded and safe, but brakeman flagged it (exit 3, CI red) and a
     # reader could not see the guard without following the method.
     it "quotes the column as an identifier rather than interpolating it" do
-      expect(Merchant.fuzzy("kebab").to_sql).to include(%{"merchants"."name"})
+      expect(Merchant.fuzzy("kebab").to_sql).to include(%("merchants"."name"))
     end
 
     it "uses the measured threshold" do
