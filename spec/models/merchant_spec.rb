@@ -129,12 +129,18 @@ RSpec.describe Merchant, type: :model do
       expect(described_class.search("mantu")).to be_empty
     end
 
+    # The Dari query now ALSO finds "Shar-e-Naw Kabab House", which is the
+    # cross-script feature working rather than a regression: the dictionary puts
+    # کباب into that merchant's search text because its Latin name contains
+    # "Kabab". Before, a Dari-speaking customer searching کباب would have missed
+    # a kabab house entirely — the exact silent emptiness the feature exists to
+    # prevent.
     it "matches on a merchant category, in any of the three locales" do
       category = create(:merchant_category, :kabab)
       create(:merchant_category_assignment, merchant: pizza_place, merchant_category: category)
 
       expect(described_class.search("kabab")).to contain_exactly(kabab_house, pizza_place)
-      expect(described_class.search("کباب")).to contain_exactly(pizza_place)
+      expect(described_class.search("کباب")).to contain_exactly(kabab_house, pizza_place)
     end
 
     # Each word narrows, and each word may match any of the three sources. This

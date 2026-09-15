@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_15_210100) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_15_220000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -154,6 +154,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_210100) do
     t.integer "position", default: 0, null: false
     t.integer "prep_time_minutes"
     t.decimal "price", precision: 12, scale: 2, null: false
+    t.text "search_text"
     t.datetime "updated_at", null: false
     t.index ["catalog_category_id", "position"], name: "index_catalog_items_on_catalog_category_id_and_position"
     t.index ["catalog_category_id"], name: "index_catalog_items_on_catalog_category_id"
@@ -161,6 +162,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_210100) do
     t.index ["merchant_id", "is_available"], name: "index_catalog_items_on_merchant_id_and_is_available"
     t.index ["merchant_id"], name: "index_catalog_items_on_merchant_id"
     t.index ["name"], name: "index_catalog_items_on_name_trgm", opclass: :gin_trgm_ops, using: :gin
+    t.index ["search_text"], name: "index_catalog_items_on_search_text_trgm", opclass: :gin_trgm_ops, using: :gin
   end
 
   create_table "courier_profiles", force: :cascade do |t|
@@ -286,6 +288,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_210100) do
     t.string "phone", null: false
     t.integer "prep_time_minutes"
     t.text "rejection_reason"
+    t.text "search_text"
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
     t.datetime "verified_at"
@@ -297,6 +300,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_210100) do
     t.index ["name"], name: "index_merchants_on_name_trgm", opclass: :gin_trgm_ops, using: :gin
     t.index ["owner_id"], name: "index_merchants_on_owner_id"
     t.index ["owner_phone"], name: "index_merchants_on_owner_phone"
+    t.index ["search_text"], name: "index_merchants_on_search_text_trgm", opclass: :gin_trgm_ops, using: :gin
     t.index ["status"], name: "index_merchants_on_status"
   end
 

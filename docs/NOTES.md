@@ -13,26 +13,6 @@ Two rules from the wider workspace that apply to this file:
 
 ## Open problems — not yet fixed
 
-### Order timeouts are declared but nothing fires them
-`Order::TIMEOUTS` gives every non-terminal state a deadline and `Order#overdue?`
-reads it, but no job enforces one. **Right now an order can sit in `placed`
-forever** — the exact "person waiting with cold food" the brief warns about.
-Needs a recurring solid_queue job. Until it exists, the admin board's staleness
-colouring is the only thing catching it, which means it depends on someone
-watching.
-
-### Search cannot bridge scripts, and the user will read that as an empty app
-`MerchantCategory.search` checks all three locale columns, so `کباب` finds a
-category. But a merchant NAME or an item name stored in Latin is unreachable by
-a Dari query and vice versa, and trigram similarity cannot help — `کباب` and
-`kabab` share no trigrams at all.
-
-`docs/AFGHAN_UX.md` is explicit that people type both. The consequence is not a
-poor result, it is **zero** results, and a user concludes the app is empty.
-
-Needs a transliteration map or a normalised search column holding both forms.
-Not built.
-
 ### Map tiles stop at the Afghan border, but the app does not
 `hatiwal-map` builds its tileset from `afghanistan-latest.osm.pbf`, so anyone
 just over the border gets blank tiles. The app itself has no country
@@ -45,29 +25,6 @@ anyone reports "the map is broken" from Peshawar. Fixing it means a wider
 `--bounds` in planetiler AND the matching `bounds` in `build-styles.mjs` — the
 runbook is explicit that a mismatch makes MapLibre request tiles that do not
 exist.
-
-### Shamsi dates and Eastern Arabic numerals are not implemented
-Afghanistan does not run on the Gregorian calendar. Store UTC, **render Shamsi**
-in Dari and Pashto. Digits render as ۰۱۲۳۴۵۶۷۸۹ per locale, with two exceptions
-that stay Latin and left-to-right inside RTL text: **phone numbers and order
-reference codes** — mirroring those makes them unusable.
-
-Both belong in the localisation layer, solved once, not per screen. Nothing in
-the API formats dates or numbers for display yet, which is the right time to
-decide that the API sends ISO-8601 UTC and raw numbers, and the client renders.
-
-### `Setting` rows are not read by anything yet
-`Setting.fetch` works and raises on unknown keys, but no order-pricing code
-calls it, because there is no order-pricing code yet. When that lands, the
-commission/fee values must come from `Setting.fetch`, not from
-`Merchant#commission_rate` alone and never from a constant.
-
----
-
-## Gap analysis against hatiwal-api (2026-09-15)
-
-Hamma9900: *"Check hatiwal api make sure we and inspire from it and get the
-gap."* Compared directory by directory, gem by gem, initializer by initializer.
 
 ### Closed as a result
 
@@ -111,6 +68,63 @@ At that point it is worth the rewrite; before it, the specs already document
 the endpoints and the rewrite would buy a web page.
 
 ## Solved, with the reasoning
+
+### Cross-script search — CLOSED, and the design was chosen by measurement
+A customer typing `kabab` could not find کباب. The failure mode was the worst
+kind: the app looked **empty rather than broken**, so nobody would report it,
+and a customer acquired by a personal conversation would be lost silently.
+
+Two designs were possible — transliterate the QUERY, or store a normalised
+column. **Measured first**, against the 0.3 trigram threshold:
+
+| query | consonant skeleton | word_similarity |
+|---|---|---|
+| kabab | kbab | 0.375 ok |
+| kabob | kbab | **0.167 fails** |
+| mantu | mntw | **0.167 fails** |
+| burger | brgr | **0.143 fails** |
+| bolani | bwlany | **0.200 fails** |
+
+So a character map alone does not work: Arabic script omits short vowels and
+writes و/ی where Latin writes o/u and i/y. That made the **curated dictionary
+the primary mechanism and romanisation the fallback**, rather than the reverse.
+
+**Stored column, not query transliteration**, for three reasons: it works in
+BOTH directions from one index (transliterating the query only bridges
+Latin→script, so someone typing کباب against "Kabab House" would still find
+nothing); query time is unchanged at one GIN index; and script→Latin is
+defensible while Latin→script is ambiguous, so romanising once at write time is
+the direction that has an answer.
+
+Romanisation emits multiple forms per letter and one inserted-"a" guess, which
+is what rescues `kabab` from کباب exactly rather than hoping trigram bridges
+`kbab`. Only "a" is inserted — adding "i" and "u" multiplied the variants
+without adding matches in the measured cases, and an index of near-duplicates
+makes every query slower for nothing.
+
+**A spec caught that the SCRIPT side needs variants too.** The dictionary had
+منتو, a merchant wrote مانتو, and `mantoo` found nothing — the Latin spellings
+were only reachable through the one script form listed. Both spellings are
+real, and a merchant types whichever they use.
+
+`COALESCE(search_text, name)` everywhere, so a row whose column has not been
+built yet is still findable rather than invisible.
+
+### Order timeouts — CLOSED by `eadd223`
+`Dispatch::ExpireOffersJob` and `Dispatch::JobTimeoutsJob` both exist and are
+scheduled in `config/recurring.yml`. Closing that gap also revealed that
+**solid_queue had never been installed**, so even a correct schedule would have
+run nowhere.
+
+### `Setting` rows are read throughout — CLOSED
+`Pricing::DeliveryQuote` and `Pricing::RideQuote` read them on every quote
+(3 and 5 call sites), and an admin spec changes a fee through the console and
+asserts the NEXT quote is different. The Config screen closes that loop.
+
+### Shamsi dates and Eastern Arabic numerals — CLOSED in karwan-mobile
+`src/i18n/shamsi.ts` and `src/i18n/numerals.ts`, both with tests. Verified
+before moving this entry rather than taken on trust.
+
 
 ### OTP send throttling — CLOSED, and it was a bill rather than a security gap
 `OtpVerification` limited *guesses* (`MAX_ATTEMPTS`) but nothing limited

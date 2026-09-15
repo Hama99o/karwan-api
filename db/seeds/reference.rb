@@ -46,3 +46,13 @@ seed_section "merchant categories" do
     MerchantCategory.find_or_initialize_by(slug: attrs[:slug]).update!(attrs)
   end
 end
+
+seed_section "search text" do
+  # Built AFTER the rows exist, because `search_text` is derived from names and
+  # a freshly-seeded database would otherwise have rows nothing can find. Cheap
+  # and idempotent: it recomputes the same value from the same name.
+  #
+  # Also the rebuild to run after any change to Search::TermDictionary.
+  Merchant.rebuild_search_text!
+  CatalogItem.rebuild_search_text!
+end

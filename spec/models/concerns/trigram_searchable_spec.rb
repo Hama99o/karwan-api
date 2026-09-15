@@ -11,7 +11,9 @@ RSpec.describe TrigramSearchable do
       # Argument order is the bug this concern was rewritten to fix: reversed,
       # word_similarity scores the whole column against the query and behaves
       # like plain similarity(), which failed every transliteration case.
-      expect(sql).to include(%{word_similarity('kebab', "merchants"."name")})
+      # `search_text`, not `name` — fuzzy matching runs over the cross-script
+      # column so a different transliteration matches as well as a typo.
+      expect(sql).to include(%{word_similarity('kebab', "merchants"."search_text")})
       expect(sql).to include("DESC")
     end
 
@@ -19,7 +21,7 @@ RSpec.describe TrigramSearchable do
     # It was guarded and safe, but brakeman flagged it (exit 3, CI red) and a
     # reader could not see the guard without following the method.
     it "quotes the column as an identifier rather than interpolating it" do
-      expect(Merchant.fuzzy("kebab").to_sql).to include(%("merchants"."name"))
+      expect(Merchant.fuzzy("kebab").to_sql).to include(%("merchants"."search_text"))
     end
 
     it "uses the measured threshold" do

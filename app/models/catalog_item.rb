@@ -2,6 +2,7 @@ class CatalogItem < ApplicationRecord
   include Monetary
   include SoftDeletable
   include TrigramSearchable
+  include Searchable
 
   belongs_to :merchant
   belongs_to :catalog_category, inverse_of: :catalog_items
@@ -29,13 +30,17 @@ class CatalogItem < ApplicationRecord
 
     query.to_s.strip.split(/\s+/).reduce(all) do |result, word|
       term = "%#{word.downcase}%"
-      result.where("LOWER(catalog_items.name) LIKE :t OR LOWER(COALESCE(catalog_items.description, '')) LIKE :t", t: term)
+      result.where(
+        "LOWER(COALESCE(catalog_items.search_text, catalog_items.name)) LIKE :t " \
+        "OR LOWER(COALESCE(catalog_items.description, '')) LIKE :t",
+        t: term
+      )
     end
   end
 
   # Typo/transliteration fallback, ranked by closeness.
   def self.fuzzy(query)
-    fuzzy_on(:name, query)
+    fuzzy_on(:search_text, query)
   end
 
   # The item's own prep time if set, else the merchant's — and nil for anything

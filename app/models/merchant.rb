@@ -1,6 +1,7 @@
 class Merchant < ApplicationRecord
   include SoftDeletable
   include TrigramSearchable
+  include Searchable
 
   enum :status, { pending: 0, active: 1, suspended: 2, rejected: 3 }, prefix: true
 
@@ -55,13 +56,13 @@ class Merchant < ApplicationRecord
     query.to_s.strip.split(/\s+/).reduce(all) do |result, word|
       term = "%#{word.downcase}%"
       result.where(
-        "LOWER(merchants.name) LIKE :t
+        "LOWER(COALESCE(merchants.search_text, merchants.name)) LIKE :t
          OR EXISTS (
               SELECT 1 FROM catalog_items mi
               WHERE mi.merchant_id = merchants.id
                 AND mi.deleted_at IS NULL
                 AND mi.is_available = TRUE
-                AND LOWER(mi.name) LIKE :t
+                AND LOWER(COALESCE(mi.search_text, mi.name)) LIKE :t
             )
          OR EXISTS (
               SELECT 1 FROM merchant_category_assignments rc
@@ -76,8 +77,10 @@ class Merchant < ApplicationRecord
 
   # Fallback for when `search` returns nothing because of a typo or a different
   # transliteration. Ranked by similarity, so the closest spelling comes first.
+  # Fuzzy over the cross-script column, so a different transliteration matches
+  # as well as a typo.
   def self.fuzzy(query)
-    fuzzy_on(:name, query)
+    fuzzy_on(:search_text, query)
   end
 
   # `is_open` is a MANUAL toggle and is the authority. Opening hours are
