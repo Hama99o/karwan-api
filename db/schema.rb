@@ -10,12 +10,13 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_15_120700) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_15_120900) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
   create_table "addresses", force: :cascade do |t|
     t.datetime "created_at", null: false
+    t.datetime "deleted_at"
     t.boolean "is_default", default: false, null: false
     t.string "label"
     t.text "landmark_note"
@@ -24,6 +25,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_120700) do
     t.string "phone"
     t.datetime "updated_at", null: false
     t.bigint "user_id", null: false
+    t.index ["deleted_at"], name: "index_addresses_on_kept", where: "(deleted_at IS NULL)"
     t.index ["user_id", "is_default"], name: "index_addresses_on_user_id_and_is_default"
     t.index ["user_id"], name: "index_addresses_on_user_id"
   end
@@ -60,10 +62,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_120700) do
 
   create_table "menu_categories", force: :cascade do |t|
     t.datetime "created_at", null: false
+    t.datetime "deleted_at"
     t.string "name", null: false
     t.integer "position", default: 0, null: false
     t.bigint "restaurant_id", null: false
     t.datetime "updated_at", null: false
+    t.index ["deleted_at"], name: "index_menu_categories_on_kept", where: "(deleted_at IS NULL)"
     t.index ["restaurant_id", "position"], name: "index_menu_categories_on_restaurant_id_and_position"
     t.index ["restaurant_id"], name: "index_menu_categories_on_restaurant_id"
   end
@@ -98,6 +102,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_120700) do
   create_table "menu_items", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "currency", default: "AFN", null: false
+    t.datetime "deleted_at"
     t.text "description"
     t.boolean "is_available", default: true, null: false
     t.bigint "menu_category_id", null: false
@@ -107,6 +112,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_120700) do
     t.decimal "price", precision: 12, scale: 2, null: false
     t.bigint "restaurant_id", null: false
     t.datetime "updated_at", null: false
+    t.index ["deleted_at"], name: "index_menu_items_on_kept", where: "(deleted_at IS NULL)"
     t.index ["menu_category_id", "position"], name: "index_menu_items_on_menu_category_id_and_position"
     t.index ["menu_category_id"], name: "index_menu_items_on_menu_category_id"
     t.index ["restaurant_id", "is_available"], name: "index_menu_items_on_restaurant_id_and_is_available"
@@ -244,34 +250,61 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_120700) do
 
   create_table "restaurants", force: :cascade do |t|
     t.decimal "commission_rate", precision: 5, scale: 4, default: "0.125", null: false
+    t.string "contact_person_name"
+    t.string "contact_person_phone"
     t.datetime "created_at", null: false
+    t.datetime "deleted_at"
     t.text "description"
     t.boolean "is_open", default: false, null: false
     t.text "landmark_note"
     t.decimal "latitude", precision: 10, scale: 6
+    t.string "license_number"
     t.decimal "longitude", precision: 10, scale: 6
     t.string "name", null: false
     t.bigint "owner_id"
+    t.string "owner_name"
+    t.string "owner_national_id_number"
+    t.string "owner_phone"
     t.string "phone", null: false
     t.integer "prep_time_minutes", default: 20, null: false
+    t.text "rejection_reason"
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
+    t.datetime "verified_at"
+    t.bigint "verified_by_id"
+    t.index ["deleted_at"], name: "index_restaurants_on_kept", where: "(deleted_at IS NULL)"
     t.index ["is_open"], name: "index_restaurants_on_is_open"
     t.index ["name"], name: "index_restaurants_on_name"
     t.index ["owner_id"], name: "index_restaurants_on_owner_id"
+    t.index ["owner_phone"], name: "index_restaurants_on_owner_phone"
     t.index ["status"], name: "index_restaurants_on_status"
   end
 
   create_table "rider_profiles", force: :cascade do |t|
     t.datetime "created_at", null: false
+    t.string "father_name"
+    t.string "full_name"
+    t.string "guarantor_name"
+    t.string "guarantor_phone"
+    t.string "guarantor_relation"
     t.boolean "is_available", default: false, null: false
     t.decimal "last_latitude", precision: 10, scale: 6
     t.decimal "last_longitude", precision: 10, scale: 6
     t.datetime "location_updated_at"
+    t.string "national_id_number"
+    t.string "plate_number"
+    t.text "rejection_reason"
     t.datetime "updated_at", null: false
     t.bigint "user_id", null: false
+    t.integer "vehicle_type", default: 0, null: false
+    t.integer "verification_status", default: 0, null: false
+    t.datetime "verified_at"
+    t.bigint "verified_by_id"
+    t.text "work_area"
     t.index ["is_available"], name: "index_rider_profiles_on_is_available"
+    t.index ["national_id_number"], name: "index_rider_profiles_on_national_id_number"
     t.index ["user_id"], name: "index_rider_profiles_on_user_id", unique: true
+    t.index ["verification_status"], name: "index_rider_profiles_on_verification_status"
   end
 
   create_table "rider_wallets", force: :cascade do |t|
@@ -343,12 +376,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_120700) do
   create_table "users", force: :cascade do |t|
     t.integer "active_role", default: 0, null: false
     t.datetime "created_at", null: false
+    t.datetime "deleted_at"
     t.string "locale", default: "fa", null: false
     t.string "name"
     t.string "phone", null: false
     t.datetime "phone_verified_at"
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
+    t.index ["deleted_at"], name: "index_users_on_kept", where: "(deleted_at IS NULL)"
     t.index ["phone"], name: "index_users_on_phone", unique: true
     t.index ["status"], name: "index_users_on_status"
   end
@@ -390,7 +425,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_120700) do
   add_foreign_key "orders", "users", column: "rider_id"
   add_foreign_key "restaurant_opening_hours", "restaurants"
   add_foreign_key "restaurants", "users", column: "owner_id"
+  add_foreign_key "restaurants", "users", column: "verified_by_id"
   add_foreign_key "rider_profiles", "users"
+  add_foreign_key "rider_profiles", "users", column: "verified_by_id"
   add_foreign_key "rider_wallets", "users"
   add_foreign_key "settings", "users", column: "updated_by_id"
   add_foreign_key "settlements", "users", column: "counted_by_id"
