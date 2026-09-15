@@ -1,4 +1,4 @@
-module Customer
+module Customers
   # A merchant's catalog, grouped the way the merchant groups it.
   #
   # Sold-out items are INCLUDED and flagged, not filtered out. A customer

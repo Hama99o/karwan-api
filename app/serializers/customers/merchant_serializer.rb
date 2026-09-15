@@ -1,4 +1,4 @@
-module Customer
+module Customers
   # A merchant as a CUSTOMER sees it. Photo-led and thin, because this renders
   # in a list on a cheap phone over a metered connection.
   #

@@ -1,4 +1,4 @@
-module Customer
+module Customers
   # An order as the CUSTOMER sees it.
   #
   # What is deliberately absent: the commission, the merchant payout, the

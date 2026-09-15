@@ -1,17 +1,17 @@
 # The customer's own orders: price one, place one, watch it, cancel it.
-class Api::V1::Customer::OrdersController < Api::V1::BaseController
+class Api::V1::Customers::OrdersController < Api::V1::BaseController
   before_action :set_order, only: %i[show cancel]
 
   def index
     orders = policy_scope(Order).includes(:merchant, :order_items).newest_first
 
-    paginate_blue(Customer::OrderSerializer, orders, extra: { view: :list })
+    paginate_blue(Customers::OrderSerializer, orders, extra: { view: :list })
   end
 
   def show
     authorize @order, :show?
 
-    render_blue(Customer::OrderSerializer, @order, view: :detailed)
+    render_blue(Customers::OrderSerializer, @order, view: :detailed)
   end
 
   # Prices a cart WITHOUT creating anything.
@@ -30,7 +30,7 @@ class Api::V1::Customer::OrdersController < Api::V1::BaseController
       delivery_longitude: order_params[:delivery_longitude]
     ).call
 
-    render_blue(Customer::QuoteSerializer, result)
+    render_blue(Customers::QuoteSerializer, result)
   rescue Orders::PlaceService::Error, Pricing::DeliveryQuote::Error => e
     render_unprocessable_entity(e.message, code: error_code_for(e))
   end
@@ -48,7 +48,7 @@ class Api::V1::Customer::OrdersController < Api::V1::BaseController
       notes: order_params[:notes]
     ).call
 
-    render_blue(Customer::OrderSerializer, order, view: :detailed, status: :created)
+    render_blue(Customers::OrderSerializer, order, view: :detailed, status: :created)
   rescue Orders::PlaceService::Error, Pricing::DeliveryQuote::Error => e
     render_unprocessable_entity(e.message, code: error_code_for(e))
   end
@@ -64,7 +64,7 @@ class Api::V1::Customer::OrdersController < Api::V1::BaseController
     AuditLog.record!(action: "order.cancelled", actor: current_user, actor_role: :customer,
                      target: @order, after: { status: "cancelled" })
 
-    render_blue(Customer::OrderSerializer, @order, view: :detailed)
+    render_blue(Customers::OrderSerializer, @order, view: :detailed)
   end
 
   private

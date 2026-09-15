@@ -1,6 +1,6 @@
 require "rails_helper"
 
-RSpec.describe "Api::V1::Customer::Orders", type: :request do
+RSpec.describe "Api::V1::Customers::Orders", type: :request do
   def json
     JSON.parse(response.body)
   end

@@ -1,4 +1,4 @@
-module Customer
+module Customers
   # A price BEFORE the order exists.
   #
   # Correction 4: money is shown before it is owed, at every step, for every

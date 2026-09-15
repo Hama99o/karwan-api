@@ -13,7 +13,7 @@ class Api::V1::Public::MerchantsController < Api::V1::PublicController
     merchants = merchants.where(is_open: true) if truthy?(params[:open_now])
     merchants = order_for(merchants)
 
-    paginate_blue(Customer::MerchantSerializer, merchants,
+    paginate_blue(Customers::MerchantSerializer, merchants,
                   extra: { view: :list, locale: locale, from: origin })
   end
 
@@ -21,7 +21,7 @@ class Api::V1::Public::MerchantsController < Api::V1::PublicController
     merchant = policy_scope(Merchant).find(params[:id])
     authorize merchant, :show?
 
-    render_blue(Customer::MerchantSerializer, merchant, view: :detailed,
+    render_blue(Customers::MerchantSerializer, merchant, view: :detailed,
                                                         options: { locale: locale, from: origin })
   end
 
@@ -33,7 +33,7 @@ class Api::V1::Public::MerchantsController < Api::V1::PublicController
     categories = merchant.catalog_categories.kept.ordered
                          .includes(catalog_items: [ :photo_attachment, { options: :values } ])
 
-    render_blue_collection(Customer::CatalogSerializer, categories, options: { locale: locale })
+    render_blue_collection(Customers::CatalogSerializer, categories, options: { locale: locale })
   end
 
   private
