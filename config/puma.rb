@@ -28,8 +28,21 @@
 threads_count = ENV.fetch("RAILS_MAX_THREADS", 3)
 threads threads_count, threads_count
 
-# Specifies the `port` that Puma will listen on to receive requests; default is 3000.
-port ENV.fetch("PORT", 3000)
+# The port Puma listens on.
+#
+# 3017 RATHER THAN RAILS' OWN DEFAULT OF 3000, and this is a correctness fix
+# rather than a preference. The box runs several apps at once, 3000 is already
+# a DIFFERENT live application, and `port ENV.fetch("PORT", 3000)` meant this
+# API only landed on 3017 when whoever started it remembered `-p 3017`. When
+# they did not, it bound 3000 — and a health check then reported a green API
+# that was a stranger's. That actually happened: `qa.sh doctor` passed against
+# another app entirely.
+#
+# So the convention lives HERE, where starting the server wrongly is no longer
+# possible, instead of in the README, where it was missed. `spec/config/port_spec.rb`
+# asserts it, because a default nobody checks drifts back.
+DEFAULT_PORT = 3017
+port ENV.fetch("PORT", DEFAULT_PORT)
 
 # Allow puma to be restarted by `bin/rails restart` command.
 plugin :tmp_restart

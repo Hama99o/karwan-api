@@ -94,7 +94,9 @@ habits transfer. Two departures, both intentional:
 docker compose up -d          # Postgres on 5417
 bundle install
 bin/rails db:prepare
-bin/rails s -p 3017           # http://localhost:3017
+bin/rails s                   # http://localhost:3017 — the port is the DEFAULT now,
+                              # set in config/puma.rb, so `-p` is not needed and
+                              # forgetting it can no longer bind 3000 (another app)
 ```
 
 The app runs on the host, not in a container — this box hosts several projects

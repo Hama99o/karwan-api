@@ -36,7 +36,9 @@ Rails.application.configure do
   config.action_mailer.perform_caching = false
 
   # Set localhost to be used by links generated in mailer templates.
-  config.action_mailer.default_url_options = { host: "localhost", port: 3000 }
+  # 3017, not Rails' default 3000 — see config/puma.rb. A link generated here
+  # pointing at 3000 would open a different application running on this box.
+  config.action_mailer.default_url_options = { host: "localhost", port: 3017 }
 
   # Print deprecation notices to the Rails logger.
   config.active_support.deprecation = :log

@@ -40,6 +40,45 @@ client is a test the specs cannot write.**
    endpoints that exist behave, and says nothing about a predicate nothing
    calls.**
 
+### The API bound port 3000 unless someone remembered `-p 3017` — CLOSED
+
+Rails ships `port ENV.fetch("PORT", 3000)` and **3000 on this box is a
+different live application**. So the API only landed on 3017 when whoever
+started it remembered the flag, and when they did not, a health check reported
+a **green API that was a stranger's** — `qa.sh doctor` did exactly that.
+
+The convention lived in the README, which is why it was missed. It now lives in
+`config/puma.rb` as `DEFAULT_PORT = 3017`, with the same correction in
+`config/environments/development.rb` (a generated dev URL pointing at 3000
+would open that other app), and `spec/config/port_spec.rb` asserts both.
+
+**The general lesson, which is bigger than the port:** a convention that can
+only be honoured by remembering it is not a convention, it is a trap with a
+docstring. Put it where the wrong thing is impossible.
+
+Two smaller notes from the same fix: the port question originally looked like a
+conflict between 3017 and 3028 and was not — 3017 is this API and 3028 is
+Metro, the mobile bundler, two services that never needed to agree. And the
+first version of `port_spec.rb` **failed against a correct file**, because the
+comment explaining the old `ENV.fetch("PORT", 3000)` was matched instead of the
+code. A checker that reads prose is measuring the wrong thing whichever way it
+lands; it strips comments now.
+
+### A jest setup file can hollow out a test — recorded for the mobile repo
+
+Not an API problem, but the same class as everything else in this file and the
+mobile repo's `src/__tests__/setup.ts` now carries it in full:
+
+- `setup.ts` imports `@/i18n` **before** any test file's `jest.mock` registers,
+  so that module has already bound the real dependency and a later mock of it
+  is never called. A test written that way passes for the wrong reason.
+- The mocks in a setup file can make a bug **unreachable**: a no-op restart and
+  a pre-applied `forceRTL(true)` are exactly the two conditions under which the
+  F-01 restart loop cannot occur, which is why 83 green tests missed an app
+  that never rendered on a device.
+
+Mock the LEAF the device actually uses, and assert both directions of any rule.
+
 ### Small gaps the mobile wiring exposed and did not close
 
 - **The active order costs two requests.** There is no `/customer/orders/active`.
