@@ -11,6 +11,15 @@ Rails.application.routes.draw do
         post "session", to: "sessions#create"
         delete "session", to: "sessions#destroy"
       end
+
+      # Guest-browsable. Deliberately not under a role namespace, because it
+      # belongs to nobody in particular — a user who has not logged in yet.
+      namespace :public do
+        resources :merchants, only: %i[index show] do
+          get :catalog, on: :member
+        end
+        resources :merchant_categories, only: :index
+      end
     end
   end
 end

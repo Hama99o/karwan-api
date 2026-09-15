@@ -581,3 +581,39 @@ checked also"* — that is a `vehicle_type` multiplier defaulting to 1.0, later)
 duration, waiting time, multi-stop, promo codes, per-courier rates. Do not build any of them
 now. **Do** keep the frozen-amount discipline that makes adding them safe: every amount is
 written onto the order or trip row at the moment it is quoted, never recomputed for display.
+
+**14. No third-party API on any path an order touches — and the two honest exceptions.**
+Hamma9900's instruction: no Google, no keyed API, *"everything will be coded by us."* He also
+said to correct him if he is wrong, so this states the rule precisely and then names what it
+cannot cover.
+
+**The rule.** Nothing metered, nothing keyed, nothing that can raise its price or revoke
+access. No Google Maps, no Mapbox, no third-party geocoder, no routing API, no hosted search,
+no analytics SDK, no crash reporter that phones home.
+
+**The distinction that makes this achievable: self-hosted open source is not a third-party
+API.** We run OpenStreetMap data, planetiler, go-pmtiles, OSRM, MapLibre, nginx, Postgres,
+Rails and Expo. We did not write them and we are not going to — writing a routing engine
+instead of running OSRM is months of work for a worse result. What matters is that they run on
+**his** VPS, with no key, no per-request bill, and no company able to cut us off. That is what
+"coded by us" has to mean in practice, and by that standard the map stack already qualifies:
+measured marginal cost per order, zero.
+
+**Exception 1 — SMS for OTP. Unavoidable, and it costs real money per message.** Delivering a
+text to an Afghan phone requires a carrier or an SMS gateway. There is no self-hosted
+substitute. This is the one true per-unit cost in v0, which is exactly why **OTP send
+throttling is a billing control, not just a security control.** Choose the gateway on price per
+message to Afghan networks and keep the sending behind one adapter class so it can be swapped
+in an afternoon.
+
+**Exception 2 — push notifications. FCM, which is Google.** Android push delivery goes through
+Firebase Cloud Messaging; iOS goes through APNs. Neither can be self-hosted — the OS itself
+holds the socket. It is free and not metered, but it is a Google dependency and Hamma9900
+should know it exists rather than discover it. The mitigation is already in `PRODUCT.md`:
+**never rely on one mechanism for the merchant alert** — push, plus in-app polling while the
+app is open, plus an SMS or phone path. A missed alert is a lost order, so push is one of three
+channels rather than the channel.
+
+Everything else — tiles, styles, fonts, routing, geocoding-if-ever, search, ETA, tracking,
+reporting — is ours and self-hosted. If a proposal introduces a third dependency, it comes to
+Hamma9901 before any code is written, with its monthly cost stated.
