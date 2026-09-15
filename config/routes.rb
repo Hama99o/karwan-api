@@ -25,6 +25,32 @@ Rails.application.routes.draw do
       # on current_user — duplication between roles is cheaper than coupling
       # between roles, because roles diverge and the conditionals never get
       # removed.
+      namespace :couriers, path: "courier" do
+        # Singular: a courier has one shift state, so it is a resource rather
+        # than a collection.
+        resource :shift, only: %i[show update], controller: "shifts" do
+          post :location, on: :member
+        end
+
+        # Singular on purpose: a courier has at most ONE live offer, and an
+        # index route would invite a list screen the product deliberately does
+        # not have.
+        resource :offer, only: :show, controller: "offers"
+        resources :offers, only: [] do
+          member do
+            post :accept
+            post :decline
+          end
+        end
+
+        # The one job in front of them, not a list.
+        resource :job, only: :show, controller: "jobs"
+        # `kind` is in the path because the two demand types are separate
+        # tables — one screen does not mean one table.
+        post "jobs/:kind/:id/advance", to: "jobs#advance", as: :advance_job
+        post "jobs/:kind/:id/problem", to: "jobs#problem", as: :problem_job
+      end
+
       namespace :merchants, path: "merchant" do
         resources :orders, only: %i[index show] do
           member do
