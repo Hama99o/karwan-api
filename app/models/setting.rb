@@ -17,13 +17,37 @@ class Setting < ApplicationRecord
   # returning nil and letting a fee silently become zero.
   DEFINITIONS = {
     "commission_rate"        => { type: :decimal, default: "0.125", description: "Platform share of the food total (0.125 = 12.5%)" },
-    "delivery_fee"           => { type: :decimal, default: "100.0", currency: "AFN", description: "Charged to the customer per order" },
-    "courier_fee"            => { type: :decimal, default: "100.0", currency: "AFN", description: "Paid to the courier per food delivery" },
+    # Delivery fee, distance-based. Replaces an earlier flat `delivery_fee`,
+    # per Hamma9900: "we will do a simple algorithm, we will test how many
+    # kilometers". Two mechanisms would mean code deciding which to trust, so
+    # there is one.
+    #
+    # There is deliberately no `courier_fee` row: in v0 the courier keeps the
+    # whole delivery fee. `orders.courier_fee` is still its own column, so the
+    # platform can later take a cut of delivery without a migration — but a cut
+    # now would pay couriers less than the customer already believes, and
+    # courier supply is the scarce side.
+    "delivery_base_fee"      => { type: :decimal, default: "50.0", currency: "AFN", description: "Charged on every delivery before distance" },
+    "delivery_fee_per_km"    => { type: :decimal, default: "20.0", currency: "AFN", description: "Added per straight-line kilometre" },
+    "delivery_minimum_fee"   => { type: :decimal, default: "80.0", currency: "AFN", description: "Floor, so a very short delivery is still worth taking" },
     "cash_in_hand_limit"     => { type: :decimal, default: "3000.0", currency: "AFN", description: "Above this a rider must settle before taking more work" },
     "default_credit_line"    => { type: :decimal, default: "500.0", currency: "AFN", description: "How far a new rider's wallet may go below zero" },
     "eta_average_speed_kmh"  => { type: :decimal, default: "18.0", description: "Straight-line distance / this = ETA. Calibrate from real deliveries." },
     "dispatch_offer_ttl_sec" => { type: :integer, default: "60", description: "How long a rider has to answer an offer before it moves on" },
     "dispatch_max_offers"    => { type: :integer, default: "5", description: "Riders tried before the order is surfaced to admin" },
+    # OTP SEND limits. These are a BILL, not only a security control: SMS is one
+    # of exactly two recurring costs in v0, and an unthrottled request endpoint
+    # is someone else spending the owner's money. They are settings rather than
+    # constants so a number can be tightened during an attack without a deploy.
+    #
+    # Two limits, because they stop different things. The burst limit stops
+    # somebody hammering one number — harassment, and a fast bill. The daily
+    # limit caps what a single number can ever cost us, however patient the
+    # caller is.
+    "otp_max_sends_per_window" => { type: :integer, default: "3", description: "OTP messages allowed to one number within the burst window" },
+    "otp_send_window_minutes"  => { type: :integer, default: "15", description: "Length of the OTP burst window, in minutes" },
+    "otp_max_sends_per_day"    => { type: :integer, default: "10", description: "Hard daily cap on OTP messages to one number" },
+
     "support_phone"          => { type: :string,  default: "", description: "Shown in all three apps. Delivery is an ops business with an app attached." },
 
     # Ride fares. Present so the numbers are tunable from day one, exactly like

@@ -13,15 +13,6 @@ Two rules from the wider workspace that apply to this file:
 
 ## Open problems — not yet fixed
 
-### OTP send throttling is not built
-`OtpVerification` limits *guesses* (`MAX_ATTEMPTS`) but nothing limits *sends*.
-As it stands, whoever gets the request endpoint can bill us for SMS and harass
-any phone number in Afghanistan. Needs a per-phone send limit
-(e.g. 3 per 15 min, 10 per day) before the endpoint exists — not after.
-
-hatiwal-api has `app/controllers/concerns/rate_limitable.rb`; read it before
-writing a second one.
-
 ### Order timeouts are declared but nothing fires them
 `Order::TIMEOUTS` gives every non-terminal state a deadline and `Order#overdue?`
 reads it, but no job enforces one. **Right now an order can sit in `placed`
@@ -74,6 +65,33 @@ commission/fee values must come from `Setting.fetch`, not from
 ---
 
 ## Solved, with the reasoning
+
+### OTP send throttling — CLOSED, and it was a bill rather than a security gap
+`OtpVerification` limited *guesses* (`MAX_ATTEMPTS`) but nothing limited
+*sends*. Anyone reaching the request endpoint could bill us for SMS and harass
+any number in Afghanistan.
+
+The reframe that raised its priority: SMS is one of exactly **two** recurring
+costs in v0 (the other is the VPS), and the owner is self-funding. An
+unthrottled endpoint is somebody else spending his money.
+
+Two limits, because they stop different things:
+- **burst** — `otp_max_sends_per_window` (3) within `otp_send_window_minutes`
+  (15). Stops hammering one number.
+- **daily** — `otp_max_sends_per_day` (10). Caps what one number can ever cost,
+  however patient the caller. Without it, a sliding burst window is an
+  unlimited budget spent three at a time.
+
+Counted from the rows, not from a cache, so it survives a restart and cannot be
+reset by making the cache miss. Raised *before* the code is generated, since the
+cost being protected is the SMS. `Throttled` carries `retry_after_seconds`,
+because "too many attempts" with no number is the dead end that loses a
+first-time user — and every user here arrived through a conversation somebody had
+in person.
+
+**Proven to fail**: removing the `raise` turns 4 examples red; restoring it
+turns them green. Self-review Q1 done rather than claimed.
+
 
 ### `db:migrate` on an EMPTY database loads `schema.rb` and marks every migration applied
 This is the worst trap hit so far, because it reports success.

@@ -558,3 +558,26 @@ benefit of Hatiwal's real deployment lessons — take them rather than rediscove
 the shared map service must not be destabilised by Karwan's needs while Hatiwal is launching.
 Extend `hatiwal-map`, keep it backwards compatible, add OSRM alongside rather than in place of
 anything.
+
+**13. Pricing stays deliberately stupid in v0, and admin-tunable.** His instruction: no deep
+algorithm work now, because the mobile app and the map still have to be built. Both formulas
+are two-part tariffs reading `Setting` rows, so he retunes prices from the admin console with
+no deploy:
+
+- **Delivery fee** = base + (per-km × merchant→customer distance), floored at a minimum.
+  Revenue is the **commission** on the items total, per merchant.
+- **Ride fare** = base + (per-km × distance) + (per-minute × duration), floored at a minimum.
+  Revenue is a commission on the fare.
+
+**The ride fare is quoted upfront and frozen on the trip, never metered.** This is a market
+call, not a shortcut: an Afghan passenger already agrees a price with a taxi driver *before*
+getting in, and a meter whose arithmetic the passenger cannot verify is exactly the trust
+problem this platform exists to solve. Upfront pricing also deletes a whole class of work —
+no live meter, no recalculation, no fare disputes.
+
+**Deliberately OUT of v0 pricing,** and each costs one config row or one multiplier when it is
+wanted: surge or time-of-day multipliers, zones, vehicle classes (he raised *"the car should be
+checked also"* — that is a `vehicle_type` multiplier defaulting to 1.0, later), traffic-aware
+duration, waiting time, multi-stop, promo codes, per-courier rates. Do not build any of them
+now. **Do** keep the frozen-amount discipline that makes adding them safe: every amount is
+written onto the order or trip row at the moment it is quoted, never recomputed for display.

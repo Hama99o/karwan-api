@@ -38,10 +38,10 @@ RSpec.describe Setting, type: :model do
     # how "0.125" silently becomes zero in an arithmetic expression.
     describe "casting" do
       it "returns a BigDecimal for a money or rate setting, never a Float" do
-        value = described_class.fetch("delivery_fee")
+        value = described_class.fetch("delivery_base_fee")
 
         expect(value).to be_a(BigDecimal)
-        expect(value).to eq(100)
+        expect(value).to eq(50)
       end
 
       it "returns an Integer for an integer setting" do
@@ -79,7 +79,8 @@ RSpec.describe Setting, type: :model do
     end
 
     it "gives every money setting a currency, so nothing is summed blind" do
-      money_keys = %w[delivery_fee courier_fee cash_in_hand_limit default_credit_line
+      money_keys = %w[delivery_base_fee delivery_fee_per_km delivery_minimum_fee
+                      cash_in_hand_limit default_credit_line
                       trip_base_fare trip_fare_per_km trip_fare_per_minute trip_minimum_fare]
 
       money_keys.each do |key|
@@ -97,7 +98,7 @@ RSpec.describe Setting, type: :model do
     # Hard-coding any of them means a deploy each time he changes his mind.
     it "covers the numbers that get tuned, for both demand types" do
       expect(described_class::DEFINITIONS.keys).to include(
-        "commission_rate", "delivery_fee", "courier_fee",
+        "commission_rate", "delivery_base_fee", "delivery_fee_per_km", "delivery_minimum_fee",
         "cash_in_hand_limit", "default_credit_line", "eta_average_speed_kmh",
         "dispatch_offer_ttl_sec", "dispatch_max_offers", "support_phone",
         "trip_base_fare", "trip_fare_per_km", "trip_fare_per_minute",
@@ -129,21 +130,21 @@ RSpec.describe Setting, type: :model do
     # reset a number the owner tuned last week.
     it "does not overwrite a value an admin has changed" do
       described_class.seed_defaults!
-      described_class.find_by(key: "delivery_fee").update!(value: "150")
+      described_class.find_by(key: "delivery_base_fee").update!(value: "150")
 
       described_class.seed_defaults!
 
-      expect(described_class.fetch("delivery_fee")).to eq(150)
+      expect(described_class.fetch("delivery_base_fee")).to eq(150)
     end
 
     it "refreshes the description and currency, which are ours not theirs" do
-      described_class.create!(key: "delivery_fee", value: "150", value_type: :decimal,
+      described_class.create!(key: "delivery_base_fee", value: "150", value_type: :decimal,
                               description: "stale text")
 
       described_class.seed_defaults!
 
-      row = described_class.find_by(key: "delivery_fee")
-      expect(row.description).to eq(described_class::DEFINITIONS.dig("delivery_fee", :description))
+      row = described_class.find_by(key: "delivery_base_fee")
+      expect(row.description).to eq(described_class::DEFINITIONS.dig("delivery_base_fee", :description))
       expect(row.currency).to eq("AFN")
     end
   end

@@ -149,15 +149,89 @@ RSpec.describe OtpVerification, type: :model do
     end
   end
 
-  # Recorded as an open gap in docs/NOTES.md and repeated here so the suite
-  # carries the warning too: nothing limits how many codes can be SENT to a
-  # number. As written, the request endpoint is an SMS bill and a way to harass
-  # any phone in Afghanistan. It must not ship without a send limit.
-  describe "send throttling (NOT IMPLEMENTED — must not ship without it)" do
-    it "currently allows unlimited sends to one number" do
-      10.times { described_class.issue!("+93770000001") }
+  # SMS is one of exactly two recurring costs in v0, so an unthrottled request
+  # endpoint is not merely a security gap — it is someone else spending the
+  # owner's money, and a way to harass any number in Afghanistan.
+  describe "send throttling" do
+    let(:phone) { "+93770000001" }
 
-      expect(described_class.for_phone("+93770000001").count).to eq(10)
+    it "allows the burst limit and refuses the next" do
+      limit = Setting.fetch("otp_max_sends_per_window")
+
+      limit.times { described_class.issue!(phone) }
+
+      expect { described_class.issue!(phone) }.to raise_error(described_class::Throttled)
+      expect(described_class.for_phone(phone).count).to eq(limit)
+    end
+
+    # The row is not even created when throttled: the thing being protected is
+    # the SMS, and a caller must not be able to fill the table either.
+    it "creates nothing when throttled" do
+      Setting.fetch("otp_max_sends_per_window").times { described_class.issue!(phone) }
+
+      expect { described_class.issue!(phone) rescue nil }
+        .not_to change { described_class.for_phone(phone).count }
+    end
+
+    # "Too many attempts" with no number is the dead end that loses a
+    # first-time user — and every user here arrived through a conversation.
+    it "says when to try again" do
+      Setting.fetch("otp_max_sends_per_window").times { described_class.issue!(phone) }
+
+      begin
+        described_class.issue!(phone)
+      rescue described_class::Throttled => e
+        expect(e.retry_after_seconds).to be_between(1, Setting.fetch("otp_send_window_minutes") * 60)
+        expect(e.message).to match(/retry in \d+s/)
+      end
+    end
+
+    it "allows again once the window has passed" do
+      Setting.fetch("otp_max_sends_per_window").times { described_class.issue!(phone) }
+      described_class.for_phone(phone).update_all(created_at: 20.minutes.ago)
+
+      expect { described_class.issue!(phone) }.not_to raise_error
+    end
+
+    # The burst window sliding open must not uncap the day. Otherwise a patient
+    # caller sends three every fifteen minutes forever.
+    it "still refuses once the daily cap is reached, however patient the caller" do
+      daily = Setting.fetch("otp_max_sends_per_day")
+      daily.times do |i|
+        described_class.create!(phone: phone, code_digest: BCrypt::Password.create("123456"),
+                                expires_at: described_class::TTL.from_now, created_at: (i + 1).hours.ago)
+      end
+
+      expect { described_class.issue!(phone) }.to raise_error(described_class::Throttled)
+    end
+
+    it "throttles per number, so one abused number does not block everyone" do
+      Setting.fetch("otp_max_sends_per_window").times { described_class.issue!(phone) }
+
+      expect { described_class.issue!("+93770000002") }.not_to raise_error
+    end
+
+    it "is tunable without a deploy" do
+      Setting.seed_defaults!
+      Setting.find_by!(key: "otp_max_sends_per_window").update!(value: "1")
+
+      described_class.issue!(phone)
+
+      expect { described_class.issue!(phone) }.to raise_error(described_class::Throttled)
+    end
+
+    describe ".send_allowance" do
+      it "reports headroom for a fresh number" do
+        expect(described_class.send_allowance(phone)).to eq({ allowed: true, retry_after_seconds: nil })
+      end
+
+      it "reports the wait once exhausted" do
+        Setting.fetch("otp_max_sends_per_window").times { described_class.issue!(phone) }
+        allowance = described_class.send_allowance(phone)
+
+        expect(allowance[:allowed]).to be false
+        expect(allowance[:retry_after_seconds]).to be_positive
+      end
     end
   end
 end
