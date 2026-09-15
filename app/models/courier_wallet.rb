@@ -36,14 +36,29 @@ class CourierWallet < ApplicationRecord
     balance - floor
   end
 
-  # Can this courier fund this job? What the WALLET must cover is our
-  # commission — on a food order the merchant payout is the courier's own
-  # advance out of pocket, and on a trip there is no advance at all. Either way
-  # the only money of ours they end up holding is the commission.
+  # Can this courier be offered this job?
+  #
+  # TWO DIFFERENT GATES, and this used to be one — which was wrong. Each job
+  # kind declares its own `wallet_requirement`:
+  #
+  #   delivery — the courier ADVANCES the merchant payout out of pocket, so the
+  #              wallet must be able to float it. A 900 AFN order is not
+  #              offerable to a nearly-empty wallet.
+  #   ride     — nothing is advanced, so the requirement is zero and the only
+  #              gate is that the wallet is not blocked.
+  #
+  # The consequence is deliberate and worth stating: a courier too short for a
+  # delivery can still take a ride. Refusing them both would take income from
+  # the side of the market whose supply is already scarce, for no reason.
+  #
+  # An earlier version gated both on the commission alone. That made every job
+  # fundable by almost any wallet, which defeats the point of the gate — the
+  # commission is what they end up OWING, not what they have to put up front.
   def can_fund?(job)
     return false unless job.currency == currency
+    return false if blocked?
 
-    balance - job.commission >= floor
+    balance - job.wallet_requirement >= floor
   end
 
   def blocked?

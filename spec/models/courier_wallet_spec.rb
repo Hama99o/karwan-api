@@ -81,35 +81,77 @@ RSpec.describe CourierWallet, type: :model do
   end
 
   describe "#can_fund?" do
-    let(:order) { create(:order, commission: 50) }
+    # TWO DIFFERENT GATES, one per job kind. An earlier version of this spec
+    # asserted the opposite — that the payout was ignored and only the
+    # commission mattered — and that was wrong. CLAUDE.md is explicit that a
+    # courier is offered work "whose wallet can fund the food", and correction 7
+    # makes the asymmetry a product fact.
+    #
+    # The consequence, which is the point: a courier too short for a delivery
+    # can still take a ride.
+    describe "a delivery, which the courier must advance" do
+      let(:order) do
+        create(:order, items_total: 400, delivery_fee: 100, customer_total: 500,
+                       commission: 50, merchant_payout: 350)
+      end
 
-    it "is true when the commission still fits above the floor" do
-      wallet = build(:courier_wallet, balance: -450, credit_line: 500)
+      it "is true when the advance fits above the floor" do
+        wallet = build(:courier_wallet, balance: 0, credit_line: 500)
 
-      expect(wallet.can_fund?(order)).to be true
+        expect(wallet.can_fund?(order)).to be true
+      end
+
+      it "is false when the advance would breach the floor" do
+        wallet = build(:courier_wallet, balance: -200, credit_line: 500)
+
+        expect(wallet.can_fund?(order)).to be false
+      end
+
+      # The gate is the ADVANCE, not the commission. A nearly-empty wallet must
+      # not be handed a 3,950 AFN float — which the previous, wrong version of
+      # this spec explicitly allowed.
+      it "refuses a large order a small wallet cannot float" do
+        wallet = build(:courier_wallet, balance: 0, credit_line: 100)
+        big = create(:order, items_total: 4_000, delivery_fee: 100, customer_total: 4_100,
+                             commission: 500, merchant_payout: 3_500)
+
+        expect(wallet.can_fund?(big)).to be false
+      end
     end
 
-    it "is false when the commission would breach the floor" do
-      wallet = build(:courier_wallet, balance: -460, credit_line: 500)
+    describe "a ride, which advances nothing" do
+      let(:ride) { create(:trip, fare: 155, commission: 19.38, courier_earnings: 135.62) }
 
-      expect(wallet.can_fund?(order)).to be false
+      it "is fundable on a balance that could not fund a delivery" do
+        wallet = build(:courier_wallet, balance: -200, credit_line: 500)
+        order = create(:order, items_total: 400, delivery_fee: 100, customer_total: 500,
+                               commission: 50, merchant_payout: 350)
+
+        expect(wallet.can_fund?(order)).to be false
+        expect(wallet.can_fund?(ride)).to be true
+      end
+
+      it "is refused once the wallet is blocked, like everything else" do
+        expect(build(:courier_wallet, :at_floor).can_fund?(ride)).to be false
+      end
     end
 
-    # It checks OUR commission, not the merchant payout. The payout is the
-    # courier's own advance out of pocket; the commission is the only money of
-    # ours they end up holding.
-    it "ignores the merchant payout, which is the courier's own money" do
-      wallet = build(:courier_wallet, balance: 0, credit_line: 100)
-      big_order = create(:order, items_total: 4_000, delivery_fee: 100, customer_total: 4_100,
-                                 commission: 50, merchant_payout: 3_950)
+    it "refuses any job once the wallet is blocked" do
+      wallet = build(:courier_wallet, :at_floor)
 
-      expect(wallet.can_fund?(big_order)).to be true
+      expect(wallet.can_fund?(create(:order))).to be false
     end
 
-    it "funds a trip on the same balance as an order, because it is one pool" do
-      wallet = build(:courier_wallet, balance: 100, credit_line: 0)
+    it "draws both kinds against the SAME wallet, because it is one pool" do
+      courier = create(:user, :courier)
+      wallet = courier.courier_wallet
+      wallet.update!(balance: 1_000, credit_line: 0)
 
-      expect(wallet.can_fund?(create(:trip, fare: 155, commission: 19.38, courier_earnings: 135.62))).to be true
+      wallet.record_entry!(kind: :commission, amount: -50, source: create(:order))
+      wallet.record_entry!(kind: :commission, amount: -19.38, source: create(:trip))
+
+      expect(wallet.reload.balance).to eq(BigDecimal("930.62"))
+      expect(courier.courier_wallet.wallet_entries.count).to eq(2)
     end
 
     # Never compare or subtract across currencies.

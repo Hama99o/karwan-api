@@ -80,10 +80,22 @@ class Trip < ApplicationRecord
     commission
   end
 
-  # Kept for symmetry with Order, where it is the merchant payout. On a trip
+  # Kept for symmetry with Order, where it is the merchant payout. On a ride
   # it is always zero, and saying so explicitly is cheaper than every caller
   # remembering which demand type advances money.
   def courier_advance
+    0
+  end
+
+  # A ride advances nothing, so there is nothing for the wallet to float. The
+  # only gate is that the wallet is not already blocked — which
+  # CourierWallet#can_fund? checks separately for every job kind.
+  #
+  # This is the asymmetry in correction 7, and the reason there is deliberately
+  # NOT one wallet check for both: a courier too short for a delivery can still
+  # earn on a ride, and refusing them both would take income from the person
+  # whose supply is already the scarce side.
+  def wallet_requirement
     0
   end
 

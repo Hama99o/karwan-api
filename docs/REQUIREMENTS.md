@@ -322,3 +322,99 @@ markets and their own cost of living. Surge and incentive pricing in particular
 are on the v0 OUT list and should stay there until utilisation is real and
 measured.
 
+---
+
+## Relayed via Hamma9901 (supervisor), from Hamma9900's voice messages
+
+> **Note on provenance:** these arrived as voice messages summarised by the
+> supervisor session rather than as text typed by Hamma9900. The substance is
+> his; the wording below is a relay, and short phrases in quotes are the ones
+> the relay preserved verbatim. Flagged because everything else in this file is
+> his own typing.
+
+### R17 — The stakes, and why they are an engineering instruction
+**"This is my last project."** Self-funded. He will not start another
+application until Karwan earns money and pays for the software house he intends
+to open. Hatiwal deploys first and gets its campaign; Karwan is announced to
+that same audience immediately after.
+
+He acquires every user personally — sitting with merchant owners, talking to
+drivers, making videos. Nobody arrives through advertising. Two consequences
+that belong in the code rather than in a pep talk:
+
+- **The interface is the product.** In his words the simplest possible interface
+  is *"the most important part"*. The person who convinced someone to install
+  this is not standing next to them when they open it.
+- **The pitch must be literally true.** What he is promising is one app where
+  *"you search the driver, the driver comes to you, you sit, you go where you
+  want"*, plus delivery in the same app. So dispatch and live tracking have to
+  work on Afghan connections — not demo well. A correct backend is the promise,
+  not the polish.
+
+### R18 — Per-order marginal cost must be effectively zero
+Because the money is his. Self-hosted tiles, self-hosted Nominatim, self-hosted
+OSRM, FCM for push, Postgres for everything. **No metered third-party API on any
+path an order touches.** Where two designs both work, the cheaper-to-run one
+wins, and the monthly cost at 100 orders/day gets stated before committing.
+
+The only real recurring costs in v0 are **the VPS and SMS**. That reclassifies
+**OTP send throttling from a security gap to a bill** — an unthrottled endpoint
+is someone else spending his money. Priority raised accordingly; it must close
+before anything ships.
+
+### R19 — Back office, partner statements, and a payment system built but switched off
+The Administrate console must answer the business questions, not just list rows:
+**how much have we earned, how many customers do we have**, and let an operator
+change things.
+
+Separately, **merchants and couriers each need their own earnings view** —
+weekly earnings, and how much they owe the platform. For a courier that is
+already the wallet balance; for a merchant, under Model A, the answer is
+normally nothing, because they are paid in cash at every pickup. What they want
+is a statement: sales, commission deducted, net received.
+
+**A payment system present in the interface but disabled.** Not called, not
+wired to a provider, but visible — so the screen exists and the flow is
+understood before it is switched on. The schema already accommodates this:
+`payment_status` is payment-method-neutral and `payment_method` is an integer
+enum, so adding a method needs no migration.
+
+**Recommendation, not yet built:** statements should be SNAPSHOT when issued,
+not recomputed on demand. They are financial records shown to a partner, and a
+later change to the calculation would silently rewrite what someone was shown
+last month — the same argument that makes `order_items` a snapshot. `settlements`
+already works this way.
+
+### R20 — The pricing algorithm is the open question, and he knows it
+His own framing: couriers pay the platform, and the question is *how* — "by
+kilometers or another system", and how to propose the right price in the first
+place. He is explicit that there is time to think and that he wants every idea
+gathered rather than a formula guessed now.
+
+What is already true in the schema, so no decision is foreclosed:
+
+- Delivery and ride are separate tables with separate money columns, so the two
+  formulas cannot be forced into one.
+- Every input is a `Setting` row — tunable with no deploy.
+- Every amount on a job is a **snapshot**, so changing the formula never
+  rewrites a past order.
+- `Merchant#commission_rate` overrides the global rate per merchant, so a deal
+  struck with one restaurant does not move everyone else.
+
+What is NOT decided and needs his numbers: whether courier commission is a
+percentage, a flat per-job fee, or distance-banded; whether delivery fee varies
+by distance; and where the floor sits on a short job. Three of the inputs are
+his own open questions — what a Kabul courier expects to earn per day, what a
+customer will pay for delivery, how many orders ten merchants actually sell.
+
+### R21 — Work closely with Hamma9901, and document everything
+> "make sure you work well with Hama 9901 which is important because he know
+> everything" / "make sure we doc everything, we test everything. Documentation
+> is very important."
+
+Operationally: brief-versus-code conflicts go to Hamma9901 with the evidence and
+a recommendation rather than being resolved silently; this file stays a verbatim
+log; `docs/NOTES.md` carries every gap and lesson; and non-obvious decisions are
+commented **where the code is**, because a decision recorded only in a commit
+message is invisible to the person reading the file.
+

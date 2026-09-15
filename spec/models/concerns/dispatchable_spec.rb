@@ -85,6 +85,21 @@ RSpec.describe Dispatchable do
           expect(missing).to be_empty, "#{klass} has no #{missing.map { |s| "#{s}_at" }.join(', ')} column"
         end
 
+        # Every job kind must say what the courier has to be able to float
+        # before it is offered. A third demand type that forgets this would
+        # inherit Order's meaning or crash in the wallet gate — and the wallet
+        # gate is the one place a courier is told "no".
+        it "declares what the wallet must cover before an offer" do
+          job = build(klass.name.underscore.to_sym)
+
+          expect(job).to respond_to(:wallet_requirement)
+          expect(job.wallet_requirement).to be_present
+        end
+
+        it "declares what the courier advances out of pocket" do
+          expect(build(klass.name.underscore.to_sym)).to respond_to(:courier_advance)
+        end
+
         it "tracks payment explicitly with the same three states" do
           expect(klass.payment_statuses.keys).to eq(%w[pending collected settled])
         end

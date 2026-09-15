@@ -98,6 +98,23 @@ class Order < ApplicationRecord
     merchant_payout
   end
 
+  # What the wallet must be able to cover before this job may be OFFERED.
+  #
+  # A delivery is gated on the ADVANCE, not on the commission. CLAUDE.md is
+  # explicit — "offer to the nearest available courier whose wallet can fund the
+  # food" — and correction 7 makes the asymmetry a product fact: a courier who
+  # cannot take a 900 AFN delivery can still take a ride, because a ride
+  # advances nothing.
+  #
+  # Stated plainly because it is a policy choice rather than an accounting
+  # identity: the wallet is credit with us, not cash in their pocket. We use it
+  # as a PROXY for liquidity because it is the only signal we have. If that
+  # proves wrong in Kabul — a courier with plenty of cash but little credit
+  # being refused good work — the fix is here, in one method.
+  def wallet_requirement
+    merchant_payout
+  end
+
   # What the courier is left holding for us once the customer has paid and they
   # have kept their fee. This is our entire exposure per order.
   def platform_cash_held
