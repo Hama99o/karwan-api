@@ -100,6 +100,14 @@ Rails.application.routes.draw do
       # on current_user — duplication between roles is cheaper than coupling
       # between roles, because roles diverge and the conditionals never get
       # removed.
+      # The signed-in person. Not under a role namespace: unlike an order,
+      # these mean the same thing to all four roles.
+      resource :me, only: %i[show update], controller: "me" do
+        post :switch_role
+        post :register_device
+        delete :unregister_device
+      end
+
       namespace :couriers, path: "courier" do
         # Singular: a courier has one shift state, so it is a resource rather
         # than a collection.
@@ -161,6 +169,12 @@ Rails.application.routes.draw do
       end
 
       namespace :customers, path: "customer" do
+        # Saved pins. A pin, a voice note and a phone number — never a typed
+        # street address.
+        resources :addresses, only: %i[index create update destroy] do
+          post :make_default, on: :member
+        end
+
         resources :orders, only: %i[index show create] do
           post :quote, on: :collection
           post :cancel, on: :member
