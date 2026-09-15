@@ -282,7 +282,7 @@ last month. Same argument as `order_items`; `settlements` already works this way
 
 ---
 
-## 9. Payments — built as an interface, switched off
+## 9. Payments — NOT built; the schema simply does not block one
 
 Cash only in v0. But the schema already accommodates a provider with **no
 migration**:

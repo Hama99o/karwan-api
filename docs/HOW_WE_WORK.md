@@ -130,3 +130,32 @@ From the sessions that worked well today:
   productive. He can only calibrate on your reports if the clean ones read as clean.
 - **Fix the class, not the instance**, when the class is cheap to close.
 - **Write the lesson down** where the next person will hit it, not just the fix.
+
+---
+
+## Scope is policed, and being cut is normal
+
+Hamma9900's standing instruction to Hamma9901: *"if something is out of scope, something
+which can take a lot of time, something which we discuss is not matching — we take it out and
+we tell him."*
+
+So expect work to be stopped. It is not a judgement on the code; it is the only way a
+self-funded v0 ships. Three things get cut on sight:
+
+1. **Not in the brief.** If `CLAUDE.md`'s v0 list and OUT list do not cover it, it does not
+   get built now, however small it looks.
+2. **Expensive in time.** A correct thing that costs two days when the phase costs one is out.
+   Say what it will cost before starting it, not after.
+3. **Not matching what was discussed.** The business model is the specification. Code that
+   works but implements a different model than the one agreed is a defect, not a variant.
+
+**What makes this cheap rather than painful:** say what you are about to build before you
+build it when it is not already written down in a doc. A sentence up front costs nothing; a
+finished feature that gets cut costs a day. And if a cut is wrong, say so with the reason —
+working code and real measurements beat the brief, and the brief gets fixed.
+
+**The corollary, which matters just as much:** a document or a decision that *removes* scope is
+not scope creep. `docs/REALTIME_AND_SCALE.md` is the model — it exists to say polling instead
+of WebSockets, no Redis, no payments table, no provider abstraction, with the trigger for each
+deferral written down so the next decision is a measurement rather than a mood. Writing down
+what you are *not* building, and when you would, is the cheapest work in the project.
