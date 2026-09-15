@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+# Is the stack ready, IN ORDER, and is it OURS?
+#
+# ── Why this exists ───────────────────────────────────────────────────────
+# The first device run of this app produced twelve findings and TWO of them
+# were nothing to do with the app: nothing was serving the API at all
+# (UI_FINDINGS.md F-06), and the rig's own health check was pointed at another
+# application on port 3000 and then at an endpoint this API does not have
+# (F-13). Three separate bugs from one root — the order was assumed rather than
+# checked, and "something answered" was taken for "the right thing answered".
+#
+# So this checks the order, bottom up, and each step names the exact command
+# that fixes it. It is READ-ONLY: it starts nothing and migrates nothing,
+# because a QA run may own the server right now and two processes fighting for
+# one port is a worse failure than a clear message.
+#
+# ── The rule it enforces, which is the whole point ────────────────────────
+# A STATUS CODE IS NOT AN IDENTITY. `doctor` once reported a green API against
+# an unrelated Rails app on 3000. So step 4 asserts the payload is KARWAN'S —
+# a 200 from a stranger fails here.
+#
+# Usage:  bin/preflight            # check and report
+#         bin/preflight --quiet    # exit code only, for a script
+set -uo pipefail
+
+QUIET=0
+[ "${1:-}" = "--quiet" ] && QUIET=1
+
+PORT="${PORT:-3017}"
+API="http://localhost:$PORT"
+PG_PORT="${PG_PORT:-5417}"
+METRO_PORT="${METRO_PORT:-3028}"
+FAILED=0
+
+say()  { [ "$QUIET" = 1 ] || printf '%s\n' "$*"; }
+ok()   { say "  ✓ $*"; }
+bad()  { say "  ✗ $*"; FAILED=1; }
+note() { say "    → $*"; }
+step() { say ""; say "$*"; }
+
+# ── 1 · Postgres ──────────────────────────────────────────────────────────
+step "1/5  Postgres on :$PG_PORT"
+if (exec 3<>"/dev/tcp/localhost/$PG_PORT") 2>/dev/null; then
+  ok "accepting connections"
+else
+  bad "nothing listening on :$PG_PORT"
+  note "docker compose up -d        (from karwan-api/)"
+fi
+
+# ── 2 · Schema ────────────────────────────────────────────────────────────
+# Asked of Rails rather than of psql: the credentials live in database.yml and
+# duplicating them here is how the two drift apart.
+step "2/5  Schema up to date"
+# `connection_pool.migration_context`, not `connection.migration_context` —
+# the latter was removed and raises NoMethodError, which this script reported
+# as "could not ask Rails" against a perfectly migrated database. A check that
+# fails closed on its own bug is still a wrong answer.
+PENDING=$(bin/rails runner 'print ActiveRecord::Base.connection_pool.migration_context.needs_migration? ? "yes" : "no"' 2>/dev/null)
+case "$PENDING" in
+  no)  ok "no pending migrations" ;;
+  yes) bad "migrations are pending"; note "bin/rails db:prepare" ;;
+  *)   bad "could not ask Rails (is Postgres up, and the database created?)"
+       note "bin/rails db:prepare" ;;
+esac
+
+# ── 3 · The API is answering ──────────────────────────────────────────────
+step "3/5  API on :$PORT"
+UP=$(curl -s -o /dev/null -m 5 -w '%{http_code}' "$API/up" 2>/dev/null)
+if [ "$UP" = "200" ]; then
+  ok "/up returns 200"
+else
+  bad "/up returned '${UP:-no response}'"
+  note "bin/rails s                 (3017 is the DEFAULT now — do not pass -p)"
+fi
+
+# ── 4 · …AND IT IS KARWAN ─────────────────────────────────────────────────
+# The step the rig was missing twice over. A stranger on this port returns a
+# perfectly good 200.
+step "4/5  …and it is KARWAN, not another app on the port"
+BODY=$(curl -s -m 5 "$API/api/v1/public/merchant_categories" 2>/dev/null)
+if printf '%s' "$BODY" | grep -q '"merchant_categories"'; then
+  ok "public/merchant_categories is ours"
+  if printf '%s' "$BODY" | grep -q '"slug"'; then
+    ok "reference data seeded"
+  else
+    bad "no categories — reference data is missing"
+    note "bin/rails db:seed"
+  fi
+else
+  bad "that endpoint is not Karwan's (got: $(printf '%s' "${BODY:-empty}" | head -c 60))"
+  note "something else is on :$PORT — check before believing any green line"
+fi
+
+# ── 5 · Sample data, so the screens have something true to show ───────────
+# There is no fake data left in the app (correction 17), so an unseeded
+# database means every screen correctly shows an empty state and a device run
+# proves nothing about layout.
+step "5/5  Sample data for the screens"
+MERCHANTS=$(curl -s -m 5 "$API/api/v1/public/merchants" 2>/dev/null)
+# `grep -F`: a literal. `\{` is not valid in a basic regex and grep said so on
+# stderr while returning non-zero, so this reported "no merchants" against a
+# seeded database — the false negative twin of the false green this file exists
+# to prevent.
+if printf '%s' "$MERCHANTS" | grep -qF '"merchants":[{'; then
+  ok "merchants are browsable"
+else
+  bad "no merchants — every screen will show its empty state"
+  note "bin/rails db:seed           (sample data is skipped in production only)"
+fi
+
+# ── Handover ──────────────────────────────────────────────────────────────
+say ""
+if [ "$FAILED" = 0 ]; then
+  say "Backend ready. The device half is the rig's:"
+  METRO=$(curl -s -m 3 "http://localhost:$METRO_PORT/status" 2>/dev/null)
+  if [ "$METRO" = "packager-status:running" ]; then
+    say "  ✓ metro already on :$METRO_PORT"
+  else
+    say "  · metro not on :$METRO_PORT yet — qa.sh handles it"
+  fi
+  say "  6. cd ../karwan-mobile && qa/qa.sh doctor"
+  say "  7. qa/qa.sh up      # ONE emulator; three is measured fatal on this box"
+  say "  8. qa/qa.sh flows"
+  say ""
+  say "See docs/RUNBOOK.md for what each step proves."
+else
+  say "NOT READY — fix the ✗ lines above, in order. Each one blocks the next."
+fi
+
+exit "$FAILED"
