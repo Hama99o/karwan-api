@@ -51,12 +51,21 @@ class Api::V1::Couriers::OffersController < Api::V1::Couriers::BaseController
 
     ApplicationRecord.transaction do
       @offer.respond!(:accepted)
-      # Assignment and the transition together: a job with a courier but no
-      # accepted transition, or the reverse, is a state nobody can explain.
       job.update!(courier: current_user)
-      job.transition_to!(next_status_for(job), actor: current_user, actor_role: :courier)
+
+      # ACCEPTING A DELIVERY CHANGES NO ORDER STATUS, and this was wrong at
+      # first: it moved the order to `preparing`, which conflated "a courier
+      # took the job" with "the kitchen started cooking". Those are different
+      # facts owned by different people. The merchant owns
+      # placed -> accepted -> preparing -> ready; the courier's first real
+      # action is paying at the counter, which is what moves it to `picked_up`.
+      #
+      # A ride has no merchant, so there the courier's acceptance IS the
+      # transition.
+      job.transition_to!(:accepted, actor: current_user, actor_role: :courier) if job.is_a?(Trip)
+
       # Everyone else's offer on this job is now moot. Left `offered`, the
-      # expiry job would re-offer work that is already taken.
+      # expiry sweep would re-offer work that is already taken.
       job.offers.status_offered.where.not(id: @offer.id).update_all(status: :superseded)
     end
 
@@ -84,12 +93,5 @@ class Api::V1::Couriers::OffersController < Api::V1::Couriers::BaseController
 
   def set_offer
     @offer = Offer.where(courier_id: current_user.id).find(params[:id])
-  end
-
-  # A delivery is accepted straight to `picked_up`? No — the courier accepting
-  # a delivery does not yet have the food. `accepted` already happened when the
-  # merchant took it, so a delivery needs no transition here; a ride does.
-  def next_status_for(job)
-    job.is_a?(Order) ? :preparing : :accepted
   end
 end
