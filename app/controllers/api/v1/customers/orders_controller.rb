@@ -1,5 +1,12 @@
 # The customer's own orders: price one, place one, watch it, cancel it.
 class Api::V1::Customers::OrdersController < Api::V1::BaseController
+  # Far above real use — nobody orders forty meals a day — and it stops a loop
+  # burying a merchant's board, which is the shape of abuse that costs a real
+  # kitchen real time.
+  throttle to: 40, within: 1.day, by: :user, only: :create
+  # A quote is cheap but it calls the router, so it gets a looser ceiling.
+  throttle to: 300, within: 1.hour, by: :user, only: :quote
+
   before_action :set_order, only: %i[show cancel]
 
   def index

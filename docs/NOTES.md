@@ -64,6 +64,52 @@ commission/fee values must come from `Setting.fetch`, not from
 
 ---
 
+## Gap analysis against hatiwal-api (2026-09-15)
+
+Hamma9900: *"Check hatiwal api make sure we and inspire from it and get the
+gap."* Compared directory by directory, gem by gem, initializer by initializer.
+
+### Closed as a result
+
+**`RateLimitable`** — hatiwal-api had it and we had nothing except the
+per-phone OTP throttle. Adapted with its reasoning, which is the valuable part:
+fails OPEN so a cache outage cannot turn sign-in into a 500, uses a real
+MemoryStore in tests because `:null_store`'s increment returns nil and would
+make every limit a silent no-op, and keeps **IP limits generous because Afghan
+mobile users sit behind carrier-grade NAT** — a whole neighbourhood can share
+one address, so a limit tight enough to be interesting locks out a real street.
+
+### Deliberate differences, not gaps
+
+| hatiwal-api has | Karwan does not, because |
+|---|---|
+| `devise_token_auth` | Authenticates on an email uid; phone is our identity (correction 2) |
+| `faraday`, `signet` | Google sign-in, excluded by instruction |
+| `redis` | All three solid adapters run on Postgres |
+| `chartkick`, `groupdate` | PRODUCT.md asks for numbers, not charts |
+| `postmark-rails` | No email anywhere — the identity is a phone number |
+| `app/channels/`, `cable/` | Polling beats WebSockets at our scale, with written switch triggers in docs/REALTIME_AND_SCALE.md |
+| `Dockerfile.dev` | The app runs on the host; only Postgres is containerised |
+| `app/validators/` | No custom validator needed yet; adding an empty directory is not parity |
+| `spec/serializers/` | Serializer keys are asserted in the request specs, which test the real payload rather than the object |
+
+### THE ONE REAL GAP STILL OPEN: no API documentation
+
+hatiwal-api generates OpenAPI from rswag request specs and serves it at
+`/api-docs`. We have `rswag-api` and `rswag-ui` in the Gemfile and
+**`swagger/` does not exist**, because the request specs are written in plain
+RSpec rather than the rswag DSL.
+
+This is a genuine gap and it is deliberately deferred rather than forgotten.
+The cost is rewriting ~200 request examples into the rswag DSL; the benefit is
+browsable docs. It matters most at the moment a second person writes a client —
+and right now the only client is being written in this same session, against
+the controllers directly.
+
+**The trigger to do it:** anyone other than this session needs to call the API.
+At that point it is worth the rewrite; before it, the specs already document
+the endpoints and the rewrite would buy a web page.
+
 ## Solved, with the reasoning
 
 ### OTP send throttling — CLOSED, and it was a bill rather than a security gap

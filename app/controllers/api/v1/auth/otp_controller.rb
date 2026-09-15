@@ -5,6 +5,11 @@
 # unthrottled endpoint here is the owner's money, and a way to harass any
 # number in Afghanistan.
 class Api::V1::Auth::OtpController < ApplicationController
+  # The per-PHONE limit lives in OtpVerification and is the one that protects
+  # the SMS bill. This is a second line against a script rotating numbers from
+  # one address — generous, because a whole Kabul neighbourhood can share an IP.
+  throttle to: 60, within: 1.hour, by: :ip, only: :create
+
   def create
     # Read rather than `require`: `params.require` treats a blank string as
     # missing and raises, which returns a bare 400 with no machine-readable

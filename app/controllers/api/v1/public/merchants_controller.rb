@@ -4,6 +4,11 @@
 # ever see, and correction 10 is explicit that they must reach it before being
 # asked for anything. A login wall here is where they give up.
 class Api::V1::Public::MerchantsController < Api::V1::PublicController
+  # Browsing must never be the thing that locks somebody out — correction 10
+  # is that a first-time user reaches a merchant before being asked for
+  # anything. So this is set where only a script would reach it.
+  throttle to: 600, within: 1.hour, by: :ip
+
   def index
     merchants = policy_scope(Merchant)
     merchants = merchants.search(params[:q]) if params[:q].present?

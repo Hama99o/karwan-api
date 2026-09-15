@@ -4,6 +4,10 @@
 # created, if it is known they are signed in. Nobody should have to choose
 # between "register" and "log in".
 class Api::V1::Auth::SessionsController < ApplicationController
+  # Code guesses are already capped per code by OtpVerification::MAX_ATTEMPTS.
+  # This bounds a script working through many phone numbers from one address.
+  throttle to: 120, within: 1.hour, by: :ip, only: :create
+
   def create
     user, token = Users::SignInService.new(
       phone: params.require(:phone), code: params.require(:code),

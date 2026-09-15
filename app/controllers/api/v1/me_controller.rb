@@ -4,6 +4,10 @@
 # Not under a role namespace, deliberately — these are the same for all four
 # roles, unlike an order, which is three different things.
 class Api::V1::MeController < Api::V1::BaseController
+  # The app re-registers on every launch, so this must be loose enough never to
+  # bite a real relaunch loop while still bounding a script.
+  throttle to: 200, within: 1.hour, by: :user, only: :register_device
+
   def show
     authorize current_user, :show?
 
