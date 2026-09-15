@@ -31,28 +31,28 @@ FactoryBot.define do
 
     trait :accepted do
       status { :accepted }
-      courier { create(:user, :trip_courier) }
+      courier { create(:user, :ride_courier) }
       accepted_at { Time.current }
     end
 
     trait :arrived do
       status { :arrived }
-      courier { create(:user, :trip_courier) }
+      courier { create(:user, :ride_courier) }
       accepted_at { 4.minutes.ago }
       arrived_at { Time.current }
     end
 
     trait :in_progress do
       status { :in_progress }
-      courier { create(:user, :trip_courier) }
+      courier { create(:user, :ride_courier) }
       arrived_at { 6.minutes.ago }
-      started_at { Time.current }
+      in_progress_at { Time.current }
     end
 
     trait :completed do
       status { :completed }
-      courier { create(:user, :trip_courier) }
-      started_at { 15.minutes.ago }
+      courier { create(:user, :ride_courier) }
+      in_progress_at { 15.minutes.ago }
       completed_at { Time.current }
       payment_status { :collected }
     end
@@ -66,7 +66,7 @@ FactoryBot.define do
 
     trait :failed do
       status { :failed }
-      courier { create(:user, :trip_courier) }
+      courier { create(:user, :ride_courier) }
       failed_at { Time.current }
       failure_reason { :passenger_no_show }
     end

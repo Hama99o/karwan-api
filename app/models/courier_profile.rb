@@ -17,11 +17,20 @@ class CourierProfile < ApplicationRecord
   # someone was an hour ago.
   STALE_AFTER = 5.minutes
 
-  # The demand types a courier can be offered. A third — a person-to-person
-  # parcel — is already under discussion, and adding it here is a constant
-  # change and a seed, not a migration. That is the whole reason this is an
-  # array rather than a boolean per kind.
-  JOB_KINDS = %w[food_order trip].freeze
+  # The demand types a courier can be offered, in Hamma9900's own framing —
+  # "one app, two tabs". Not "food_order", which was wrong twice over: it was
+  # food-specific on a platform that also carries books, and it mixed a demand
+  # type with a table name while its sibling was a bare noun.
+  #
+  # These are demand types, not class names, and the mapping is declared BY the
+  # job classes (`Order::JOB_KIND` = "delivery", `Trip::JOB_KIND` = "ride") so
+  # nobody has to remember it and the two cannot drift. A spec asserts this
+  # list equals what the job classes declare.
+  #
+  # A third — a person-to-person parcel — is already under discussion, and
+  # adding it is a constant change and a seed, not a migration. That is the
+  # whole reason this is an array rather than a boolean per kind.
+  JOB_KINDS = %w[delivery ride].freeze
 
   enum :vehicle_type, { motorbike: 0, bicycle: 1, car: 2, on_foot: 3 }, prefix: :by
   enum :verification_status, { pending: 0, approved: 1, rejected: 2, suspended: 3 },

@@ -100,7 +100,7 @@ RSpec.describe CourierWallet, type: :model do
     # ours they end up holding.
     it "ignores the merchant payout, which is the courier's own money" do
       wallet = build(:courier_wallet, balance: 0, credit_line: 100)
-      big_order = create(:order, food_total: 4_000, delivery_fee: 100, customer_total: 4_100,
+      big_order = create(:order, items_total: 4_000, delivery_fee: 100, customer_total: 4_100,
                                  commission: 50, merchant_payout: 3_950)
 
       expect(wallet.can_fund?(big_order)).to be true

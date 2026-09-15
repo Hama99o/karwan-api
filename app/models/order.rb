@@ -8,6 +8,11 @@ class Order < ApplicationRecord
   include Monetary
   include Dispatchable
 
+  # This class's demand type, as couriers opt into it. Declared here rather than
+  # mapped elsewhere so `CourierProfile::JOB_KINDS` and the job classes cannot
+  # drift apart — a spec asserts they agree.
+  JOB_KIND = "delivery".freeze
+
   # placed → accepted → preparing → ready → picked_up → delivered
   #   ↘ rejected   ↘ cancelled   ↘ failed
   STATUSES = {
@@ -77,7 +82,7 @@ class Order < ApplicationRecord
   validates :customer_phone, presence: true
   validates :delivery_latitude,  presence: true, numericality: { greater_than_or_equal_to: -90,  less_than_or_equal_to: 90 }
   validates :delivery_longitude, presence: true, numericality: { greater_than_or_equal_to: -180, less_than_or_equal_to: 180 }
-  validates :food_total, :delivery_fee, :commission, :courier_fee, :merchant_payout,
+  validates :items_total, :delivery_fee, :commission, :courier_fee, :merchant_payout,
             :customer_total, numericality: { greater_than_or_equal_to: 0 }
   validate  :totals_add_up
 
@@ -112,11 +117,11 @@ class Order < ApplicationRecord
   # fee change or a rounding slip from producing an order whose total nobody can
   # explain at the door.
   def totals_add_up
-    return if [ food_total, delivery_fee, customer_total ].any?(&:blank?)
+    return if [ items_total, delivery_fee, customer_total ].any?(&:blank?)
 
-    expected = food_total + delivery_fee
+    expected = items_total + delivery_fee
     return if (customer_total - expected).abs <= Monetary::ROUNDING_TOLERANCE
 
-    errors.add(:customer_total, "must equal food_total + delivery_fee (#{expected})")
+    errors.add(:customer_total, "must equal items_total + delivery_fee (#{expected})")
   end
 end

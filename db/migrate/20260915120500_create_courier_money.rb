@@ -34,7 +34,7 @@ class CreateCourierMoney < ActiveRecord::Migration[8.1]
       #
       # Not implied by vehicle, deliberately. A car driver may want passengers
       # and not other people's dinner, and that is theirs to choose.
-      t.string :accepted_job_kinds, array: true, null: false, default: [ "food_order" ]
+      t.string :accepted_job_kinds, array: true, null: false, default: [ "delivery" ]
 
       # Identity, because a courier carries our cash and food we have paid for.
       # An Afghan tazkira, and a father's name — two couriers called Ahmad are

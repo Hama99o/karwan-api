@@ -15,8 +15,8 @@ class CreateOrders < ActiveRecord::Migration[8.1]
 
       # ---- Money -------------------------------------------------------------
       # Model A, worked example: food 400, delivery_fee 100, commission 50.
-      #   customer_total    = 500  (food_total + delivery_fee)
-      #   merchant_payout = 350  (food_total - commission) — rider advances it
+      #   customer_total    = 500  (items_total + delivery_fee)
+      #   merchant_payout = 350  (items_total - commission) — rider advances it
       #   courier_fee       = 100  (the courier keeps it)
       # After delivery the courier is holding our 50. That is the entire exposure.
       #
@@ -27,7 +27,7 @@ class CreateOrders < ActiveRecord::Migration[8.1]
       # delivery_fee and courier_fee are separate columns even though v0 sets them
       # equal, because they are separate config rows and the moment the platform
       # takes a cut of delivery they diverge.
-      t.decimal :food_total,        precision: 12, scale: 2, null: false, default: "0.0"
+      t.decimal :items_total,        precision: 12, scale: 2, null: false, default: "0.0"
       t.decimal :delivery_fee,      precision: 12, scale: 2, null: false, default: "0.0"
       t.decimal :commission,        precision: 12, scale: 2, null: false, default: "0.0"
       t.decimal :courier_fee,       precision: 12, scale: 2, null: false, default: "0.0"

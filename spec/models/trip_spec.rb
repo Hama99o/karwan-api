@@ -123,6 +123,30 @@ RSpec.describe Trip, type: :model do
       expect(create(:trip, :overdue)).to be_overdue
     end
 
+    # THE BUG THIS PINS: the column was called `started_at` while the status is
+    # `in_progress`, so `state_entered_at` resolved "in_progress_at", found
+    # nothing, and fell back to `updated_at` — which is touched on every save.
+    # The clock reset constantly and an in-progress trip could NEVER go overdue,
+    # which is the one state where a passenger is actually sitting in a car.
+    #
+    # Structural coverage lives in dispatchable_spec (every status has a
+    # timestamp column); this is the behaviour that structure exists for.
+    it "fires for a trip stuck in progress, measured from its own timestamp" do
+      trip = create(:trip, :in_progress)
+      trip.update_columns(in_progress_at: (Trip::TIMEOUTS[:in_progress] + 1.minute).ago)
+
+      expect(trip.reload.state_entered_at).to be_within(5.seconds).of(trip.in_progress_at)
+      expect(trip).to be_overdue
+    end
+
+    it "does not go overdue just because the row was saved again" do
+      trip = create(:trip, :in_progress)
+      trip.update_columns(in_progress_at: (Trip::TIMEOUTS[:in_progress] + 1.minute).ago)
+      trip.update!(notes: "passenger called")
+
+      expect(trip.reload).to be_overdue
+    end
+
     it "is false for a completed trip, which has no timeout" do
       expect(create(:trip, :completed)).not_to be_overdue
     end
@@ -161,7 +185,7 @@ RSpec.describe Trip, type: :model do
 
     it "logs transitions through the same polymorphic table" do
       trip = create(:trip)
-      courier = create(:user, :trip_courier)
+      courier = create(:user, :ride_courier)
 
       expect(trip.transition_to!(:accepted, actor: courier, actor_role: :courier)).to be true
       expect(trip.reload.status).to eq("accepted")

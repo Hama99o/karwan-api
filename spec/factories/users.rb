@@ -38,11 +38,11 @@ FactoryBot.define do
       end
     end
 
-    trait :trip_courier do
+    trait :ride_courier do
       active_role { :courier }
       after(:create) do |user|
         create(:user_role, user: user, role: :courier)
-        create(:courier_profile, :approved, user: user, accepted_job_kinds: [ "trip" ])
+        create(:courier_profile, :approved, user: user, accepted_job_kinds: [ "ride" ])
         create(:courier_wallet, user: user)
       end
     end

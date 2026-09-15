@@ -21,22 +21,22 @@ RSpec.describe Order, type: :model do
 
     describe "#totals_add_up" do
       it "accepts the brief's worked example" do
-        order = build(:order, food_total: 400, delivery_fee: 100, customer_total: 500)
+        order = build(:order, items_total: 400, delivery_fee: 100, customer_total: 500)
 
         expect(order).to be_valid
       end
 
       # This is the check that stops an order whose total nobody can explain at
       # the door. Planting the bug to prove the check can fail.
-      it "rejects a customer_total that is not food_total + delivery_fee" do
-        order = build(:order, food_total: 400, delivery_fee: 100, customer_total: 450)
+      it "rejects a customer_total that is not items_total + delivery_fee" do
+        order = build(:order, items_total: 400, delivery_fee: 100, customer_total: 450)
 
         expect(order).not_to be_valid
         expect(order.errors[:customer_total].join).to include("500")
       end
 
       it "tolerates sub-afghani rounding" do
-        order = build(:order, food_total: 400.004, delivery_fee: 100, customer_total: 500)
+        order = build(:order, items_total: 400.004, delivery_fee: 100, customer_total: 500)
 
         expect(order).to be_valid
       end
@@ -159,7 +159,7 @@ RSpec.describe Order, type: :model do
 
     it "hands the merchant the food less our commission" do
       expect(order.courier_advance).to eq(350)
-      expect(order.food_total - order.commission).to eq(order.merchant_payout)
+      expect(order.items_total - order.commission).to eq(order.merchant_payout)
     end
 
     it "leaves the courier holding exactly our commission, which is our whole exposure" do

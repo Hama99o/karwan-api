@@ -36,6 +36,12 @@ module Dispatchable
   end
 
   class_methods do
+    # The demand type couriers opt into for this kind of job. Each including
+    # class declares JOB_KIND; this keeps the lookup off the call site.
+    def job_kind
+      self::JOB_KIND
+    end
+
     def terminal_status_values
       self::STATUSES.values_at(*self::TERMINAL)
     end

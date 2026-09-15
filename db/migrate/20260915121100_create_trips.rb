@@ -63,7 +63,13 @@ class CreateTrips < ActiveRecord::Migration[8.1]
       t.datetime :requested_at
       t.datetime :accepted_at
       t.datetime :arrived_at
-      t.datetime :started_at
+      # Named for the STATUS, not for the event. `Dispatchable#state_entered_at`
+      # resolves "#{status}_at", so a column called `started_at` for a state
+      # called `in_progress` silently falls back to `updated_at` — which is
+      # touched on every save, so the state clock resets constantly and the
+      # timeout can never fire. One-way door #3 says a timestamp per transition;
+      # this is what makes it actually work.
+      t.datetime :in_progress_at
       t.datetime :completed_at
       t.datetime :cancelled_at
       t.datetime :failed_at

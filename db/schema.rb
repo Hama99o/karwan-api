@@ -140,7 +140,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_161200) do
   end
 
   create_table "courier_profiles", force: :cascade do |t|
-    t.string "accepted_job_kinds", default: ["food_order"], null: false, array: true
+    t.string "accepted_job_kinds", default: ["delivery"], null: false, array: true
     t.datetime "created_at", null: false
     t.string "father_name"
     t.string "full_name"
@@ -342,7 +342,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_161200) do
     t.decimal "delivery_longitude", precision: 10, scale: 6, null: false
     t.datetime "failed_at"
     t.integer "failure_reason"
-    t.decimal "food_total", precision: 12, scale: 2, default: "0.0", null: false
+    t.decimal "items_total", precision: 12, scale: 2, default: "0.0", null: false
     t.bigint "merchant_id", null: false
     t.datetime "merchant_paid_at"
     t.decimal "merchant_payout", precision: 12, scale: 2, default: "0.0", null: false
@@ -448,6 +448,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_161200) do
     t.datetime "failed_at"
     t.integer "failure_reason"
     t.decimal "fare", precision: 12, scale: 2, default: "0.0", null: false
+    t.datetime "in_progress_at"
     t.text "notes"
     t.bigint "passenger_id", null: false
     t.string "passenger_phone", null: false
@@ -458,7 +459,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_161200) do
     t.decimal "pickup_longitude", precision: 10, scale: 6, null: false
     t.datetime "requested_at"
     t.datetime "settled_at"
-    t.datetime "started_at"
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
     t.index ["code"], name: "index_trips_on_code", unique: true

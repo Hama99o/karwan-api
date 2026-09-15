@@ -104,8 +104,8 @@ class Merchant < ApplicationRecord
     opening_hours.where(day_of_week: day_of_week).order(:opens_at)
   end
 
-  def commission_on(food_total)
-    (food_total * commission_rate).round(2)
+  def commission_on(items_total)
+    (items_total * commission_rate).round(2)
   end
 
   private

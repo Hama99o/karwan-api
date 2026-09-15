@@ -13,6 +13,10 @@ class Trip < ApplicationRecord
   include Monetary
   include Dispatchable
 
+  # The demand type is "ride", not "trip": `trips` is the table, `ride` is what
+  # the customer buys and what a courier opts into. See CourierProfile::JOB_KINDS.
+  JOB_KIND = "ride".freeze
+
   # requested → accepted → arrived → in_progress → completed
   #   ↘ cancelled   ↘ failed
   STATUSES = {

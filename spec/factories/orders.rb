@@ -8,7 +8,7 @@ FactoryBot.define do
     merchant
     courier { nil }
 
-    food_total        { 400 }
+    items_total        { 400 }
     delivery_fee      { 100 }
     commission        { 50 }
     courier_fee       { 100 }
