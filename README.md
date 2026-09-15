@@ -14,11 +14,11 @@ shared letters, one wordmark for both locales.
 
 This repo is the backend only. There is no web frontend here.
 
-- Product brief: `../CLAUDE.md`
-- Screens and build phases: `../docs/PRODUCT.md`
-- Afghan usability constraints, which outrank generic mobile practice: `../docs/AFGHAN_UX.md`
-- Four-role architecture: `../docs/ARCHITECTURE.md`
-- Decision rights and definition of done: `../docs/HOW_WE_WORK.md`
+- Product brief: `CLAUDE.md`
+- Screens and build phases: `docs/PRODUCT.md`
+- Afghan usability constraints, which outrank generic mobile practice: `docs/AFGHAN_UX.md`
+- Four-role architecture: `docs/ARCHITECTURE.md`
+- Decision rights and definition of done: `docs/HOW_WE_WORK.md`
 - Requirements as stated by the owner: `docs/REQUIREMENTS.md`
 - Problems, traps and lessons: `docs/NOTES.md`
 - Testing contract: `docs/TESTING.md`
@@ -139,6 +139,6 @@ bundle exec rubocop     # zero offenses
 bin/rails zeitwerk:check
 ```
 
-Plus the seven-question self-review in `../docs/HOW_WE_WORK.md`. The first one
+Plus the seven-question self-review in `docs/HOW_WE_WORK.md`. The first one
 matters most: **can this check fail?** Prove it by planting the bug it should
 catch.

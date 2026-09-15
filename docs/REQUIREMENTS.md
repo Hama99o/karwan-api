@@ -161,7 +161,7 @@ Mobile polish comes later, per the build phases. What it means for the backend
   `SoftDeletable`, `TrigramSearchable`, `Roles`. Rules live in one place, so
   changing one changes it everywhere.
 - **Namespace by role, never `if current_user.courier?`.** Per
-  `../docs/ARCHITECTURE.md`: duplication between roles is cheaper than coupling
+  `docs/ARCHITECTURE.md`: duplication between roles is cheaper than coupling
   between roles, because roles diverge and conditionals never get removed.
 - **Every non-obvious decision is a comment where the code is**, saying why and
   what the alternative cost. A decision recorded only in a commit message is
@@ -172,7 +172,7 @@ Mobile polish comes later, per the build phases. What it means for the backend
   bug it should catch.
 
 ### R12 — Address voice notes, and the literacy constraint behind them
-> `../docs/AFGHAN_UX.md`, from "make sure it's easy for Afghan to use"
+> `docs/AFGHAN_UX.md`, from "make sure it's easy for Afghan to use"
 
 A large share of Afghan adults cannot read fluently, and the share is lower for
 women and rural users. Typing "the blue gate near the mosque, second floor" in
