@@ -1,0 +1,30 @@
+# Recurring jobs. These are what make dispatch and timeouts EXIST — the offer
+# deadline and the state timeouts were declared in the models long before
+# anything ran them, which made the whole mechanism look implemented while
+# nothing enforced it.
+#
+# Both are idempotent and cheap (indexed reads over live jobs only), so a
+# frequent schedule costs little and a missed tick costs one interval.
+
+production: &tasks
+  expire_dispatch_offers:
+    class: Dispatch::ExpireOffersJob
+    # The offer TTL is 60s by default, so a courier who does not answer costs
+    # the customer at most ~80 seconds before the next courier is asked. A
+    # slower sweep than the TTL would make the deadline a fiction.
+    schedule: every 20 seconds
+
+  job_timeouts:
+    class: Dispatch::JobTimeoutsJob
+    # The tightest timeout is 2 minutes (a merchant who never answers), so a
+    # minute is ample and the work is one indexed scan per demand type.
+    schedule: every minute
+
+  # Kept from solid_queue's own template: finished jobs accumulate forever
+  # otherwise, and the queue tables are on the same VPS as everything else.
+  clear_solid_queue_finished_jobs:
+    command: "SolidQueue::Job.clear_finished_in_batches(sleep_between_batches: 0.3)"
+    schedule: every hour at minute 12
+
+development:
+  <<: *tasks

@@ -80,6 +80,13 @@ class Trip < ApplicationRecord
     commission
   end
 
+  # Where the courier goes first — the passenger, not a merchant.
+  def pickup_coordinates
+    return nil unless pickup_latitude && pickup_longitude
+
+    [ pickup_latitude, pickup_longitude ]
+  end
+
   # Kept for symmetry with Order, where it is the merchant payout. On a ride
   # it is always zero, and saying so explicitly is cheaper than every caller
   # remembering which demand type advances money.

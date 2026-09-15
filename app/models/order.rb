@@ -115,6 +115,15 @@ class Order < ApplicationRecord
     merchant_payout
   end
 
+  # Where the courier goes first. Dispatch measures from here, so it lives on
+  # the job rather than in the dispatcher — a third demand type answers the same
+  # question without the dispatcher learning about it.
+  def pickup_coordinates
+    return nil unless merchant&.latitude && merchant&.longitude
+
+    [ merchant.latitude, merchant.longitude ]
+  end
+
   # What the courier is left holding for us once the customer has paid and they
   # have kept their fee. This is our entire exposure per order.
   def platform_cash_held
