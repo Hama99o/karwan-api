@@ -20,6 +20,17 @@ Rails.application.routes.draw do
         end
         resources :merchant_categories, only: :index
       end
+
+      # Namespaced by ROLE. Three thin controllers beat one fat one branching
+      # on current_user — duplication between roles is cheaper than coupling
+      # between roles, because roles diverge and the conditionals never get
+      # removed.
+      namespace :customer do
+        resources :orders, only: %i[index show create] do
+          post :quote, on: :collection
+          post :cancel, on: :member
+        end
+      end
     end
   end
 end

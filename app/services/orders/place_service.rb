@@ -37,11 +37,11 @@ module Orders
     end
 
     def call
-      raise EmptyCart, "an order needs at least one item" if @lines.empty?
       raise MerchantUnavailable, "#{@merchant.name} is not accepting orders" unless @merchant.accepting_orders?
 
-      resolved = @lines.map { |line| resolve_line(line) }
-      items_total = resolved.sum { |line| line[:line_total] }
+      resolver = CartResolver.new(merchant: @merchant, lines: @lines)
+      resolved = resolver.resolve
+      items_total = resolver.items_total(resolved)
       quote = price(items_total)
 
       Order.transaction do
@@ -58,55 +58,6 @@ module Orders
     end
 
     private
-
-    def resolve_line(line)
-      item = @merchant.catalog_items.kept.find_by(id: line[:catalog_item_id])
-      raise ItemUnavailable, "item #{line[:catalog_item_id]} is not on this menu" if item.nil?
-      raise ItemUnavailable, "#{item.name} is sold out" unless item.is_available?
-
-      quantity = line[:quantity].to_i
-      raise InvalidOptions, "quantity must be at least 1" if quantity < 1
-
-      values = resolve_option_values(item, Array(line[:option_value_ids]))
-      options_total = values.sum { |value| value.price_delta }
-
-      {
-        item: item,
-        quantity: quantity,
-        values: values,
-        options_total: options_total,
-        line_total: ((item.price + options_total) * quantity).round(2),
-        notes: line[:notes]
-      }
-    end
-
-    # Validates the choices against the item's own option rules, per option.
-    # The client enforces these too, but a client is a suggestion — a required
-    # size missing here is an order the kitchen cannot make.
-    def resolve_option_values(item, value_ids)
-      values = CatalogItemOptionValue.where(id: value_ids)
-                                     .where(catalog_item_option: item.options)
-                                     .to_a
-
-      unknown = value_ids.map(&:to_i) - values.map(&:id)
-      raise InvalidOptions, "options #{unknown.join(', ')} do not belong to #{item.name}" if unknown.any?
-
-      sold_out = values.reject(&:is_available?)
-      raise ItemUnavailable, "#{sold_out.map(&:name).join(', ')} unavailable" if sold_out.any?
-
-      item.options.each { |option| validate_selection(option, values) }
-
-      values
-    end
-
-    def validate_selection(option, values)
-      chosen = values.count { |value| value.catalog_item_option_id == option.id }
-      minimum = option.minimum_required
-      maximum = option.maximum_allowed
-
-      raise InvalidOptions, "#{option.name} requires at least #{minimum}" if chosen < minimum
-      raise InvalidOptions, "#{option.name} allows at most #{maximum}" if maximum.present? && chosen > maximum
-    end
 
     def price(items_total)
       Pricing::DeliveryQuote.new(
