@@ -30,20 +30,120 @@ Needs a recurring solid_queue job. Until it exists, the admin board's staleness
 colouring is the only thing catching it, which means it depends on someone
 watching.
 
+### Search cannot bridge scripts, and the user will read that as an empty app
+`MerchantCategory.search` checks all three locale columns, so `کباب` finds a
+category. But a merchant NAME or an item name stored in Latin is unreachable by
+a Dari query and vice versa, and trigram similarity cannot help — `کباب` and
+`kabab` share no trigrams at all.
+
+`docs/AFGHAN_UX.md` is explicit that people type both. The consequence is not a
+poor result, it is **zero** results, and a user concludes the app is empty.
+
+Needs a transliteration map or a normalised search column holding both forms.
+Not built.
+
+### Shamsi dates and Eastern Arabic numerals are not implemented
+Afghanistan does not run on the Gregorian calendar. Store UTC, **render Shamsi**
+in Dari and Pashto. Digits render as ۰۱۲۳۴۵۶۷۸۹ per locale, with two exceptions
+that stay Latin and left-to-right inside RTL text: **phone numbers and order
+reference codes** — mirroring those makes them unusable.
+
+Both belong in the localisation layer, solved once, not per screen. Nothing in
+the API formats dates or numbers for display yet, which is the right time to
+decide that the API sends ISO-8601 UTC and raw numbers, and the client renders.
+
 ### `Setting` rows are not read by anything yet
 `Setting.fetch` works and raises on unknown keys, but no order-pricing code
 calls it, because there is no order-pricing code yet. When that lands, the
 commission/fee values must come from `Setting.fetch`, not from
-`Restaurant#commission_rate` alone and never from a constant.
+`Merchant#commission_rate` alone and never from a constant.
 
 ---
 
 ## Solved, with the reasoning
 
+### `db:migrate` on an EMPTY database loads `schema.rb` and marks every migration applied
+This is the worst trap hit so far, because it reports success.
+
+After editing existing migrations, `db:drop db:create db:migrate` printed only
+the one NEW migration and `db/schema.rb` still described the old tables. The
+database had been rebuilt from the **stale schema.rb**, with every migration
+version inserted into `schema_migrations` as though it had run.
+
+I then "verified" by reading `schema.rb` — which is the file the database had
+just been built from. Reading the artefact to check the artefact.
+
+**After editing an existing migration, delete `db/schema.rb` before
+re-migrating**, and verify against the database:
+
+```bash
+rm -f db/schema.rb && bin/rails db:create db:migrate
+psql ... -tc "select tablename from pg_tables where schemaname='public'"
+```
+
+Self-review Q2 exactly: verify where it lands, not where you are looking.
+
+### `similarity()` compares WHOLE strings — use `word_similarity()`
+The fuzzy search fallback returned nothing for the only queries it existed to
+catch. `similarity('kebab', 'Kabab House')` is 0.200, because it scores the
+query against the entire column value including " House". No threshold that
+accepts 0.200 would reject unrelated names.
+
+Measured, rather than reasoned about:
+
+| query | `similarity` | `word_similarity` |
+|---|---|---|
+| kabab | 0.500 | 1.000 |
+| kebab | **0.200** | **0.333** |
+| kabob | **0.200** | **0.500** |
+| pharmacy | 0.000 | 0.000 |
+| pizza | 0.000 | 0.000 |
+
+`word_similarity(query, column)` scores against the best matching extent inside
+the column, which is what someone searching a shop name means. Threshold is
+**0.3** — under "kebab" at 0.333, far above unrelated at 0. Re-tune by
+re-running that query, not by reasoning about trigrams.
+
+Two guesses were wrong before measuring (0.2 with the wrong function, then 0.4
+with the right one). **Measure the numbers.**
+
+### `has_one_attached` without Active Storage installed fails silently until first use
+Seven `has_one_attached` declarations existed across Merchant, CatalogItem and
+CourierProfile, and `active_storage:install` had never been run — no
+`active_storage_blobs`, no attachments table.
+
+Nothing caught it. `ruby -c` passes, `rubocop` passes, `zeitwerk:check` passes
+(the macro does not touch the database at class-definition time), and 103 specs
+passed because none of them attached a file. It would have failed on the first
+photo upload, in the feature that matters most in this market.
+
+**If a model declares an attachment, assert that attaching one works.** A macro
+that needs a table is not verified by a suite that never exercises it.
+
+### Inside a `scope` lambda, `self` is the RELATION, not the class
+`scope :live, -> { where.not(status: self::STATUSES.values_at(*TERMINAL)) }` in a
+concern raises `TypeError` — an `ActiveRecord::Relation` is not a Module, so
+`::` cannot resolve a constant through it. Reach class constants through a class
+method instead, which the relation delegates to `klass`.
+
+### A sed-based rename mangles prose, and a shoulda matcher can assert the unreachable
+Two small things from the merchant rename worth knowing:
+
+- Renaming `restaurant` to `merchant` across 39 files rewrote carefully-worded
+  comments into slightly wrong ones. Identifier renames are mechanical; the
+  prose around them is not. **Re-read the comments in the files that matter
+  after a bulk rename.**
+- `it { is_expected.to validate_presence_of(:top_up_code) }` failed because a
+  `before_validation` callback assigns the code, so it can never be blank. The
+  matcher was asserting a state the model cannot reach — a check that cannot
+  fail, in the opposite direction. Removed in favour of testing the behaviour
+  that exists.
+
+
 ### `Order::TRANSITIONS` named a role that does not exist — and one spec passed anyway
-The table said `:restaurant`. The role is `:restaurant_owner`. So
-`can_transition_to?(:accepted, actor_role: :restaurant_owner)` returned false
-for every restaurant transition: **the restaurant could not accept its own
+The table said `:merchant`. The role is `:merchant_owner`. So
+`can_transition_to?(:accepted, actor_role: :merchant_owner)` returned false
+for every merchant transition: **the merchant could not accept its own
 orders**, and nothing raised, because a missing key in that table is
 indistinguishable from a forbidden transition.
 
@@ -58,7 +158,7 @@ every role and every status named anywhere in `TRANSITIONS` is a real one.
 Proven to fail by planting the original bug back:
 
 ```
-TRANSITIONS names roles that do not exist: [:restaurant]
+TRANSITIONS names roles that do not exist: [:merchant]
 1 example, 1 failure
 ```
 
@@ -101,7 +201,7 @@ the habit rather than waiting for a boot.
 ### `ruby -c` is not `zeitwerk:check`
 Every model parsed and two of them still would not have loaded. The house
 convention `class_name: Model.name` (hatiwal-api's CLAUDE.md: never a string)
-evaluates the constant at class-definition time, so `User` → `Restaurant` →
+evaluates the constant at class-definition time, so `User` → `Merchant` →
 `User` is a real load-order cycle. It resolves — Ruby hands back the
 partially-defined class and `.name` works on it — but the only way to know is
 `bin/rails zeitwerk:check`, which eager-loads everything.
@@ -174,4 +274,4 @@ utilities, and mirror directional icons — a correct `dir` with a left-pointing
 edu-safi had five endpoints where the correct scope existed, was correct, and was
 never consulted. Write the scope **and use it**, and add a request spec proving
 both the refusal and the legitimate path. The analogue here is
-`restaurant_id` — belonging to a restaurant is not permission to act on it.
+`merchant_id` — belonging to a merchant is not permission to act on it.

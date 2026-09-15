@@ -11,7 +11,7 @@ would otherwise live only in a session that will be summarised away.
 
 ## 2026-09-15
 
-### R1 — Registration is not one flow. Riders and restaurants are nothing like customers
+### R1 — Registration is not one flow. Riders and merchants are nothing like customers
 > "remember regestration for resurant and rider is very defrent than cline
 > client can be simple but not rider and resutrant"
 
@@ -20,17 +20,17 @@ would otherwise live only in a session that will be summarised away.
 **Rider:** identity (full name, father's name, tazkira number), vehicle type and
 plate, a **guarantor** (name, phone, relation — the real trust mechanism in Kabul,
 not a credit check), work area, documents, and an explicit **human approval** with
-a name attached. A rider advances our restaurants' food out of their own pocket
+a name attached. A rider advances our merchants' food out of their own pocket
 and carries our cash.
 
-**Restaurant:** the owner as a person separate from the business (name, phone,
+**Merchant:** the owner as a person separate from the business (name, phone,
 tazkira), licence number, a **contact person who actually answers during a rush**
 (often not the owner), documents, and the same explicit approval.
 
 None of it can be collected later. An unverified rider who disappears with a
 float is exactly the loss this data exists to prevent.
 
-Built: `20260915120900_add_onboarding_to_riders_and_restaurants` — schema.
+Built: `20260915120900_add_onboarding_to_riders_and_merchants` — schema.
 Still open: document attachments, the approval endpoints, the admin screens.
 
 ### R2 — A good login system
@@ -52,19 +52,19 @@ Phone + OTP, and *good* means the parts people skip:
 > "we should have best search system for food best category etc"
 
 Two different things, and they were being conflated:
-- `menu_categories` is a **restaurant's own menu structure** ("Starters", "Kebab",
-  "Drinks"), entered by the restaurant in its own language.
-- **Cuisines** are a **global, seeded taxonomy** ("Kabab", "Pizza", "Burger",
-  "Afghan", "Fast food") used to browse and filter across restaurants. This is
+- `catalog_categories` is a **merchant's own menu structure** ("Starters", "Kebab",
+  "Drinks"), entered by the merchant in its own language.
+- **MerchantCategorys** are a **global, seeded taxonomy** ("Kabab", "Pizza", "Burger",
+  "Afghan", "Fast food") used to browse and filter across merchants. This is
   what "best category" means and it did not exist in the first schema pass.
 
-Search must hit **restaurant names and dish names together** — people search
-"mantu", which is a dish, not a restaurant — be **multi-word** (each word narrows,
+Search must hit **merchant names and dish names together** — people search
+"mantu", which is a dish, not a merchant — be **multi-word** (each word narrows,
 each word can match any field, per the house rule in hatiwal's backend prompt),
 and be **typo- and transliteration-tolerant**, because "kabab / kebab / kabob"
 are the same food and Pashto/Dari transliterations vary per person.
 
-Built: `20260915121000_add_cuisines_and_search`.
+Built: `20260915121000_add_merchant_categories_and_search`.
 
 ### R4 — Administrate for the admin surface
 > "make sure we have well system admistre gem can help to go admin part its
@@ -72,7 +72,7 @@ Built: `20260915121000_add_cuisines_and_search`.
 
 Settles an open question. `hatiwal-api` already runs Administrate **inside the API
 repo** (`app/dashboards/`, `app/controllers/admin/`), which contradicted our brief's
-separate `dastarkhwan-admin` repo. The owner's call is Administrate, and putting it
+separate `karwan-admin` repo. The owner's call is Administrate, and putting it
 here is also the smaller v0: one repo, one deploy, no second frontend.
 
 ### R5 — Test everything, at every layer
@@ -94,5 +94,102 @@ Problems and lessons go in `docs/NOTES.md`; requirements go here.
 ### R7 — Push the work, keep pushing it
 > "do git init and add git ingore etc" / "and push also" / "with time"
 
-`github.com/Hama99o/dastarkhwan-api`, pushed as work lands rather than in one
+`github.com/Hama99o/karwan-api`, pushed as work lands rather than in one
 lump at the end. The box hard-rebooted this morning and killed seven sessions.
+
+### R8 — The name is Karwan. The old name is gone
+> "make sure old name nervrer apear and how on app etc" / "and in doc and code"
+
+A *karwan* is a company travelling together carrying **goods and people** — a
+description of the platform, not a metaphor, which is why it survives the move
+from food-only to food-plus-rides. Identical spelling in Pashto and Dari.
+
+**Latin spelling is always `Karwan`** — never Karvan, Kaarwan or Caravan.
+Persian و transliterates as both v and w and people will search all of them.
+
+Renamed: the Rails module, the database names (dev, test and all four production
+names), docker-compose, CI, Dockerfile, README, factories, docs. Verified by
+`grep -rniI` returning nothing and by rebuilding the stack from scratch, not by
+assuming. The dev and test databases were dropped and recreated — free now,
+since both held zero rows, and not free later.
+
+Built: commit renaming everything; database volume recreated as `karwan-api_postgres`.
+
+### R9 — A merchant is a restaurant OR a store OR a bookshop, and also rides
+> "like we should able to order from resurtant but it can be store or book store
+> and for drive also"
+> "for example send books etc"
+
+The supply side was broadened three times in one hour. The schema now assumes
+nothing about how many kinds there are:
+
+- `merchant_kinds` is a **table**, not an enum. A bookshop is a row, not a
+  migration. Seeded and translated, because the customer app renders these as
+  browse labels in three locales.
+- **Food-specific fields are nullable.** `merchants.prep_time_minutes` has no
+  default and no presence validation, and `effective_prep_time_minutes` returns
+  nil for a merchant that does not prepare food. A book is picked off a shelf,
+  and defaulting it to 20 minutes would put a meaningless number on every
+  bookshop that someone would eventually believe.
+- `courier_profiles.accepted_job_kinds` is a **Postgres array with a GIN index**,
+  reversing an earlier decision of mine to use one boolean per kind. Booleans
+  were simpler to query and I preferred them, but a third demand type
+  (person-to-person parcel) is already under discussion and a boolean per kind
+  means a migration each time.
+
+Built: `merchant_kinds` in `20260915120200_create_merchants`, array in
+`20260915120500_create_courier_money`.
+
+### R10 — Build it in the shape of the Asian super-apps
+> "inspire from chines app like this or snap in iran etc"
+
+Snapp (Iran) and Meituan (China): several services sharing one account, one
+wallet and one fulfilment network, rather than several apps. This is the
+justification for the whole polymorphic restructure — `offers`,
+`status_transitions` and `wallet_entries` are polymorphic, and `Dispatchable`
+holds what every demand type shares, so **nothing in the schema assumes exactly
+two services.**
+
+### R11 — Best possible mobile UI/UX; backend written to be understood and refactored
+> "we should have like best ui and ux for mobile lmater for backend we should
+> code it well so we understand well and we refactor and not bad code"
+
+Mobile polish comes later, per the build phases. What it means for the backend
+*now*:
+
+- **Shared concerns instead of conditionals.** `Dispatchable`, `Monetary`,
+  `SoftDeletable`, `TrigramSearchable`, `Roles`. Rules live in one place, so
+  changing one changes it everywhere.
+- **Namespace by role, never `if current_user.courier?`.** Per
+  `../docs/ARCHITECTURE.md`: duplication between roles is cheaper than coupling
+  between roles, because roles diverge and conditionals never get removed.
+- **Every non-obvious decision is a comment where the code is**, saying why and
+  what the alternative cost. A decision recorded only in a commit message is
+  invisible to the person reading the file.
+- **Invariants are validations, not conventions** — money that does not add up
+  cannot be saved.
+- **Tests at every layer**, and every new gate proven to go red by planting the
+  bug it should catch.
+
+### R12 — Address voice notes, and the literacy constraint behind them
+> `../docs/AFGHAN_UX.md`, from "make sure it's easy for Afghan to use"
+
+A large share of Afghan adults cannot read fluently, and the share is lower for
+women and rural users. Typing "the blue gate near the mosque, second floor" in
+Pashto is the hardest single action in the order flow; **saying** it is trivial.
+
+So an address is **a pin, a voice note, and a phone number**, with the text
+field optional rather than primary. `addresses` gained `has_voice_note` and
+`voice_note_seconds` (queryable without loading the blob) plus an Active Storage
+attachment, capped at 60 seconds — longer than that is a monologue, and a
+courier will not listen to it at a junction.
+
+Also found while doing it: **Active Storage was never installed**, though seven
+`has_one_attached` declarations already existed. Nothing caught it, because the
+macro does not touch the database and `zeitwerk:check` passes. Installed.
+
+Still open from that document, and not yet built: Solar Hijri (Shamsi) date
+rendering, Eastern Arabic numerals per locale (with phone numbers and order
+codes staying Latin and LTR), and cross-script search — trigram similarity
+cannot bridge `کباب` and `kabab`, so that needs a transliteration map or a
+normalised search column. Recorded in `docs/NOTES.md`.

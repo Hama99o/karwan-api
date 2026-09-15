@@ -103,7 +103,7 @@ honest sentence.
 
 ## E2E and QA — planned, deliberately not yet
 
-When `dastarkhwan-mobile` exists, adopt `hatiwal-mobile/qa/` wholesale rather
+When `karwan-mobile` exists, adopt `hatiwal-mobile/qa/` wholesale rather
 than reinventing it: `qa.sh` as the single entry point, `features.yaml` as the
 manifest, `FLOW_REGISTER.md` as the board, `UI_FINDINGS.md` for visual defects.
 It is built to be portable — copy `qa.config.example.sh` to `qa.config.sh` and

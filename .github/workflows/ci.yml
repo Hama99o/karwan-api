@@ -57,9 +57,9 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_USER: dastarkhwan
+          POSTGRES_USER: karwan
           POSTGRES_PASSWORD: password
-          POSTGRES_DB: dastarkhwan_test
+          POSTGRES_DB: karwan_test
         ports:
           - 5432:5432
         options: >-
@@ -70,9 +70,9 @@ jobs:
 
     env:
       RAILS_ENV: test
-      # config/database.yml rewrites this URL's path to /dastarkhwan_test for the
+      # config/database.yml rewrites this URL's path to /karwan_test for the
       # test env, so pointing it at the test DB is consistent either way.
-      DATABASE_URL: postgres://dastarkhwan:password@localhost:5432/dastarkhwan_test
+      DATABASE_URL: postgres://karwan:password@localhost:5432/karwan_test
       # Static key for the test env — not a real secret, just a non-empty string.
       # UserSession digests tokens with HMAC keyed on this, so it must be set.
       SECRET_KEY_BASE: "0000000000000000000000000000000000000000000000000000000000000001"

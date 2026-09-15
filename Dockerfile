@@ -2,8 +2,8 @@
 # check=error=true
 
 # This Dockerfile is designed for production, not development. Use with Kamal or build'n'run by hand:
-# docker build -t dastarkhwan_api .
-# docker run -d -p 80:80 -e RAILS_MASTER_KEY=<value from config/master.key> --name dastarkhwan_api dastarkhwan_api
+# docker build -t karwan_api .
+# docker run -d -p 80:80 -e RAILS_MASTER_KEY=<value from config/master.key> --name karwan_api karwan_api
 
 # For a containerized dev environment, see Dev Containers: https://guides.rubyonrails.org/getting_started_with_devcontainer.html
 
