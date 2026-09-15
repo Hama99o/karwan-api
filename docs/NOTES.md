@@ -13,6 +13,34 @@ Two rules from the wider workspace that apply to this file:
 
 ## Open problems — not yet fixed
 
+> **Current as of 2026-09-16, 01:00.** A stale gap list actively misdirects —
+> it sends the next person to fix something already fixed and lets something
+> real sit. Everything below has been re-checked against the code, not
+> remembered.
+
+### EVERYTHING STILL OPEN NEEDS HAMMA9900, NOT CODE
+
+The backend is functionally complete for v0: 1,040 examples, rubocop and
+brakeman clean, every screen the app has is served. What remains is not
+engineering:
+
+| Open | What it needs | Why it cannot be decided here |
+|---|---|---|
+| **SMS gateway** | His choice and his money | The one true per-unit cost in v0. The adapter seam and the message exist (`Notifications::SmsClient`, `Setting` rows per locale); `SMS_PROVIDER=log` writes codes to the log, and `bin/preflight` warns that nobody can sign in that way. Choosing a gateway is an afternoon. |
+| **VPS and deployment** | A host and a DNS record | `config/deploy.yml` is written and parked: a fourth service on the existing OVH box, Postgres on 5435, no Redis. Nothing is deployed. |
+| **The support phone number** | One row in the admin console | `/public/app_config` serves it and every installed app picks it up with no rebuild. Blank today, so the app correctly hides the button. |
+| **Pashto and Dari OTP copy** | Two rows in the admin console | An SMS has no device to translate it, so the server holds the words. English placeholders ship until he pastes the real text. |
+| **New-courier credit line and the guarantor policy** | His numbers | `default_credit_line` is a `Setting` at 500 AFN, chosen as a placeholder. |
+| **OSRM distance for pricing** | His decision | Routed distance raises fares ~29%. `routing_distance_source` defaults to `straight_line`; switching it is one row, no deploy. |
+| **Renaming the karwan-api GitHub repo** | His account | — |
+
+Two things are deliberately OUT rather than open: **the ride product**
+(PRODUCT.md — "do not build the ride product yet"; the model, the pricing and
+the courier's ride flow exist, the passenger endpoints do not) and **merchant
+self-service profile editing** (PRODUCT.md — "not self-serve in v0, admin
+onboards restaurants").
+
+
 ### Found by wiring the mobile screens — three gaps, three lessons
 
 Every one of these was invisible from the server side and obvious the moment a
@@ -79,6 +107,53 @@ mobile repo's `src/__tests__/setup.ts` now carries it in full:
 
 Mock the LEAF the device actually uses, and assert both directions of any rule.
 
+### Found by the FIRST DEVICE RUNS — and the app had never rendered at all
+
+The mobile app met an Android runtime for the first time on 2026-09-15. It did
+not boot. Two runs produced twenty findings; what follows is the ones with a
+lesson beyond their own fix. Full detail in `karwan-mobile/qa/UI_FINDINGS.md`.
+
+**F-01 — the app restart-looped forever and rendered nothing.** 55 root mounts
+in 20 seconds, a blank grey screen, and Pashto and Dari — two of three locales
+and the entire target market — unreachable. The premise was false:
+`RNRestart.restart()` recreates the JS context in the SAME process, so the
+native RTL flag does not come back changed, so "the flag disagrees" stayed true
+on every mount. **83 green tests, `tsc` and `eslint` all passed over an app
+that never rendered.**
+
+**F-19 — the app went HALF-MIRRORED, and the test could not have caught it.**
+`setLanguage` restarted only when the language STRING changed, and that is
+false for the commonest first interaction in the app: a fresh install tapping
+پښتو, which is already the current language because `lng: DEFAULT_LANG`
+initialises to it. `forceRTL` DOES move `isRTL` within the running context, so
+everything mounted afterwards laid out RTL and everything already on screen did
+not.
+
+> **One platform, two scopes.** `forceRTL` never moves `isRTL` ACROSS a
+> restart, and always moves it WITHIN a context. The test harness modelled only
+> the first, so it could not have caught the second no matter how many examples
+> it grew. When a platform behaviour differs by scope, the harness needs both
+> or it is asserting one of them twice.
+
+**F-15 — every role-scoped endpoint was 401**, because there is no login screen
+yet, so the only surface the app could reach was the public merchant list. That
+single fact capped four findings at once. Closed by `db/seeds/e2e.rb`, which
+the rig drives by signing in the way a person does — phone, OTP, in.
+
+**F-02/F-20 — the support number.** It shipped as a placeholder that rang
+nobody, then as a build-time constant no admin could change, then as a blank
+server value that silently overrode a correctly configured build. Now one
+`Setting` row, served publicly, with the build value as the fallback for when
+the server cannot be reached — which is exactly when somebody wants to ring.
+
+**R-12 — the rig was WRITING into Hatiwal's live database.** `clear_blocks.sh`
+defaulted to a container that is up on this box, once per feature.
+
+> **A copied rig carries its origin's assumptions, and they escalate.** Wrong
+> port, then wrong application, then wrong question, then wrong database. The
+> read-only ones cost a false verdict; the WRITE ones cost somebody else their
+> data. Audit the writes first.
+
 ### Small gaps the mobile wiring exposed and did not close
 
 - **The active order costs two requests.** There is no `/customer/orders/active`.
@@ -102,6 +177,30 @@ Mock the LEAF the device actually uses, and assert both directions of any rule.
   exists (the COURIER records the handover, which is the right side of the
   transaction to trust), so the card carries no button and no copy. It needs a
   Pashto string meaning "waiting for the courier" — Hamma9900's.
+
+### Closed on 2026-09-15/16 — listed so nobody re-opens them
+
+- **A courier could not be created at all.** No application endpoint, and the
+  admin console had no `new`/`create` — an index over a table nothing could
+  write to. `POST /api/v1/courier/registration` now takes a partial
+  application and reports what is still owed as field names.
+- **Approval granted two things of three.** Status and wallet, never the
+  `courier` ROLE — so an approved courier saw no jobs (`CourierScope` resolves
+  to `none`) and could not switch into the courier tab. One transaction now.
+- **The approver could not be recorded.** `verified_by` points at `users` and
+  the console operator is an `AdminUser`, so it could only ever be nil, against
+  CLAUDE.md's "a nil approver is not a valid state". `verified_by_admin_user`
+  added to courier_profiles AND merchants.
+- **Nothing could upload a file.** Eight `has_one_attached` macros, no endpoint
+  and no admin field — every gate green because the macro never touches the
+  database. Catalog photos, address voice notes and courier documents now
+  upload; `AttachmentField` lets an operator SEE the tazkira they approve.
+- **The OTP SMS did not exist** — a code was logged and no message was ever
+  composed, on the first thing anybody in Kabul reads from this platform.
+- **The API defaulted to port 3000**, which is another live application here.
+- **The merchant board dead-ended at `accepted`**, and its cards carried no
+  money.
+- **`OrderPolicy#track?` was written, correct, and called by nothing.**
 
 ### Map tiles stop at the Afghan border, but the app does not
 `hatiwal-map` builds its tileset from `afghanistan-latest.osm.pbf`, so anyone
