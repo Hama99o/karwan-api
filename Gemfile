@@ -8,7 +8,18 @@ gem "bootsnap", require: false
 gem "kamal", require: false
 gem "thruster", require: false
 
-# Menu item photos (Active Storage variants)
+# Pinned below 3.0. json 3.0 made JSON.parse's options KEYWORD-only, and
+# Rails 8.1.3.1's Active Storage still passes them positionally when
+# deserialising a blob's metadata column — so EVERY attachment upload raises
+# "wrong number of arguments (given 2, expected 1)" from
+# ActiveStorage::Blob#custom_metadata.
+#
+# That means photos, ID documents and address voice notes, which is most of what
+# this app stores. Nothing surfaced it until a spec actually attached a file.
+# Remove the pin when Rails supports json 3.
+gem "json", "~> 2.21"
+
+# Catalog item photos (Active Storage variants)
 gem "image_processing", "~> 1.2"
 gem "aws-sdk-s3", require: false
 
