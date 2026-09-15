@@ -14,13 +14,22 @@ class User < ApplicationRecord
 
   has_many :owned_restaurants, class_name: Restaurant.name, foreign_key: :owner_id,
                                inverse_of: :owner, dependent: :restrict_with_error
+  # Demand side: what this person ordered or booked.
   has_many :orders, class_name: Order.name, foreign_key: :customer_id,
                     inverse_of: :customer, dependent: :restrict_with_error
-  has_many :deliveries, class_name: Order.name, foreign_key: :rider_id,
-                        inverse_of: :rider, dependent: :restrict_with_error
+  has_many :trips, class_name: Trip.name, foreign_key: :passenger_id,
+                   inverse_of: :passenger, dependent: :restrict_with_error
 
-  has_one :rider_profile, dependent: :destroy
-  has_one :rider_wallet, dependent: :destroy
+  # Supply side: what this person fulfilled, across both demand types. One
+  # human, one wallet, one commission — the UI says "rider" in the food tab and
+  # "driver" in the ride tab.
+  has_many :courier_orders, class_name: Order.name, foreign_key: :courier_id,
+                            inverse_of: :courier, dependent: :restrict_with_error
+  has_many :courier_trips, class_name: Trip.name, foreign_key: :courier_id,
+                           inverse_of: :courier, dependent: :restrict_with_error
+
+  has_one :courier_profile, dependent: :destroy
+  has_one :courier_wallet, dependent: :destroy
 
   validates :phone, presence: true, uniqueness: true
   validates :locale, presence: true, inclusion: { in: LOCALES }

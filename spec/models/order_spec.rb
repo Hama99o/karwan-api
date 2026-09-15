@@ -7,7 +7,7 @@ RSpec.describe Order, type: :model do
     it "generates a unique code on create so support can read it out loud" do
       order = create(:order)
 
-      expect(order.code).to match(/\AD\d{10}\z/)
+      expect(order.code).to match(/\AK\d{10}\z/)
     end
 
     it "rejects a delivery pin outside real coordinates" do
@@ -54,9 +54,7 @@ RSpec.describe Order, type: :model do
     end
 
     it "gives every non-terminal state a timeout" do
-      non_terminal = described_class::STATUSES.keys.map(&:to_sym) - described_class::TERMINAL
-
-      expect(described_class::TIMEOUTS.keys).to match_array(non_terminal)
+      expect(described_class.states_without_timeout).to be_empty
     end
 
     # The class-level fix for the bug this spec found: TRANSITIONS listed
@@ -160,22 +158,22 @@ RSpec.describe Order, type: :model do
     let(:order) { create(:order) }
 
     it "hands the restaurant the food less our commission" do
-      expect(order.rider_advance).to eq(350)
+      expect(order.courier_advance).to eq(350)
       expect(order.food_total - order.commission).to eq(order.restaurant_payout)
     end
 
-    it "leaves the rider holding exactly our commission, which is our whole exposure" do
+    it "leaves the courier holding exactly our commission, which is our whole exposure" do
       expect(order.platform_cash_held).to eq(50)
     end
 
-    it "reconciles from the rider's side: collected - advanced - fee == our commission" do
-      expect(order.customer_total - order.restaurant_payout - order.rider_fee).to eq(order.commission)
+    it "reconciles from the courier's side: collected - advanced - fee == our commission" do
+      expect(order.customer_total - order.restaurant_payout - order.courier_fee).to eq(order.commission)
     end
   end
 
   describe "enums" do
-    it "makes cash_status an explicit three-state column, never derived" do
-      expect(described_class.cash_statuses.keys).to eq(%w[pending collected settled])
+    it "makes payment_status an explicit three-state column, never derived" do
+      expect(described_class.payment_statuses.keys).to eq(%w[pending collected settled])
     end
 
     it "offers only cash in v0" do
@@ -199,13 +197,13 @@ RSpec.describe Order, type: :model do
       end
     end
 
-    describe ".cash_outstanding" do
-      it "is every order whose money has not been settled" do
+    describe ".unsettled" do
+      it "is every order whose money has not reached us" do
         pending_order = create(:order)
         collected = create(:order, :delivered)
         create(:order, :delivered, :settled)
 
-        expect(described_class.cash_outstanding).to contain_exactly(pending_order, collected)
+        expect(described_class.unsettled).to contain_exactly(pending_order, collected)
       end
     end
   end

@@ -5,7 +5,7 @@
 class Settlement < ApplicationRecord
   include Monetary
 
-  belongs_to :rider, class_name: User.name
+  belongs_to :courier, class_name: User.name
   # Free text as well as an optional reference: the person counting cash in
   # Kabul may not have an account, and "who counted this" must never be null.
   belongs_to :counted_by, class_name: User.name, optional: true

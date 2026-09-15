@@ -25,8 +25,8 @@ RSpec.describe User, type: :model do
     it { is_expected.to have_many(:addresses).dependent(:destroy) }
     it { is_expected.to have_many(:user_sessions).dependent(:destroy) }
     it { is_expected.to have_many(:device_tokens).dependent(:destroy) }
-    it { is_expected.to have_one(:rider_profile).dependent(:destroy) }
-    it { is_expected.to have_one(:rider_wallet).dependent(:destroy) }
+    it { is_expected.to have_one(:courier_profile).dependent(:destroy) }
+    it { is_expected.to have_one(:courier_wallet).dependent(:destroy) }
 
     it "refuses to destroy a user who has order history" do
       order = create(:order)
@@ -38,7 +38,7 @@ RSpec.describe User, type: :model do
 
   describe "enums" do
     it "defines the four roles once, shared with UserRole" do
-      expect(described_class.active_roles.keys).to eq(%w[customer rider restaurant_owner admin])
+      expect(described_class.active_roles.keys).to eq(%w[customer courier restaurant_owner admin])
       expect(described_class.active_roles).to eq(UserRole.roles)
     end
 
@@ -51,9 +51,9 @@ RSpec.describe User, type: :model do
     let(:user) { create(:user) }
 
     it "is true for a held role" do
-      create(:user_role, user: user, role: :rider)
+      create(:user_role, user: user, role: :courier)
 
-      expect(user.role?(:rider)).to be true
+      expect(user.role?(:courier)).to be true
     end
 
     it "is false for a role the user does not hold" do
@@ -71,10 +71,10 @@ RSpec.describe User, type: :model do
     let(:user) { create(:user, active_role: :customer) }
 
     it "switches to a role the user holds" do
-      create(:user_role, user: user, role: :rider)
+      create(:user_role, user: user, role: :courier)
 
-      expect(user.switch_role!(:rider)).to be_truthy
-      expect(user.reload.active_role).to eq("rider")
+      expect(user.switch_role!(:courier)).to be_truthy
+      expect(user.reload.active_role).to eq("courier")
     end
 
     # Returns false rather than raising, so a stale client cannot 500 the
@@ -111,10 +111,10 @@ RSpec.describe User, type: :model do
 
   describe ".with_role" do
     it "returns only users holding that role" do
-      rider = create(:user, :rider)
+      courier = create(:user, :courier)
       create(:user, :customer)
 
-      expect(described_class.with_role(:rider)).to contain_exactly(rider)
+      expect(described_class.with_role(:courier)).to contain_exactly(courier)
     end
   end
 

@@ -1,9 +1,11 @@
 FactoryBot.define do
-  factory :rider_profile do
+  factory :courier_profile do
     user
     is_available { false }
     vehicle_type { :motorbike }
     verification_status { :pending }
+    accepts_food_orders { true }
+    accepts_trips { false }
     full_name { Faker::Name.name }
     father_name { Faker::Name.first_name }
     sequence(:national_id_number) { |n| "1400#{n.to_s.rjust(8, '0')}" }
@@ -28,16 +30,25 @@ FactoryBot.define do
     trait :stale_location do
       last_latitude  { 34.5553 }
       last_longitude { 69.2075 }
-      location_updated_at { (RiderProfile::STALE_AFTER + 1.minute).ago }
+      location_updated_at { (CourierProfile::STALE_AFTER + 1.minute).ago }
     end
 
     trait :dispatchable do
       approved
       available
     end
+
+    trait :takes_trips do
+      accepts_trips { true }
+    end
+
+    trait :takes_nothing do
+      accepts_food_orders { false }
+      accepts_trips { false }
+    end
   end
 
-  factory :rider_wallet do
+  factory :courier_wallet do
     user
     balance { 1000 }
     credit_line { 500 }
@@ -61,7 +72,7 @@ FactoryBot.define do
   end
 
   factory :wallet_entry do
-    rider_wallet
+    courier_wallet
     kind { :top_up }
     amount { 1000 }
     currency { "AFN" }
@@ -82,7 +93,7 @@ FactoryBot.define do
   end
 
   factory :settlement do
-    rider { create(:user, :rider) }
+    courier { create(:user, :courier) }
     expected_amount { 500 }
     counted_amount { 500 }
     currency { "AFN" }

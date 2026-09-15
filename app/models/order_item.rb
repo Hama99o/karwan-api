@@ -25,7 +25,7 @@ class OrderItem < ApplicationRecord
 
   def line_total_matches_parts
     return if [ unit_price, options_total, quantity, line_total ].any?(&:blank?)
-    return if (line_total - expected_line_total).abs < 0.01
+    return if (line_total - expected_line_total).abs <= Monetary::ROUNDING_TOLERANCE
 
     errors.add(:line_total, "must equal (unit_price + options_total) * quantity (#{expected_line_total})")
   end

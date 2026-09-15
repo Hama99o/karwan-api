@@ -1,14 +1,19 @@
 # PREPAID, never a debt.
 #
-# Riders deposit credit, each delivered order deducts our commission, and at
-# the floor the app stops assigning orders. We never chase anyone, because they
-# cannot work without credit. Afghans understand this instantly: it is how
-# phone credit works.
+# Couriers deposit credit, each completed job deducts our commission, and at the
+# floor the app stops assigning work. We never chase anyone, because they cannot
+# work without credit. Afghans understand this instantly: it is how phone credit
+# works.
 #
-# `credit_line` is a small negative allowance so a new rider can start with
+# `credit_line` is a small negative allowance so a new courier can start with
 # nothing and a reconciliation delay never blocks them. Raising it with track
 # record is what makes it a reason to stay.
-class RiderWallet < ApplicationRecord
+#
+# One wallet per person, across both demand types. This is where food and rides
+# converge, and why Model A generalises: for food the courier advances the
+# restaurant payout and is left holding our commission; for a trip they keep the
+# fare and owe commission from this balance. No advance to anybody on a ride.
+class CourierWallet < ApplicationRecord
   include Monetary
 
   TOP_UP_CODE_LENGTH = 4
@@ -22,7 +27,7 @@ class RiderWallet < ApplicationRecord
 
   before_validation :assign_top_up_code, on: :create
 
-  # How far below zero this rider may go. Stored positive, applied negative.
+  # How far below zero this courier may go. Stored positive, applied negative.
   def floor
     -credit_line
   end
@@ -31,13 +36,14 @@ class RiderWallet < ApplicationRecord
     balance - floor
   end
 
-  # Can this rider fund an order? They advance the restaurant payout out of
-  # pocket, but what the WALLET must cover is our commission — that is the only
-  # money of ours they end up holding.
-  def can_fund?(order)
-    return false unless order.currency == currency
+  # Can this courier fund this job? What the WALLET must cover is our
+  # commission — on a food order the restaurant payout is the courier's own
+  # advance out of pocket, and on a trip there is no advance at all. Either way
+  # the only money of ours they end up holding is the commission.
+  def can_fund?(job)
+    return false unless job.currency == currency
 
-    balance - order.commission >= floor
+    balance - job.commission >= floor
   end
 
   def blocked?
@@ -46,13 +52,13 @@ class RiderWallet < ApplicationRecord
 
   # Single entry point for every balance change, so no code path can move money
   # without leaving a ledger row saying who moved it.
-  def record_entry!(kind:, amount:, recorded_by: nil, order: nil, note: nil)
+  def record_entry!(kind:, amount:, recorded_by: nil, source: nil, note: nil)
     transaction do
       lock!
       new_balance = balance + amount
       entry = wallet_entries.create!(
         kind: kind, amount: amount, currency: currency, balance_after: new_balance,
-        recorded_by: recorded_by, order: order, note: note
+        recorded_by: recorded_by, source: source, note: note
       )
       update!(balance: new_balance)
       entry

@@ -1,24 +1,24 @@
 FactoryBot.define do
   # The money here follows the brief's own worked example exactly, so a spec
   # reading it can be checked against the document: food 400, delivery 100,
-  # commission 50, customer pays 500, restaurant is handed 350, rider keeps 100
+  # commission 50, customer pays 500, restaurant is handed 350, courier keeps 100
   # and is left holding our 50.
   factory :order do
     customer { create(:user, :customer) }
     restaurant
-    rider { nil }
+    courier { nil }
 
     food_total        { 400 }
     delivery_fee      { 100 }
     commission        { 50 }
-    rider_fee         { 100 }
+    courier_fee       { 100 }
     restaurant_payout { 350 }
     customer_total    { 500 }
     currency { "AFN" }
 
     payment_method { :cash }
     status { :placed }
-    cash_status { :pending }
+    payment_status { :pending }
 
     delivery_latitude  { 34.5400 }
     delivery_longitude { 69.1750 }
@@ -45,22 +45,22 @@ FactoryBot.define do
 
     trait :picked_up do
       status { :picked_up }
-      rider { create(:user, :rider) }
+      courier { create(:user, :courier) }
       picked_up_at { Time.current }
       restaurant_paid_at { Time.current }
     end
 
     trait :delivered do
       status { :delivered }
-      rider { create(:user, :rider) }
+      courier { create(:user, :courier) }
       picked_up_at { 20.minutes.ago }
       delivered_at { Time.current }
-      cash_status { :collected }
+      payment_status { :collected }
     end
 
     trait :failed do
       status { :failed }
-      rider { create(:user, :rider) }
+      courier { create(:user, :courier) }
       failed_at { Time.current }
       failure_reason { :customer_refused }
     end
@@ -73,7 +73,7 @@ FactoryBot.define do
     end
 
     trait :settled do
-      cash_status { :settled }
+      payment_status { :settled }
       settled_at { Time.current }
     end
 
@@ -121,10 +121,12 @@ FactoryBot.define do
     currency { "AFN" }
   end
 
-  factory :order_status_transition do
-    order
-    from_status { :placed }
-    to_status { :accepted }
+  factory :status_transition do
+    subject { create(:order) }
+    # Strings, not enum symbols: the table is polymorphic over Order and Trip,
+    # which have different status vocabularies.
+    from_status { "placed" }
+    to_status { "accepted" }
     actor { create(:user, :restaurant_owner) }
     actor_role { :restaurant_owner }
     created_at { Time.current }
@@ -139,13 +141,13 @@ FactoryBot.define do
     end
   end
 
-  factory :order_offer do
-    order
-    rider { create(:user, :rider) }
+  factory :offer do
+    offerable { create(:order) }
+    courier { create(:user, :courier) }
     status { :offered }
     sequence(:sequence) { |n| n }
     offered_at { Time.current }
-    expires_at { OrderOffer::DEFAULT_TTL.from_now }
+    expires_at { Offer::DEFAULT_TTL.from_now }
 
     trait :expired do
       expires_at { 1.second.ago }

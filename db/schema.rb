@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_15_121000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_15_121100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -46,6 +46,49 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_121000) do
     t.index ["actor_id"], name: "index_audit_logs_on_actor_id"
     t.index ["created_at"], name: "index_audit_logs_on_created_at"
     t.index ["target_type", "target_id"], name: "index_audit_logs_on_target"
+  end
+
+  create_table "courier_profiles", force: :cascade do |t|
+    t.boolean "accepts_food_orders", default: true, null: false
+    t.boolean "accepts_trips", default: false, null: false
+    t.datetime "created_at", null: false
+    t.string "father_name"
+    t.string "full_name"
+    t.string "guarantor_name"
+    t.string "guarantor_phone"
+    t.string "guarantor_relation"
+    t.boolean "is_available", default: false, null: false
+    t.decimal "last_latitude", precision: 10, scale: 6
+    t.decimal "last_longitude", precision: 10, scale: 6
+    t.datetime "location_updated_at"
+    t.string "national_id_number"
+    t.string "plate_number"
+    t.text "rejection_reason"
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.integer "vehicle_type", default: 0, null: false
+    t.integer "verification_status", default: 0, null: false
+    t.datetime "verified_at"
+    t.bigint "verified_by_id"
+    t.text "work_area"
+    t.index ["accepts_food_orders", "is_available"], name: "index_courier_profiles_on_food_availability"
+    t.index ["accepts_trips", "is_available"], name: "index_courier_profiles_on_trip_availability"
+    t.index ["is_available"], name: "index_courier_profiles_on_is_available"
+    t.index ["national_id_number"], name: "index_courier_profiles_on_national_id_number"
+    t.index ["user_id"], name: "index_courier_profiles_on_user_id", unique: true
+    t.index ["verification_status"], name: "index_courier_profiles_on_verification_status"
+  end
+
+  create_table "courier_wallets", force: :cascade do |t|
+    t.decimal "balance", precision: 12, scale: 2, default: "0.0", null: false
+    t.datetime "created_at", null: false
+    t.decimal "credit_line", precision: 12, scale: 2, default: "0.0", null: false
+    t.string "currency", default: "AFN", null: false
+    t.string "top_up_code", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "user_id", null: false
+    t.index ["top_up_code"], name: "index_courier_wallets_on_top_up_code", unique: true
+    t.index ["user_id"], name: "index_courier_wallets_on_user_id", unique: true
   end
 
   create_table "cuisines", force: :cascade do |t|
@@ -135,6 +178,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_121000) do
     t.index ["restaurant_id"], name: "index_menu_items_on_restaurant_id"
   end
 
+  create_table "offers", force: :cascade do |t|
+    t.bigint "courier_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "expires_at", null: false
+    t.bigint "offerable_id", null: false
+    t.string "offerable_type", null: false
+    t.datetime "offered_at", null: false
+    t.datetime "responded_at"
+    t.integer "sequence", default: 1, null: false
+    t.integer "status", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["courier_id", "status"], name: "index_offers_on_courier_id_and_status"
+    t.index ["courier_id"], name: "index_offers_on_courier_id"
+    t.index ["expires_at"], name: "index_offers_on_expires_at"
+    t.index ["offerable_type", "offerable_id", "sequence"], name: "index_offers_on_offerable_and_sequence", unique: true
+    t.index ["offerable_type", "offerable_id"], name: "index_offers_on_offerable"
+  end
+
   create_table "order_item_options", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "currency", default: "AFN", null: false
@@ -162,44 +223,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_121000) do
     t.index ["order_id"], name: "index_order_items_on_order_id"
   end
 
-  create_table "order_offers", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.datetime "expires_at", null: false
-    t.datetime "offered_at", null: false
-    t.bigint "order_id", null: false
-    t.datetime "responded_at"
-    t.bigint "rider_id", null: false
-    t.integer "sequence", default: 1, null: false
-    t.integer "status", default: 0, null: false
-    t.datetime "updated_at", null: false
-    t.index ["expires_at"], name: "index_order_offers_on_expires_at"
-    t.index ["order_id", "sequence"], name: "index_order_offers_on_order_id_and_sequence", unique: true
-    t.index ["order_id"], name: "index_order_offers_on_order_id"
-    t.index ["rider_id", "status"], name: "index_order_offers_on_rider_id_and_status"
-    t.index ["rider_id"], name: "index_order_offers_on_rider_id"
-  end
-
-  create_table "order_status_transitions", force: :cascade do |t|
-    t.bigint "actor_id"
-    t.integer "actor_role"
-    t.datetime "created_at", null: false
-    t.integer "from_status"
-    t.bigint "order_id", null: false
-    t.text "reason"
-    t.integer "to_status", null: false
-    t.index ["actor_id"], name: "index_order_status_transitions_on_actor_id"
-    t.index ["order_id", "created_at"], name: "index_order_status_transitions_on_order_id_and_created_at"
-    t.index ["order_id"], name: "index_order_status_transitions_on_order_id"
-  end
-
   create_table "orders", force: :cascade do |t|
     t.datetime "accepted_at"
     t.integer "cancellation_reason"
     t.datetime "cancelled_at"
     t.integer "cancelled_by_role"
-    t.integer "cash_status", default: 0, null: false
     t.string "code", null: false
     t.decimal "commission", precision: 12, scale: 2, default: "0.0", null: false
+    t.decimal "courier_fee", precision: 12, scale: 2, default: "0.0", null: false
+    t.bigint "courier_id"
     t.datetime "created_at", null: false
     t.string "currency", default: "AFN", null: false
     t.bigint "customer_id", null: false
@@ -215,6 +247,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_121000) do
     t.decimal "food_total", precision: 12, scale: 2, default: "0.0", null: false
     t.text "notes"
     t.integer "payment_method", default: 0, null: false
+    t.integer "payment_status", default: 0, null: false
     t.datetime "picked_up_at"
     t.datetime "placed_at"
     t.datetime "preparing_at"
@@ -224,19 +257,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_121000) do
     t.bigint "restaurant_id", null: false
     t.datetime "restaurant_paid_at"
     t.decimal "restaurant_payout", precision: 12, scale: 2, default: "0.0", null: false
-    t.decimal "rider_fee", precision: 12, scale: 2, default: "0.0", null: false
-    t.bigint "rider_id"
     t.datetime "settled_at"
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
-    t.index ["cash_status"], name: "index_orders_on_cash_status"
     t.index ["code"], name: "index_orders_on_code", unique: true
+    t.index ["courier_id", "payment_status"], name: "index_orders_on_courier_id_and_payment_status"
+    t.index ["courier_id"], name: "index_orders_on_courier_id"
     t.index ["created_at"], name: "index_orders_on_created_at"
     t.index ["customer_id"], name: "index_orders_on_customer_id"
+    t.index ["payment_status"], name: "index_orders_on_payment_status"
     t.index ["restaurant_id", "status"], name: "index_orders_on_restaurant_id_and_status"
     t.index ["restaurant_id"], name: "index_orders_on_restaurant_id"
-    t.index ["rider_id", "cash_status"], name: "index_orders_on_rider_id_and_cash_status"
-    t.index ["rider_id"], name: "index_orders_on_rider_id"
     t.index ["status", "created_at"], name: "index_orders_on_status_and_created_at"
     t.index ["status"], name: "index_orders_on_status"
   end
@@ -307,45 +338,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_121000) do
     t.index ["status"], name: "index_restaurants_on_status"
   end
 
-  create_table "rider_profiles", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.string "father_name"
-    t.string "full_name"
-    t.string "guarantor_name"
-    t.string "guarantor_phone"
-    t.string "guarantor_relation"
-    t.boolean "is_available", default: false, null: false
-    t.decimal "last_latitude", precision: 10, scale: 6
-    t.decimal "last_longitude", precision: 10, scale: 6
-    t.datetime "location_updated_at"
-    t.string "national_id_number"
-    t.string "plate_number"
-    t.text "rejection_reason"
-    t.datetime "updated_at", null: false
-    t.bigint "user_id", null: false
-    t.integer "vehicle_type", default: 0, null: false
-    t.integer "verification_status", default: 0, null: false
-    t.datetime "verified_at"
-    t.bigint "verified_by_id"
-    t.text "work_area"
-    t.index ["is_available"], name: "index_rider_profiles_on_is_available"
-    t.index ["national_id_number"], name: "index_rider_profiles_on_national_id_number"
-    t.index ["user_id"], name: "index_rider_profiles_on_user_id", unique: true
-    t.index ["verification_status"], name: "index_rider_profiles_on_verification_status"
-  end
-
-  create_table "rider_wallets", force: :cascade do |t|
-    t.decimal "balance", precision: 12, scale: 2, default: "0.0", null: false
-    t.datetime "created_at", null: false
-    t.decimal "credit_line", precision: 12, scale: 2, default: "0.0", null: false
-    t.string "currency", default: "AFN", null: false
-    t.string "top_up_code", null: false
-    t.datetime "updated_at", null: false
-    t.bigint "user_id", null: false
-    t.index ["top_up_code"], name: "index_rider_wallets_on_top_up_code", unique: true
-    t.index ["user_id"], name: "index_rider_wallets_on_user_id", unique: true
-  end
-
   create_table "settings", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "currency"
@@ -363,18 +355,76 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_121000) do
     t.decimal "counted_amount", precision: 12, scale: 2, null: false
     t.bigint "counted_by_id"
     t.string "counted_by_name", null: false
+    t.bigint "courier_id", null: false
     t.datetime "created_at", null: false
     t.string "currency", default: "AFN", null: false
     t.decimal "expected_amount", precision: 12, scale: 2, null: false
     t.text "note"
     t.datetime "period_end"
     t.datetime "period_start"
-    t.bigint "rider_id", null: false
     t.datetime "settled_at", null: false
     t.datetime "updated_at", null: false
     t.index ["counted_by_id"], name: "index_settlements_on_counted_by_id"
-    t.index ["rider_id", "settled_at"], name: "index_settlements_on_rider_id_and_settled_at"
-    t.index ["rider_id"], name: "index_settlements_on_rider_id"
+    t.index ["courier_id", "settled_at"], name: "index_settlements_on_courier_id_and_settled_at"
+    t.index ["courier_id"], name: "index_settlements_on_courier_id"
+  end
+
+  create_table "status_transitions", force: :cascade do |t|
+    t.bigint "actor_id"
+    t.integer "actor_role"
+    t.datetime "created_at", null: false
+    t.string "from_status"
+    t.text "reason"
+    t.bigint "subject_id", null: false
+    t.string "subject_type", null: false
+    t.string "to_status", null: false
+    t.index ["actor_id"], name: "index_status_transitions_on_actor_id"
+    t.index ["subject_type", "subject_id", "created_at"], name: "index_status_transitions_on_subject_and_time"
+    t.index ["subject_type", "subject_id"], name: "index_status_transitions_on_subject"
+  end
+
+  create_table "trips", force: :cascade do |t|
+    t.datetime "accepted_at"
+    t.datetime "arrived_at"
+    t.integer "cancellation_reason"
+    t.datetime "cancelled_at"
+    t.integer "cancelled_by_role"
+    t.string "code", null: false
+    t.decimal "commission", precision: 12, scale: 2, default: "0.0", null: false
+    t.datetime "completed_at"
+    t.decimal "courier_earnings", precision: 12, scale: 2, default: "0.0", null: false
+    t.bigint "courier_id"
+    t.datetime "created_at", null: false
+    t.string "currency", default: "AFN", null: false
+    t.decimal "distance_km", precision: 8, scale: 3
+    t.text "dropoff_landmark_note"
+    t.decimal "dropoff_latitude", precision: 10, scale: 6, null: false
+    t.decimal "dropoff_longitude", precision: 10, scale: 6, null: false
+    t.integer "duration_minutes"
+    t.datetime "failed_at"
+    t.integer "failure_reason"
+    t.decimal "fare", precision: 12, scale: 2, default: "0.0", null: false
+    t.text "notes"
+    t.bigint "passenger_id", null: false
+    t.string "passenger_phone", null: false
+    t.integer "payment_method", default: 0, null: false
+    t.integer "payment_status", default: 0, null: false
+    t.text "pickup_landmark_note"
+    t.decimal "pickup_latitude", precision: 10, scale: 6, null: false
+    t.decimal "pickup_longitude", precision: 10, scale: 6, null: false
+    t.datetime "requested_at"
+    t.datetime "settled_at"
+    t.datetime "started_at"
+    t.integer "status", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.index ["code"], name: "index_trips_on_code", unique: true
+    t.index ["courier_id", "payment_status"], name: "index_trips_on_courier_id_and_payment_status"
+    t.index ["courier_id"], name: "index_trips_on_courier_id"
+    t.index ["created_at"], name: "index_trips_on_created_at"
+    t.index ["passenger_id"], name: "index_trips_on_passenger_id"
+    t.index ["payment_status"], name: "index_trips_on_payment_status"
+    t.index ["status", "created_at"], name: "index_trips_on_status_and_created_at"
+    t.index ["status"], name: "index_trips_on_status"
   end
 
   create_table "user_roles", force: :cascade do |t|
@@ -418,52 +468,52 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_121000) do
   create_table "wallet_entries", force: :cascade do |t|
     t.decimal "amount", precision: 12, scale: 2, null: false
     t.decimal "balance_after", precision: 12, scale: 2, null: false
+    t.bigint "courier_wallet_id", null: false
     t.datetime "created_at", null: false
     t.string "currency", default: "AFN", null: false
     t.integer "kind", null: false
     t.text "note"
-    t.bigint "order_id"
     t.bigint "recorded_by_id"
-    t.bigint "rider_wallet_id", null: false
+    t.bigint "source_id"
+    t.string "source_type"
+    t.index ["courier_wallet_id", "created_at"], name: "index_wallet_entries_on_courier_wallet_id_and_created_at"
+    t.index ["courier_wallet_id"], name: "index_wallet_entries_on_courier_wallet_id"
     t.index ["kind"], name: "index_wallet_entries_on_kind"
-    t.index ["order_id"], name: "index_wallet_entries_on_order_id"
     t.index ["recorded_by_id"], name: "index_wallet_entries_on_recorded_by_id"
-    t.index ["rider_wallet_id", "created_at"], name: "index_wallet_entries_on_rider_wallet_id_and_created_at"
-    t.index ["rider_wallet_id"], name: "index_wallet_entries_on_rider_wallet_id"
+    t.index ["source_type", "source_id"], name: "index_wallet_entries_on_source"
   end
 
   add_foreign_key "addresses", "users"
   add_foreign_key "audit_logs", "users", column: "actor_id"
+  add_foreign_key "courier_profiles", "users"
+  add_foreign_key "courier_profiles", "users", column: "verified_by_id"
+  add_foreign_key "courier_wallets", "users"
   add_foreign_key "device_tokens", "users"
   add_foreign_key "menu_categories", "restaurants"
   add_foreign_key "menu_item_option_values", "menu_item_options"
   add_foreign_key "menu_item_options", "menu_items"
   add_foreign_key "menu_items", "menu_categories"
   add_foreign_key "menu_items", "restaurants"
+  add_foreign_key "offers", "users", column: "courier_id"
   add_foreign_key "order_item_options", "order_items"
   add_foreign_key "order_items", "menu_items"
   add_foreign_key "order_items", "orders"
-  add_foreign_key "order_offers", "orders"
-  add_foreign_key "order_offers", "users", column: "rider_id"
-  add_foreign_key "order_status_transitions", "orders"
-  add_foreign_key "order_status_transitions", "users", column: "actor_id"
   add_foreign_key "orders", "restaurants"
+  add_foreign_key "orders", "users", column: "courier_id"
   add_foreign_key "orders", "users", column: "customer_id"
-  add_foreign_key "orders", "users", column: "rider_id"
   add_foreign_key "restaurant_cuisines", "cuisines"
   add_foreign_key "restaurant_cuisines", "restaurants"
   add_foreign_key "restaurant_opening_hours", "restaurants"
   add_foreign_key "restaurants", "users", column: "owner_id"
   add_foreign_key "restaurants", "users", column: "verified_by_id"
-  add_foreign_key "rider_profiles", "users"
-  add_foreign_key "rider_profiles", "users", column: "verified_by_id"
-  add_foreign_key "rider_wallets", "users"
   add_foreign_key "settings", "users", column: "updated_by_id"
   add_foreign_key "settlements", "users", column: "counted_by_id"
-  add_foreign_key "settlements", "users", column: "rider_id"
+  add_foreign_key "settlements", "users", column: "courier_id"
+  add_foreign_key "status_transitions", "users", column: "actor_id"
+  add_foreign_key "trips", "users", column: "courier_id"
+  add_foreign_key "trips", "users", column: "passenger_id"
   add_foreign_key "user_roles", "users"
   add_foreign_key "user_sessions", "users"
-  add_foreign_key "wallet_entries", "orders"
-  add_foreign_key "wallet_entries", "rider_wallets"
+  add_foreign_key "wallet_entries", "courier_wallets"
   add_foreign_key "wallet_entries", "users", column: "recorded_by_id"
 end

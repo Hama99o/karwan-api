@@ -3,13 +3,19 @@
 #
 # Sign convention: `amount` is signed. A commission is negative, a top-up is
 # positive, a reimbursement is positive, an adjustment is either.
+#
+# `source` is polymorphic over Order and Trip, since commission is owed on
+# either. It is provenance only: the row carries its own amount, currency and
+# balance_after, so a lost source degrades to "an entry whose job is unknown"
+# rather than to wrong money. That self-containment is the only reason giving up
+# the database foreign key is acceptable here.
 class WalletEntry < ApplicationRecord
   include Monetary
 
   enum :kind, { commission: 0, top_up: 1, reimbursement: 2, adjustment: 3 }, prefix: true
 
-  belongs_to :rider_wallet
-  belongs_to :order, optional: true
+  belongs_to :courier_wallet
+  belongs_to :source, polymorphic: true, optional: true
   belongs_to :recorded_by, class_name: User.name, optional: true
 
   validates :amount, numericality: true

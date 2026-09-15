@@ -7,26 +7,30 @@ class CreateOrders < ActiveRecord::Migration[8.1]
 
       t.references :customer,   null: false, foreign_key: { to_table: :users }
       t.references :restaurant, null: false, foreign_key: true
-      t.references :rider,      null: true,  foreign_key: { to_table: :users }
+      # One courier pool across both demand types. The column is role-neutral
+      # because the same human fulfils a food order and a trip, with one wallet
+      # and one commission; the UI says "rider" in the food tab and "driver" in
+      # the ride tab.
+      t.references :courier,    null: true,  foreign_key: { to_table: :users }
 
       # ---- Money -------------------------------------------------------------
       # Model A, worked example: food 400, delivery_fee 100, commission 50.
       #   customer_total    = 500  (food_total + delivery_fee)
       #   restaurant_payout = 350  (food_total - commission) — rider advances it
-      #   rider_fee         = 100  (rider keeps it)
-      # After delivery the rider is holding our 50. That is the entire exposure.
+      #   courier_fee       = 100  (the courier keeps it)
+      # After delivery the courier is holding our 50. That is the entire exposure.
       #
       # Every one of these is a SNAPSHOT. commission_rate and the fee settings
       # are tuned weekly; an order must always render the numbers it was placed
       # with, so nothing here is recomputed from live config afterwards.
       #
-      # delivery_fee and rider_fee are separate columns even though v0 sets them
+      # delivery_fee and courier_fee are separate columns even though v0 sets them
       # equal, because they are separate config rows and the moment the platform
       # takes a cut of delivery they diverge.
       t.decimal :food_total,        precision: 12, scale: 2, null: false, default: "0.0"
       t.decimal :delivery_fee,      precision: 12, scale: 2, null: false, default: "0.0"
       t.decimal :commission,        precision: 12, scale: 2, null: false, default: "0.0"
-      t.decimal :rider_fee,         precision: 12, scale: 2, null: false, default: "0.0"
+      t.decimal :courier_fee,       precision: 12, scale: 2, null: false, default: "0.0"
       t.decimal :restaurant_payout, precision: 12, scale: 2, null: false, default: "0.0"
       t.decimal :customer_total,    precision: 12, scale: 2, null: false, default: "0.0"
       t.string  :currency, null: false, default: "AFN"
@@ -36,10 +40,17 @@ class CreateOrders < ActiveRecord::Migration[8.1]
       # ---- State -------------------------------------------------------------
       t.integer :status, null: false, default: 0
 
-      # cash_status is an EXPLICIT column, never derived. "Has this money
+      # payment_status is an EXPLICIT column, never derived. "Has this money
       # reached me?" is asked a thousand times a day and must be answerable
       # with a WHERE, not a join across settlements.
-      t.integer :cash_status, null: false, default: 0
+      #
+      # Named for payment rather than cash deliberately, though cash is the only
+      # method in v0. The same three states carry either model —
+      # pending -> collected -> settled for cash, pending -> paid -> settled for
+      # digital — so online payment later needs no second mechanism and no code
+      # deciding which column to trust. Adding an enum value to an integer
+      # column needs no migration at all; renaming the column would have.
+      t.integer :payment_status, null: false, default: 0
 
       # ---- Delivery address SNAPSHOT ----------------------------------------
       # Never joined to `addresses`: the customer edits and deletes those, and a
@@ -74,12 +85,12 @@ class CreateOrders < ActiveRecord::Migration[8.1]
 
     add_index :orders, :code, unique: true
     add_index :orders, :status
-    add_index :orders, :cash_status
+    add_index :orders, :payment_status
     add_index :orders, :created_at
     add_index :orders, [ :status, :created_at ]
     add_index :orders, [ :restaurant_id, :status ]
     # This one IS the "has the money reached me" query. Keep it.
-    add_index :orders, [ :rider_id, :cash_status ]
+    add_index :orders, [ :courier_id, :payment_status ]
 
     # Snapshot of name, price and options AT ORDER TIME. Never join live to
     # menu_items for a historical order — menus change daily.
@@ -109,46 +120,5 @@ class CreateOrders < ActiveRecord::Migration[8.1]
 
       t.timestamps
     end
-
-    # Every state change records WHO moved it and WHEN. An order stuck with no
-    # timeout is a person waiting with cold food; this table is how you find
-    # them, and how you answer "who cancelled this?".
-    #
-    # Append-only, so no updated_at.
-    create_table :order_status_transitions do |t|
-      t.references :order, null: false, foreign_key: true
-      t.integer    :from_status
-      t.integer    :to_status, null: false
-      # Nullable actor = the system did it, i.e. a timeout fired.
-      t.references :actor, null: true, foreign_key: { to_table: :users }
-      t.integer    :actor_role
-      t.text       :reason
-
-      t.datetime   :created_at, null: false
-    end
-
-    add_index :order_status_transitions, [ :order_id, :created_at ]
-
-    # Dispatch, kept crude on purpose: offer to the nearest available rider
-    # whose wallet can fund the food, time out, offer to the next, then surface
-    # to admin. No batching, no optimisation, no zones.
-    create_table :order_offers do |t|
-      t.references :order, null: false, foreign_key: true
-      t.references :rider, null: false, foreign_key: { to_table: :users }
-
-      t.integer  :status, null: false, default: 0
-      t.integer  :sequence, null: false, default: 1
-      t.datetime :offered_at, null: false
-      # Every offer has a deadline. An offer with no timeout is how an order
-      # sits unassigned while a rider who went home never declines it.
-      t.datetime :expires_at, null: false
-      t.datetime :responded_at
-
-      t.timestamps
-    end
-
-    add_index :order_offers, [ :order_id, :sequence ], unique: true
-    add_index :order_offers, [ :rider_id, :status ]
-    add_index :order_offers, :expires_at
   end
 end

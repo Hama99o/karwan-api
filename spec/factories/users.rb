@@ -26,12 +26,24 @@ FactoryBot.define do
       after(:create) { |user| create(:user_role, user: user, role: :customer) }
     end
 
-    trait :rider do
-      active_role { :rider }
+    # The supply side, for both demand types. One human, one wallet, one
+    # commission — the UI calls them a rider in the food tab and a driver in
+    # the ride tab.
+    trait :courier do
+      active_role { :courier }
       after(:create) do |user|
-        create(:user_role, user: user, role: :rider)
-        create(:rider_profile, :approved, user: user)
-        create(:rider_wallet, user: user)
+        create(:user_role, user: user, role: :courier)
+        create(:courier_profile, :approved, user: user)
+        create(:courier_wallet, user: user)
+      end
+    end
+
+    trait :trip_courier do
+      active_role { :courier }
+      after(:create) do |user|
+        create(:user_role, user: user, role: :courier)
+        create(:courier_profile, :approved, user: user, accepts_food_orders: false, accepts_trips: true)
+        create(:courier_wallet, user: user)
       end
     end
 
