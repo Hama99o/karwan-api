@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  scan_ruby:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Scan for common Rails security vulnerabilities using static analysis
+        run: bin/brakeman --no-pager
+
+      - name: Scan for known security vulnerabilities in gems used
+        run: bin/bundler-audit
+
+  lint:
+    runs-on: ubuntu-latest
+    env:
+      RUBOCOP_CACHE_ROOT: tmp/rubocop
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Prepare RuboCop cache
+        uses: actions/cache@v4
+        env:
+          DEPENDENCIES_HASH: ${{ hashFiles('.ruby-version', '**/.rubocop.yml', '**/.rubocop_todo.yml', 'Gemfile.lock') }}
+        with:
+          path: ${{ env.RUBOCOP_CACHE_ROOT }}
+          key: rubocop-${{ runner.os }}-${{ env.DEPENDENCIES_HASH }}-${{ github.ref_name == github.event.repository.default_branch && github.run_id || 'default' }}
+          restore-keys: |
+            rubocop-${{ runner.os }}-${{ env.DEPENDENCIES_HASH }}-
+
+      - name: Lint code for consistent style
+        run: bin/rubocop -f github
+
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: dastarkhwan
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: dastarkhwan_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      RAILS_ENV: test
+      # config/database.yml rewrites this URL's path to /dastarkhwan_test for the
+      # test env, so pointing it at the test DB is consistent either way.
+      DATABASE_URL: postgres://dastarkhwan:password@localhost:5432/dastarkhwan_test
+      # Static key for the test env — not a real secret, just a non-empty string.
+      # UserSession digests tokens with HMAC keyed on this, so it must be set.
+      SECRET_KEY_BASE: "0000000000000000000000000000000000000000000000000000000000000001"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Set up database
+        run: bin/rails db:schema:load
+
+      # `zeitwerk:check` eager-loads every class. It catches what `ruby -c` and
+      # RuboCop cannot: a model that parses but will not load. The house
+      # convention `class_name: Model.name` evaluates constants at
+      # class-definition time, so User -> Restaurant -> User is a real load-order
+      # cycle and this is the only gate that would see it break.
+      - name: Check autoloading
+        run: bin/rails zeitwerk:check
+
+      # RSpec is configured with `fail_if_no_examples` (spec/spec_helper.rb), so
+      # a suite that finds nothing to run FAILS here rather than reporting a
+      # green "0 examples, 0 failures". A check that cannot fail is worse than no
+      # check, and a vacuously-green suite is the version of that which has
+      # already cost this owner four separate times.
+      - name: Run tests
+        run: bundle exec rspec --format progress

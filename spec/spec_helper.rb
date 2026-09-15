@@ -14,6 +14,11 @@
 #
 # See https://rubydoc.info/gems/rspec-core/RSpec/Core/Configuration
 RSpec.configure do |config|
+  # A suite that finds no examples is a FAILURE, not a pass. Four vacuously-green
+  # suites shipped across this owner's repos in a single day; this is the one
+  # line that makes that impossible here. See docs/TESTING.md.
+  config.fail_if_no_examples = true
+
   # rspec-expectations config goes here. You can use an alternate
   # assertion/expectation library such as wrong or the stdlib/minitest
   # assertions if you prefer.
