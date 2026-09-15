@@ -1,0 +1,74 @@
+FactoryBot.define do
+  factory :user do
+    # Afghan mobile numbers are +937xxxxxxxx. Sequenced rather than Faker'd
+    # because the column is unique and Faker collides often enough to produce a
+    # flaky suite.
+    sequence(:phone) { |n| "+9377#{n.to_s.rjust(7, '0')}" }
+    name { Faker::Name.name }
+    locale { "fa" }
+    active_role { :customer }
+    status { :active }
+    phone_verified_at { Time.current }
+
+    trait :unverified do
+      phone_verified_at { nil }
+    end
+
+    trait :suspended do
+      status { :suspended }
+    end
+
+    trait :discarded do
+      deleted_at { Time.current }
+    end
+
+    trait :customer do
+      after(:create) { |user| create(:user_role, user: user, role: :customer) }
+    end
+
+    trait :rider do
+      active_role { :rider }
+      after(:create) do |user|
+        create(:user_role, user: user, role: :rider)
+        create(:rider_profile, :approved, user: user)
+        create(:rider_wallet, user: user)
+      end
+    end
+
+    trait :restaurant_owner do
+      active_role { :restaurant_owner }
+      after(:create) { |user| create(:user_role, user: user, role: :restaurant_owner) }
+    end
+
+    trait :admin do
+      active_role { :admin }
+      after(:create) { |user| create(:user_role, user: user, role: :admin) }
+    end
+  end
+
+  factory :user_role do
+    user
+    role { :customer }
+  end
+
+  factory :address do
+    user
+    label { "Home" }
+    # Shar-e-Naw, Kabul. Real coordinates matter: a distance sort of Afghan
+    # fixtures against Mountain View orders them meaninglessly, which is a trap
+    # already documented in hatiwal's QA handbook.
+    latitude  { 34.5400 }
+    longitude { 69.1750 }
+    landmark_note { "Blue gate near Shar-e-Naw park, second floor" }
+    phone { user.phone }
+    is_default { false }
+
+    trait :default do
+      is_default { true }
+    end
+
+    trait :discarded do
+      deleted_at { Time.current }
+    end
+  end
+end
