@@ -99,6 +99,66 @@ Three things that are not obvious and cost a run each:
   the tree moved under it — `c4eeb0c` landed mid-run and changed six screens
   from demo data to the real API (F-12).
 
+## Routing: running OSRM
+
+Hamma9900 has decided to price on roads. Two separate facts, and keeping them
+separate is what makes the flip reversible in a minute:
+
+1. **A router is reachable** — `OSRM_BASE_URL`, an env var.
+2. **We price on roads** — the `routing_distance_source` setting, editable in
+   the console. Until it says `osrm`, the resolver takes the straight line and
+   **records that it did**, on every order.
+
+So turning it on in production is: start the accessory, then type one word in
+the Config screen. Turning it off is typing the other word — no deploy, and
+orders already placed keep the amounts they were quoted.
+
+### Locally
+
+The `deploy.yml` default is `http://karwan_api-osrm:5000`, a container name
+that resolves only inside the shared Docker network. **Rails runs on the host
+here, so it cannot resolve that** — publish the port and override the URL:
+
+```bash
+docker run -d --name karwan_osrm -p 127.0.0.1:5000:5000 \
+  -v $HOME/Apps/Personal/Karwan/karwan-map/tmp/osrm:/data:ro \
+  ghcr.io/project-osrm/osrm-backend:latest \
+  osrm-routed --algorithm ch --mmap=1 /data/afghanistan.osrm
+
+OSRM_BASE_URL=http://localhost:5000 bin/rails s      # or runner, or console
+```
+
+`--mmap=1` is not optional on this box: **32 MB resident with it, ~400 MB
+without**, and the 400 MB is unreclaimable. `docker stop karwan_osrm` when done.
+
+### The data is not in the image
+
+The ~512 MB `.osrm.*` serving set lives at `karwan-map/tmp/osrm/` and must be
+copied to `/var/karwan/osrm` on the production host before the accessory
+starts. `osrm-extract` is the expensive step — 2.29 GB peak — and it does not
+belong on a production box; build it where the map service is built.
+
+### What it actually costs, measured rather than estimated
+
+Four Kabul pairs, same pins, both sources:
+
+| Pair | straight | road | ratio | fee change |
+|---|---|---|---|---|
+| Shar-e-Naw → airport | 4.46 km | 5.53 km | 1.24× | +15.3% |
+| Shar-e-Naw → Karte Naw | 3.61 km | 4.60 km | 1.28× | +16.3% |
+| Kote Sangi → Macroryan | 8.89 km | 11.20 km | 1.26× | +20.2% |
+| a 600 m hop | 0.58 km | 0.85 km | 1.47× | **0%** |
+
+**The fee moves less than the distance**, and the often-quoted ~29% was a
+distance ratio rather than a fee change: the fixed base dilutes it, and on a
+short hop the minimum fee absorbs it entirely. That is the number Hamma9900
+should be making his pricing decision against.
+
+**The duration is still ours.** OSRM returned 7.7 minutes for the 5.53 km pair
+— 43 km/h, because `car.lua` is free-flow and Afghan maxspeed tags are sparse —
+and we quote 19 minutes from `eta_average_speed_kmh`. That survives the switch
+and is asserted by a spec.
+
 ## What "ready" does not mean
 
 `bin/preflight` green means the backend is serving real data. It says nothing

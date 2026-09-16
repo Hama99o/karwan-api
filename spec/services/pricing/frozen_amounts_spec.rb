@@ -1,0 +1,148 @@
+require "rails_helper"
+
+# EVERY AMOUNT IS FROZEN WHERE IT WAS AGREED, and this file is the one place
+# that proves it for all of them together.
+#
+# `docs/TESTING.md`: a test that a value is STORED correctly is not a test that
+# it is FROZEN. Each example here changes the configuration UNDERNEATH a placed
+# job and asserts the job does not move — which is the only way to tell a
+# snapshot from a live read, because in every ordinary fixture the two agree.
+#
+# There are now three freeze points and they are deliberately different:
+#
+#   at QUOTE       — everything the customer was told. Never moves.
+#   at ASSIGNMENT  — the courier's fee, because the vehicle is unknown until
+#                    somebody accepts.
+#   never          — the dispatch WARNING about vehicle availability, which is
+#                    recomputed so a zarang coming on shift makes it disappear.
+RSpec.describe "frozen amounts" do
+  let(:merchant) { create(:merchant, latitude: 34.5553, longitude: 69.2075) }
+  let(:category) { create(:catalog_category, merchant: merchant) }
+  let!(:kabab) { create(:catalog_item, catalog_category: category, merchant: merchant, price: 400) }
+
+  def place(tier: :normal)
+    Orders::PlaceService.new(
+      customer: create(:user, :customer), merchant: merchant,
+      lines: [ { catalog_item_id: kabab.id, quantity: 1 } ],
+      delivery_latitude: 34.5600, delivery_longitude: 69.2100,
+      service_tier: tier
+    ).call
+  end
+
+  def stub_osrm(distance_m:)
+    stub_request(:get, %r{http://karwan_osrm:5000}).to_return(
+      body: { code: "Ok",
+              routes: [ { distance: distance_m, duration: 400.0,
+                          geometry: { type: "LineString", coordinates: [ [ 69.17, 34.54 ] ] } } ],
+              waypoints: [ { distance: 10.0 }, { distance: 10.0 } ] }.to_json
+    )
+  end
+
+  before { Setting.seed_defaults! }
+
+  # ── THE ROUTING SWITCH ─────────────────────────────────────────────────────
+  #
+  # Hamma9900 has decided to turn OSRM on. Measured on this box against four
+  # Kabul pairs: road distance runs 1.24–1.47× the straight line, which moves
+  # the DELIVERY FEE by +15% to +20% on ordinary runs and by nothing at all on
+  # a short hop, where the minimum fee absorbs it. (The earlier +29% estimate
+  # was a distance ratio, not a fee change — the fixed base dilutes it.)
+  #
+  # The switch is a `Setting`, so it can be flipped while orders are in flight.
+  # These examples are what makes that safe.
+  describe "when the distance source is switched mid-flight" do
+    it "does not re-price an order that was already placed" do
+      order = place
+      frozen = order.slice(:distance_km, :delivery_fee, :customer_total, :distance_source)
+
+      stub_osrm(distance_m: 9_000.0)
+      Setting.find_by!(key: "routing_distance_source").update!(value: "osrm")
+
+      expect(order.reload.slice(:distance_km, :delivery_fee, :customer_total, :distance_source))
+        .to eq(frozen)
+    end
+
+    # The row RECORDS which method produced its distance, which is the only way
+    # to answer "why was that one cheaper" after the switch.
+    it "records the source that priced it, so a fare can be explained afterwards" do
+      straight = place
+
+      stub_osrm(distance_m: 9_000.0)
+      Setting.find_by!(key: "routing_distance_source").update!(value: "osrm")
+      routed = place
+
+      expect(straight.distance_source).to eq("straight_line")
+      expect(routed.distance_source).to eq("osrm")
+      expect(routed.distance_km).to eq(9.0)
+    end
+
+    # A LONGER ROAD COSTS MORE, which is the whole reason to adopt it — and the
+    # customer sees that number before committing, never after.
+    it "prices a new order on the road distance once it is on" do
+      straight = place
+
+      stub_osrm(distance_m: 9_000.0)
+      Setting.find_by!(key: "routing_distance_source").update!(value: "osrm")
+
+      expect(place.delivery_fee).to be > straight.delivery_fee
+    end
+
+    # The duration is OURS, from `eta_average_speed_kmh`, never OSRM's — whose
+    # `car.lua` free-flow estimates imply 43-69 km/h across Kabul because
+    # maxspeed tags are sparse. Verified against the live container: 5.53 km
+    # came back as 7.7 minutes from OSRM and 19 from us.
+    it "keeps taking the duration from the calibratable setting" do
+      stub_osrm(distance_m: 9_000.0)
+      Setting.find_by!(key: "routing_distance_source").update!(value: "osrm")
+
+      order = place
+
+      expect(order.duration_minutes).to be >= Geo::Distance.travel_minutes(9.0)
+    end
+  end
+
+  describe "when the delivery tariff changes" do
+    it "does not move a placed order's fee" do
+      order = place
+      frozen = order.delivery_fee
+
+      Setting.find_by!(key: "delivery_base_fee").update!(value: "500")
+
+      expect(order.reload.delivery_fee).to eq(frozen)
+    end
+  end
+
+  describe "when a ride's rate row changes" do
+    def ride
+      quote = Pricing::RideQuote.new(
+        pickup_latitude: 34.54, pickup_longitude: 69.175,
+        dropoff_latitude: 34.5658, dropoff_longitude: 69.2123,
+        vehicle_type: :car
+      ).call
+      passenger = create(:user, :customer)
+      Trip.create!(quote.to_attributes.merge(
+                     passenger: passenger, passenger_phone: passenger.phone,
+                     pickup_latitude: 34.54, pickup_longitude: 69.175,
+                     dropoff_latitude: 34.5658, dropoff_longitude: 69.2123,
+                     vehicle_type: :car, payment_method: :cash, requested_at: Time.current
+                   ))
+    end
+
+    it "does not move a booked trip's fare" do
+      trip = ride
+      frozen = trip.fare
+
+      PricingRate.seed_defaults!
+      PricingRate.find_by!(job_kind: "ride", audience: :customer, vehicle_type: :car)
+                 .update!(base: 5_000)
+
+      expect(trip.reload.fare).to eq(frozen)
+    end
+
+    it "keeps the split adding up, so the row stays valid" do
+      trip = ride
+
+      expect(trip.fare).to eq(trip.commission + trip.courier_earnings)
+    end
+  end
+end

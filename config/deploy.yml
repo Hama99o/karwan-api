@@ -73,11 +73,23 @@ env:
     # second container earning nothing; the trigger to split it is in
     # docs/REALTIME_AND_SCALE.md.
     SOLID_QUEUE_IN_PUMA: true
-    # OSRM is DELIBERATELY UNSET. `Routing::DistanceResolver` falls back to
-    # straight-line distance when it is absent, which is the v0 decision —
-    # routed distance raises fares ~29% and that is Hamma9900's call, not a
-    # config default. Set it only when he has decided.
-    # OSRM_BASE_URL: http://karwan_api-osrm:5000
+    # HAMMA9900 HAS DECIDED: routing is on. The container name resolves only
+    # inside the shared Docker network, which is why this is an env var rather
+    # than a constant — running Rails on a host (as we do locally) needs
+    # `OSRM_BASE_URL=http://localhost:5000` against a published port instead.
+    #
+    # Setting this does NOT switch routing on by itself. The switch is the
+    # `routing_distance_source` setting, editable in the console, and until it
+    # says `osrm` the resolver takes the straight line and says so. Two
+    # separate facts — "a router is reachable" and "we price on roads" — and
+    # keeping them separate is what makes the flip reversible in a minute.
+    #
+    # MEASURED ON FOUR KABUL PAIRS rather than estimated: road distance is
+    # 1.24–1.47× the straight line, which moves the DELIVERY FEE by +15% to
+    # +20% on ordinary runs and by nothing on a short hop, where the minimum
+    # fee absorbs it. The often-quoted ~29% was a distance ratio, not a fee
+    # change — the fixed base dilutes it.
+    OSRM_BASE_URL: http://karwan_api-osrm:5000
 
 aliases:
   console: app exec --interactive --reuse "bin/rails console"
@@ -103,6 +115,34 @@ builder:
   driver: docker
 
 accessories:
+  # ── THE ROUTER ──────────────────────────────────────────────────────────────
+  #
+  # Self-hosted, no key, no per-request bill, nobody able to cut us off —
+  # correction 14's standard for "coded by us". Measured marginal cost per
+  # order: zero.
+  #
+  # `--mmap=1` is not optional on a shared box: measured 32 MB resident with
+  # it against ~400 MB without, and the ~400 MB is unreclaimable. The serving
+  # data is memory-mapped from disk instead.
+  #
+  # THE DATA IS NOT IN THE IMAGE. It is the ~512 MB `.osrm.*` serving set built
+  # by the map service from `afghanistan-latest.osm.pbf`, and it has to be on
+  # the host before this starts — see docs/RUNBOOK.md. `osrm-extract` is the
+  # expensive step (2.29 GB peak) and it does not belong on a production box.
+  #
+  # Read-only mount: a router that can write to its own dataset is a router
+  # that can corrupt it.
+  osrm:
+    image: ghcr.io/project-osrm/osrm-backend:latest
+    host: <%= ENV.fetch("KAMAL_HOST") %>
+    # Bound to 127.0.0.1: nothing outside the box has any business routing.
+    port: "127.0.0.1:5000:5000"
+    cmd: osrm-routed --algorithm ch --mmap=1 /data/afghanistan.osrm
+    options:
+      network: karwan_api-net
+    volumes:
+      - /var/karwan/osrm:/data:ro
+
   db:
     image: postgres:16
     host: <%= ENV.fetch("KAMAL_HOST") %>
