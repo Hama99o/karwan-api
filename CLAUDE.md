@@ -766,3 +766,54 @@ One identity, but the role is chosen **at sign-in**, not discovered afterwards:
 
 **This also answers the PIN question:** choosing a money-handling role at sign-in IS the gate, so
 a separate in-app PIN is only needed for switching roles inside a session, not for entering one.
+
+**19. MULTI-JOB IS COMING, AND NOTHING BUILT NOW MAY FORECLOSE IT.** Hamma9900 has called this
+**the most important thing**: a courier carrying **several jobs at once** — food from two
+restaurants on one run, or two passengers sharing a car — plus a passenger count that affects
+price, and a cheaper **shared pickup** option.
+
+It is not in v0, because it needs concurrent demand that one neighbourhood will not have on
+launch day. **But it is the next major feature, and that makes it a design constraint on
+everything being built now.** Same posture as correction 18: we do not build four apps, and we
+never write code that would make splitting them a rewrite.
+
+### The test to apply to every decision, starting today
+
+> **Could this become "a courier holds a BATCH of jobs" without rewriting the money paths?**
+
+Where a 1:1 assumption is cheap to avoid, avoid it. Where it is not, **write down that it is
+there** so the batching work knows where to look instead of discovering it.
+
+### What batching will touch, named now so it is not a surprise
+
+- **`Dispatch::Eligibility`'s `:already_on_a_job`.** The guard is the correct v0 shape and stays.
+  But the unit of assignment becomes a **batch**: "one live batch, and a job may only join a
+  batch compatible with it." Keep the guard's query shaped so its subject can change from a job
+  to a batch — and do not scatter the 1:1 assumption into other call sites.
+- **Model A's cash, which is the hard part.** Today the courier advances **one** merchant payout
+  and collects **one** customer total. Batched, he advances the **sum** of two payouts, carries
+  two customers' cash, and `cash_in_hand_limit` starts binding far earlier. So: **every wallet
+  and cash check must be expressible over a set of jobs, not only over one.** `can_fund?(job)`
+  taking a single job is the exact shape that will need changing — when you touch it, leave the
+  arithmetic summable rather than per-job.
+- **Route ordering.** Two pickups and two dropoffs is a sequencing decision, and wrong means
+  cold food and a waiting passenger. The courier's step list is already **server-supplied
+  data** rather than client logic (correction 7) — which is why batching is a longer step list
+  rather than a new screen. **That decision is what makes this tractable; do not undo it.**
+- **The passenger count** is in v0 and is the first piece of this: a capacity axis for people
+  beside the cargo axis, filtering which vehicle classes a passenger may choose.
+
+### Hamma9900's privacy rule, binding from the first line of batching
+
+**In a shared job, neither customer sees anything about the other** — not a name, not a phone,
+not an address, not their stop. The courier sees both legs; each customer sees only their own.
+Saying "we are three people" must never reveal who else is in the car. If that is not designed
+in from the start it leaks through a serializer, and it leaks to two people who live in the same
+neighbourhood.
+
+### Honest note, recorded rather than used as an argument
+
+Pooling is among the hardest products in this domain and Uber withdrew Pool from many markets
+because the economics are brutal. **That is not a reason not to build it** — shared taxis are
+normal in Kabul in a way they are not in London, and Hamma9900 knows his market. It is a reason
+to build it when there is demand to fill, and to keep the v0 paths from making it a rewrite.
