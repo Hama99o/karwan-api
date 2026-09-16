@@ -550,6 +550,37 @@ to all three locales or parity checks lie. For RTL use **logical** spacing
 utilities, and mirror directional icons — a correct `dir` with a left-pointing
 "next" arrow is still wrong. Pashto and Dari strings run longer than English.
 
+### A courier could hold a delivery and a ride at the same time — CLOSED
+`Dispatch::Eligibility` had nine checks and none of them asked whether the
+courier was already carrying a job. So a courier riding to a customer with a
+meal in his box could be offered a **trip** and accept it, and nothing refused
+him. One human, two jobs, two places, and one of those customers loses for
+certain — cold food while he drives a passenger across Kabul, or a passenger at
+a kerb while he finishes the delivery. On the launch neighbourhood, with the
+pool small, that is the first thing a courier would discover.
+
+Closed with `:already_on_a_job`, placed above the wallet checks (cheapest query,
+commonest reason to skip a courier on a busy evening) and spanning **both**
+tables — `Order` and `Trip` — because the utilisation thesis is one pool serving
+two demand streams, so "already busy" is only true if you look at both. The job
+being offered is excluded from the check, so an admin re-offering work a courier
+already holds is not refused as a conflict with itself.
+
+**Two checks, not one, and the second is the one nobody would have written.**
+Eligibility runs when an offer is MADE, so a courier holding a minute-old offer
+can take other work and then accept it. The accept path therefore re-checks
+inside `current_user.lock!` and rolls back. Measured: with the in-transaction
+re-check deleted and everything else intact, **15 of the 16 new examples still
+passed** — only the race example saw it. That is the shape of the bug this
+codebase keeps producing, so it is worth stating plainly: *a guard placed at the
+moment of decision does not protect the moment of commitment.*
+
+It also settles a question that was going to be asked about phones: **guard the
+job, not the device.** Once one-live-job holds server-side, how many phones a
+courier carries stops mattering — and it has to stop mattering, because swapping
+to a second phone when the first one dies mid-shift is a real thing on a cheap
+Android in Kabul.
+
 ### `current_organization` is tenancy, not permission
 edu-safi had five endpoints where the correct scope existed, was correct, and was
 never consulted. Write the scope **and use it**, and add a request spec proving

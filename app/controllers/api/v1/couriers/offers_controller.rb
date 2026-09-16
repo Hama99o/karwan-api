@@ -49,7 +49,23 @@ class Api::V1::Couriers::OffersController < Api::V1::Couriers::BaseController
 
     job = @offer.offerable
 
+    # LOCKED ON THE COURIER, and re-checked inside the lock.
+    #
+    # `Eligibility` above runs before the transaction, so two taps arriving
+    # together — two phones, or one phone and a retry on a bad connection —
+    # could both pass it and both assign. The lock serialises accepts for THIS
+    # courier, and the re-check is what the second one then fails on.
+    #
+    # Locking the courier rather than the job is deliberate: the constraint
+    # being protected is "one human, one vehicle, one place at a time", which
+    # is a fact about the courier. Two couriers accepting two different jobs
+    # must not block each other.
+    conflict = nil
     ApplicationRecord.transaction do
+      current_user.lock!
+      conflict = Dispatch::Eligibility.new(courier: current_user, job: job).reason
+      raise ActiveRecord::Rollback if conflict
+
       @offer.respond!(:accepted)
       job.update!(courier: current_user)
 
@@ -67,6 +83,12 @@ class Api::V1::Couriers::OffersController < Api::V1::Couriers::BaseController
       # Everyone else's offer on this job is now moot. Left `offered`, the
       # expiry sweep would re-offer work that is already taken.
       job.offers.status_offered.where.not(id: @offer.id).update_all(status: :superseded)
+    end
+
+    if conflict
+      return render_unprocessable_entity(
+        Dispatch::Eligibility::REASONS[conflict], code: conflict.to_s
+      )
     end
 
     render_blue(Couriers::JobSerializer, job.reload, view: :active)
