@@ -139,3 +139,60 @@ Read `hatiwal-mobile/qa/QA_HANDBOOK.md` **before writing the first flow.** It is
 A last number worth remembering from that handbook: it opened at **4 of 214
 flows passing**, and the note beside it says do not "improve" that number by
 weakening assertions, because a false pass costs more than a red flow.
+
+---
+
+## Make the sources disagree — the rule five failures earned
+
+This extends **"Prove the suite can fail"**. That rule asks whether a check *can* go red. This
+one asks something narrower and harder: **when it stays green under a plant, is the code right
+or is the test blind?**
+
+Five times now a plant has changed real behaviour and the suite has not noticed. Three of them
+share one cause: **the right answer and a plausible wrong answer looked identical in the
+fixture**, so the test could not tell which one the code had used.
+
+> ### 1. Make the sources disagree.
+> For every value a test asserts, ask **where else the code could have got the same answer** —
+> and build the fixture so those places differ.
+>
+> ### 2. Then ask who reads it.
+> A test that a value is **stored** correctly is not a test that anything **uses** it.
+> For a snapshot: freeze the copy, **mutate the source**, and assert the **consumer's
+> behaviour** — never the column.
+
+### The five, and which half each one needed
+
+| What slipped | Why the fixture hid it |
+|---|---|
+| **Dispatch race** — 15 of 16 examples stayed green with the in-transaction re-check deleted | the offer-time and accept-time checks agree *unless the state changes between them*, so the fixture has to change it |
+| **i18n boot loop** — the harness modelled one RTL scope, the device has two | `nativeRtl` and `committedRtl` agreed, so nothing could tell which scope the code read |
+| **Size-class snapshot** — eligibility rewritten to read the LIVE catalog, 22 examples green | the live size and the frozen size agreed in every fixture |
+| **`current_role`** — a guard-shaped method with no callers; a test asserting it ignored client input stayed green after it was rewritten to trust `params[:role]` | reachability, not fixtures: the code under test was dead |
+| **Factory traits** — a courier holding no `customer` role, a user the rules forbid | reachability, not fixtures: the data could not occur through the app |
+
+So: the first two rows above need **rule 1**, the third needs **rule 2**, and the last two need
+the reachability questions — *does anything call this?* and *could this database state occur
+through the app?*
+
+### It was already right once, about money
+
+`karwan-mobile`'s Cart test prices a basket at **905**, with the comment: *"400 × 2 is 800 and
+the server also says 800 — so a passing test proves nothing unless the server's number is
+DIFFERENT from what the device would compute."*
+
+That instinct was applied to money and nowhere else. **Rule 1 is that instinct, generalised.**
+
+### Where this bites next: everything about pricing is a snapshot
+
+The per-vehicle rate work is snapshots end to end — `courier_fee` frozen at assignment,
+`orders.courier_vehicle_type`, `trips.vehicle_type` frozen at quote. **The weak version of each
+of those tests is the one that asserts the column kept its value, and it is the version a
+careful person writes confidently.**
+
+Each one needs: place or assign, **then mutate the live rate row**, then assert the **payout
+calculation** still uses the frozen copy. If the rate table and the frozen amount agree in the
+fixture, the test proves nothing about which one the code read.
+
+Same for anything else that freezes: order line prices, the distance source on a quote, the
+required size class, the merchant commission.
