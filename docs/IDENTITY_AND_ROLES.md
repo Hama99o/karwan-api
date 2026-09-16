@@ -74,9 +74,20 @@ partner, cannot switch to one, and cannot reach a partner endpoint. Three things
 and all three must stay true:
 
 1. `switch_role!` refuses a role the user does not hold.
-2. `Authenticatable#current_role` derives the role from the user's own `user_roles` — **never
-   from a header, a param or anything the client sends.** Four roles in one app is exactly the
-   shape where a client-supplied role becomes privilege escalation.
+2. **`ApplicationPolicy`'s helpers and scopes read the authenticated user's own `user_roles`** —
+   **never a header, a param or anything the client sends.** Four roles in one app is exactly
+   the shape where a client-supplied role becomes privilege escalation. The **scopes** are the
+   half that leaks quietly: a missing predicate is a 403 somebody notices, a missing scope is
+   another courier's jobs on screen. `Api::V1::BaseController` runs `verify_authorized` and
+   `verify_policy_scoped` as after_actions, so a controller that forgets Pundit raises on the
+   way out rather than serving unfiltered data.
+
+   **Do not gate capability on `active_role`.** That is which tab a device is showing, not what
+   a person may do — and gating on it would break §6: a courier whose phone sits in the customer
+   tab must still be able to work the job he is already carrying. Two methods that read like
+   this gate — `current_role` and `require_role!` — existed with **no callers at all** and were
+   deleted in `ec05764`. Dead code that looks like a guard is worse than no guard, because it
+   stops the next person looking for the real one.
 3. Each role's controllers live in their own namespace with their own policy.
 
 **Granting a role is a write that must leave a trace.** An approval names its approver
@@ -215,7 +226,9 @@ is that shape, before it is needed.
 Each of these encodes a rule above. Prove each one fails by planting the bug back.
 
 1. A user holding only `customer` is refused every partner role — switch, and endpoint.
-2. `current_role` ignores a client-supplied role entirely.
+2. A client-supplied role is ignored entirely — asserted against the policy layer that
+   actually enforces it, not against a helper. (A test here once stayed green after the method
+   it named was rewritten to trust `params[:role]`, because that method had no callers.)
 3. Granting `courier` or `merchant_owner` also yields `customer`.
 4. Assigning a merchant owner grants `merchant_owner`; unassigning revokes it.
 5. Two sessions for one user hold two different active roles at the same time.
