@@ -21,6 +21,7 @@ def seed_section(title)
   puts "done"
 end
 
+
 puts "Seeding reference data (#{Rails.env})"
 load Rails.root.join("db/seeds/reference.rb")
 

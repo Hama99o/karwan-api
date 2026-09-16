@@ -19,7 +19,7 @@ module Customers
           currency: item.currency,
           is_available: item.is_available?,
           prep_time_minutes: item.effective_prep_time_minutes,
-          photo_url: (Rails.application.routes.url_helpers.rails_blob_path(item.photo, only_path: true) if item.photo.attached?),
+          photo_url: Attachments::PublicUrl.for(item.photo),
           options: item.options.map do |option|
             {
               id: option.id,

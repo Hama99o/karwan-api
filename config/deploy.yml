@@ -90,6 +90,14 @@ env:
     # fee absorbs it. The often-quoted ~29% was a distance ratio, not a fee
     # change — the fixed base dilutes it.
     OSRM_BASE_URL: http://karwan_api-osrm:5000
+    # WHERE THIS API ANSWERS, for the absolute URLs in photo and voice-note
+    # payloads. A NATIVE app has no origin, so a host-relative path renders
+    # nothing — and renders nothing in a way that looks exactly like "there is
+    # no photo", which is why it went unnoticed until seeds attached one.
+    #
+    # Derived from KAMAL_HOST when unset, so a deploy is never silently serving
+    # `http://localhost` photo URLs; `bin/preflight` says which it is using.
+    APP_BASE_URL: <%= ENV.fetch("APP_BASE_URL", "https://#{ENV.fetch('KAMAL_HOST', 'localhost')}") %>
 
 aliases:
   console: app exec --interactive --reuse "bin/rails console"

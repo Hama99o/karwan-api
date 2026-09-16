@@ -108,6 +108,20 @@ else
   note "bin/rails db:seed           (sample data is skipped in production only)"
 fi
 
+# ── A warning, not a failure: where files are served from ─────────────────
+#
+# A deployed API inferring `http://localhost` for photo URLs would look correct
+# in every log and show nothing on every phone — the failure is invisible from
+# the server side, which is exactly why it is worth saying out loud here.
+step "File URLs (warning only)"
+FILE_BASE=$(RAILS_ENV=${RAILS_ENV:-development} bin/rails runner 'print Attachments::PublicUrl.base_url' 2>/dev/null)
+if [ -z "${APP_BASE_URL:-}${KAMAL_HOST:-}" ]; then
+  say "  · APP_BASE_URL is unset — photo and voice-note URLs will use $FILE_BASE."
+  say "    Fine locally. On a deployed box it means a phone fetches localhost."
+else
+  ok "Files served from $FILE_BASE"
+fi
+
 # ── A warning, not a failure: SMS ─────────────────────────────────────────
 # The log adapter is correct for development and fatal in production — every
 # user waits for a code that never arrives while the server looks healthy. It

@@ -63,11 +63,18 @@ seed_section "e2e accounts" do
   )
   merchant.save!
 
+  # THE QA RIG SEES WHAT A CUSTOMER SEES. A photo-led card with no photo is a
+  # different screen from the one being tested, and the flows assert on it —
+  # `docs/NOTES.md`: verify at the layer where it lands.
+  Attachments::SeedPhoto.attach!(merchant, :logo, "logo_kabab.jpg")
+  Attachments::SeedPhoto.attach!(merchant, :storefront_photo, "storefront_kabab.jpg")
+
   category = merchant.catalog_categories.find_or_initialize_by(name: "QA Kababs")
   category.update!(position: 0)
 
   item = merchant.catalog_items.find_or_initialize_by(name: "QA Chicken Kabab")
   item.update!(catalog_category: category, price: 400, currency: "AFN", is_available: true)
+  Attachments::SeedPhoto.attach!(item, :photo, "kabab.jpg")
 
   # The COURIER must be approvable and approved, or `Couriers::BaseController`
   # refuses every request with `not_approved` and the courier screens are as

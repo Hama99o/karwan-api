@@ -134,11 +134,12 @@ seed_section "merchants and catalogs" do
       phone: "+93700000030", name: "کباب شهر نو", kind: restaurant_kind,
       owner_phone: "+93700000040", owner_name: "حاجی گل محمد",
       categories: %w[kabab qabuli drinks], prep: 20, is_open: true,
+      logo: "logo_kabab.jpg", storefront: "storefront_kabab.jpg",
       catalog: {
         "کباب و بریانی" => [
-          { name: "کباب مرغ", en: "Chicken Kabab", price: 400, desc: "Charcoal grilled, served with naan" },
-          { name: "کباب چوپان", en: "Lamb Kabab", price: 550, desc: "Lamb, charcoal grilled" },
-          { name: "قابلی پلو", en: "Qabuli Palaw", price: 450, desc: "Rice, lamb, carrot and raisin" }
+          { name: "کباب مرغ", en: "Chicken Kabab", price: 400, desc: "Charcoal grilled, served with naan", photo: "kabab.jpg" },
+          { name: "کباب چوپان", en: "Lamb Kabab", price: 550, desc: "Lamb, charcoal grilled", photo: "shorma.jpg" },
+          { name: "قابلی پلو", en: "Qabuli Palaw", price: 450, desc: "Rice, lamb, carrot and raisin", photo: "qabuli_palaw.jpg" }
         ],
         "نوشیدنی" => [
           { name: "دوغ", en: "Doogh", price: 60, desc: "Salted yoghurt drink" },
@@ -150,11 +151,12 @@ seed_section "merchants and catalogs" do
       phone: "+93700000031", name: "منتو خانه کابل", kind: restaurant_kind,
       owner_phone: "+93700000041", owner_name: "بی بی حلیمه",
       categories: %w[mantu ashak bolani], prep: 30, is_open: true,
+      logo: "logo_bakery.jpg", storefront: "storefront_bakery.jpg",
       catalog: {
         "غذای خانگی" => [
-          { name: "منتو", en: "Mantu", price: 350, desc: "Steamed dumplings, minced beef" },
-          { name: "آشک", en: "Ashak", price: 320, desc: "Leek dumplings with yoghurt" },
-          { name: "بولانی", en: "Bolani", price: 120, desc: "Stuffed flatbread, potato" }
+          { name: "منتو", en: "Mantu", price: 350, desc: "Steamed dumplings, minced beef", photo: "mantu.jpg" },
+          { name: "آشک", en: "Ashak", price: 320, desc: "Leek dumplings with yoghurt", photo: "ashak.jpg" },
+          { name: "بولانی", en: "Bolani", price: 120, desc: "Stuffed flatbread, potato", photo: "bolani.jpg" }
         ]
       }
     },
@@ -162,6 +164,7 @@ seed_section "merchants and catalogs" do
       phone: "+93700000032", name: "کتاب فروشی دانش", kind: bookshop_kind,
       owner_phone: "+93700000042", owner_name: "استاد سمیع",
       categories: %w[books], prep: nil, is_open: true,
+      logo: "logo_store.jpg", storefront: "storefront_store.jpg",
       catalog: {
         "کتاب‌ها" => [
           { name: "دیوان حافظ", en: "Divan of Hafez", price: 600, desc: "Hardcover" },
@@ -200,6 +203,12 @@ seed_section "merchants and catalogs" do
     )
     merchant.save!
 
+    # THE EMPTY GREY BOX WAS 60% OF EVERY CARD. A photo-led screen with no
+    # photos is not a neutral state — it reads as broken, and it is the first
+    # thing Hamma9900 sees when he shows this to a restaurant owner.
+    Attachments::SeedPhoto.attach!(merchant, :logo, data[:logo]) if data[:logo]
+    Attachments::SeedPhoto.attach!(merchant, :storefront_photo, data[:storefront]) if data[:storefront]
+
     data[:categories].each do |slug|
       category = MerchantCategory.find_by!(slug: slug)
       MerchantCategoryAssignment.find_or_create_by!(merchant: merchant, merchant_category: category)
@@ -225,6 +234,7 @@ seed_section "merchants and catalogs" do
           is_available: true, position: item_index
         )
         record.save!
+        Attachments::SeedPhoto.attach!(record, :photo, item[:photo]) if item[:photo]
       end
     end
   end

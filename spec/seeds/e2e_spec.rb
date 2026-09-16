@@ -112,4 +112,42 @@ RSpec.describe "db/seeds/e2e.rb" do
 
     expect([ User.count, Order.count, Merchant.count, CourierProfile.count ]).to eq(before_counts)
   end
+
+  # ── THE PHOTOS, BECAUSE AN EMPTY CARD IS A DIFFERENT SCREEN ────────────────
+  #
+  # Hamma9900 saw the app live and every merchant card was an empty grey box
+  # taking 60% of its height. Nothing was broken: no seed attached a photo.
+  # The QA rig asserts against these cards, so a photo-led screen with no
+  # photos is not the screen being tested.
+  describe "the photos" do
+    let(:merchant) { Merchant.find_by(phone: "+93700000804") }
+
+    it "gives the QA merchant a storefront photo and a logo" do
+      expect(merchant.storefront_photo).to be_attached
+      expect(merchant.logo).to be_attached
+    end
+
+    it "gives the QA dish a photo" do
+      item = merchant.catalog_items.find_by(name: "QA Chicken Kabab")
+
+      expect(item.photo).to be_attached
+    end
+
+    # THE URL A PHONE ACTUALLY FETCHES. A relative path renders as nothing in a
+    # native image view, and would look identical to the empty box it replaced
+    # — so the seed and the absolute-URL fix are asserted together.
+    it "serves them as absolute urls" do
+      rendered = Customers::MerchantSerializer.render_as_hash(
+        merchant, view: :detailed, options: { locale: "fa", from: nil }
+      )
+
+      expect(rendered[:storefront_photo_url]).to match(%r{\Ahttps?://})
+    end
+
+    # Re-running a seed must not pile up blobs: seeds run on every deploy.
+    it "does not attach a second copy when the seed runs again" do
+      expect { load Rails.root.join("db/seeds/e2e.rb") }
+        .not_to change { merchant.reload.storefront_photo_attachment.id }
+    end
+  end
 end

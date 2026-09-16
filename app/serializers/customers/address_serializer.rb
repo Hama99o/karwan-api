@@ -21,7 +21,7 @@ module Customers
     field :voice_note_url do |address|
       next nil unless address.voice_note.attached?
 
-      Rails.application.routes.url_helpers.rails_blob_path(address.voice_note, only_path: true)
+      Attachments::PublicUrl.for(address.voice_note)
     end
 
     field :location do |address|

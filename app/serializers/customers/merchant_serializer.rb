@@ -19,12 +19,12 @@ module Customers
     # share of users cannot read fluently, so the photo IS the label and a text
     # row is a literacy tax.
     field :logo_url do |merchant|
-      merchant.logo.attached? ? Rails.application.routes.url_helpers.rails_blob_path(merchant.logo, only_path: true) : nil
+      Attachments::PublicUrl.for(merchant.logo)
     end
 
     field :storefront_photo_url do |merchant|
       if merchant.storefront_photo.attached?
-        Rails.application.routes.url_helpers.rails_blob_path(merchant.storefront_photo, only_path: true)
+        Attachments::PublicUrl.for(merchant.storefront_photo)
       end
     end
 
