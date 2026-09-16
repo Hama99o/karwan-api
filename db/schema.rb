@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_15_231900) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_16_104308) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -327,6 +327,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_231900) do
   end
 
   create_table "order_item_options", force: :cascade do |t|
+    t.bigint "catalog_item_option_value_id"
     t.datetime "created_at", null: false
     t.string "currency", default: "AFN", null: false
     t.string "option_name", null: false
@@ -334,6 +335,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_231900) do
     t.decimal "price_delta", precision: 12, scale: 2, default: "0.0", null: false
     t.datetime "updated_at", null: false
     t.string "value_name", null: false
+    t.index ["catalog_item_option_value_id"], name: "index_order_item_options_on_catalog_item_option_value_id"
     t.index ["order_item_id"], name: "index_order_item_options_on_order_item_id"
   end
 
@@ -594,6 +596,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_15_231900) do
   add_foreign_key "merchants", "users", column: "owner_id"
   add_foreign_key "merchants", "users", column: "verified_by_id"
   add_foreign_key "offers", "users", column: "courier_id"
+  add_foreign_key "order_item_options", "catalog_item_option_values", on_delete: :nullify
   add_foreign_key "order_item_options", "order_items"
   add_foreign_key "order_items", "catalog_items"
   add_foreign_key "order_items", "orders"

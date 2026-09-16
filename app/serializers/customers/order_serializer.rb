@@ -57,11 +57,19 @@ module Customers
             name: item.name, quantity: item.quantity, unit_price: item.unit_price,
             options_total: item.options_total, line_total: item.line_total,
             currency: item.currency, notes: item.notes,
+            # FOR RE-ORDERING ONLY. Nil when the dish has since been removed
+            # from the menu, which the app must handle rather than assume —
+            # `Orders::CartResolver` refuses a delisted or sold-out item at the
+            # moment of re-ordering, exactly like any other bad cart line.
+            catalog_item_id: item.catalog_item_id,
             # Snapshot names, not live joins — a merchant renaming "Large"
             # tomorrow must not rewrite what somebody ordered today.
             options: item.selected_options.map do |option|
               { option_name: option.option_name, value_name: option.value_name,
-                price_delta: option.price_delta }
+                price_delta: option.price_delta,
+                # Also re-order only. Nil for every order placed before this
+                # column existed, and for a value the merchant has deleted.
+                value_id: option.catalog_item_option_value_id }
             end
           }
         end

@@ -105,10 +105,14 @@ module Orders
 
       line[:values].each do |value|
         item.selected_options.build(
+          # The SNAPSHOT — what was bought and for how much, as text and
+          # numbers. One-way door #1: never a live join.
           option_name: value.catalog_item_option.name,
           value_name: value.name,
           price_delta: value.price_delta,
-          currency: value.currency
+          currency: value.currency,
+          # And the link, used only to rebuild a cart from this order later.
+          catalog_item_option_value: value
         )
       end
     end
