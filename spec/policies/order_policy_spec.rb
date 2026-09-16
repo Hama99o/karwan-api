@@ -52,12 +52,39 @@ RSpec.describe OrderPolicy do
   end
 
   describe "#create?" do
-    it "allows a customer and admin, refuses the other roles and guests" do
+    it "allows anyone holding the customer role, and refuses a guest" do
       expect(described_class.new(customer, Order).create?).to be true
       expect(described_class.new(admin, Order).create?).to be true
-      expect(described_class.new(courier, Order).create?).to be false
-      expect(described_class.new(owner, Order).create?).to be false
       expect(described_class.new(nil, Order).create?).to be false
+    end
+
+    # A COURIER AND A RESTAURANT OWNER MAY BUY FOOD, and this example used to
+    # assert the opposite. It was right when it was written — a partner held
+    # only their partner role — and wrong the moment Hamma9900's rule landed:
+    # "the client account open if we have restaurant or rider or driver account
+    # automatic, because it's not a big thing."
+    #
+    # The premise the shared pool rests on is that these are ONE HUMAN with
+    # several capabilities: the same person delivers a meal at 13:00 and buys
+    # one at 20:00. A policy that refused him would have made the platform's
+    # own couriers its only customers who cannot order.
+    it "allows a courier and a merchant owner, because they are customers too" do
+      expect(courier.role?(:customer)).to be true
+      expect(described_class.new(courier, Order).create?).to be true
+      expect(described_class.new(owner, Order).create?).to be true
+    end
+
+    # ...and it is still the CUSTOMER role doing the allowing, not the partner
+    # one. Somebody holding only `courier` — which the app can no longer
+    # produce, but an import or a fix-up script could — is refused.
+    it "refuses somebody who holds a partner role and nothing else" do
+      # Written as a direct delete because `revoke_role!` REFUSES to take the
+      # customer role away — which is the point of that guard. This is the
+      # state only an import or a fix-up script could leave behind, and the
+      # policy still answers correctly in it.
+      courier.user_roles.where(role: UserRole.roles["customer"]).destroy_all
+
+      expect(described_class.new(courier.reload, Order).create?).to be false
     end
   end
 

@@ -550,6 +550,73 @@ to all three locales or parity checks lie. For RTL use **logical** spacing
 utilities, and mirror directional icons — a correct `dir` with a left-pointing
 "next" arrow is still wrong. Pashto and Dari strings run longer than English.
 
+### TWO METHODS THAT LOOKED LIKE THE ROLE GATE, WITH NO CALLERS — DELETED
+`Authenticatable#current_role` and `Authenticatable#require_role!`. The first
+carried a comment explaining that the role is never taken from the client
+because four roles in one app is where privilege escalation gets forgotten. The
+second rendered a 403. **Neither had a single caller.**
+
+Dead code that looks like a guard is worse than no guard, because it stops the
+next person looking for the real one — and invites them to build authorisation
+on it.
+
+**What actually enforces role access, established rather than assumed:**
+
+1. `ApplicationPolicy#courier?` / `#merchant_owner?` / `#admin?` / `#customer?`
+   read `user.role?(...)`, and the policy SCOPES return `.none` without the
+   role. The scopes are the half that leaks quietly: a missing predicate is a
+   403 somebody notices, a missing scope is another courier's jobs on screen.
+2. `Api::V1::BaseController` runs `verify_authorized` and
+   `verify_policy_scoped` as after_actions, so a controller that forgets Pundit
+   raises on the way out. Every `skip_authorization` in the app was checked
+   individually: all of them are on not-found paths that return no data, and the
+   two `skip_policy_scope` calls are on records resolved from `current_user`
+   and authorised explicitly.
+3. The role namespaces add CAPABILITY on top: `Couriers::BaseController`
+   requires an approved profile and a wallet; `Merchants::BaseController`
+   requires ownership.
+
+Also checked, because it was the obvious way for the two to disagree:
+`CourierProfileDashboard::FORM_ATTRIBUTES` does **not** include
+`verification_status`, so an admin cannot approve by form and bypass
+`approve!`, which grants the role. No split brain.
+
+**Deleted rather than wired in, and the reason matters:** `active_role` is
+which TAB a device is showing. Gating capability on it would break the
+two-phone setup IDENTITY_AND_ROLES.md §6 requires — a courier whose phone is in
+the customer tab must still be able to work the job he is carrying. That is now
+an explicit example, so the obvious-looking "fix" fails a test.
+
+### THE THIRD INSTANCE: COVERAGE OF A RULE IS NOT COVERAGE OF WHAT ENFORCES IT
+Three in this project now, and they are the same mistake wearing different
+clothes:
+
+| | The test claimed | What it actually touched |
+|---|---|---|
+| dispatch race | one live job per courier | the check at OFFER time — 15 of 16 examples passed with the accept-time re-check deleted |
+| i18n boot | the language switch survives a restart | only the across-restart scope, so a half-mirrored app shipped |
+| `current_role` | the role never comes from the client | an outcome produced by other code entirely; the method had no callers |
+
+Two questions catch all three. **Can the check go red?** — plant the bug.
+**Is the code under test reachable at all?** — if a plant changes nothing
+anywhere, either the code is dead or the test is about something else, and the
+second is worse, because the comment then misdescribes what is protected.
+
+### A FACTORY CAN BUILD A USER THE APP CAN NO LONGER PRODUCE
+The `:courier`, `:merchant_owner` and `:admin` traits wrote `user_roles` rows
+directly, so a factory courier held `courier` and NOT `customer` — a state
+Hamma9900's rule now forbids and `User#grant_role!` prevents. It surfaced as a
+test that looked like a bug in the code: issuing a session in the customer tab
+for a courier fell back to the courier tab, correctly, because that courier
+genuinely did not hold the customer role.
+
+Traits go through `grant_role!` now. One existing example changed meaning as a
+result and it is worth reading twice: `OrderPolicy#create?` refused a courier
+before and allows one now. **A courier and a restaurant owner may buy food** —
+the same human delivers a meal at 13:00 and buys one at 20:00, and a policy
+that refused him would have made the platform's own couriers the only customers
+who cannot order.
+
 ### A SHOP'S APPLICATION IS A `merchants` ROW, NOT A LEADS TABLE
 The "sign in as a restaurant" door writes a `merchants` row in a new `lead`
 state. I had built a `merchant_leads` table first; Hamma9901 was right that it

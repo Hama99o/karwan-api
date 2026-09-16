@@ -22,8 +22,15 @@ FactoryBot.define do
       deleted_at { Time.current }
     end
 
+    # EVERY PARTNER TRAIT GRANTS THROUGH `grant_role!`, not by writing a
+    # `user_roles` row directly — because the rule that any partner role
+    # carries `customer` alongside it lives in that method, and a factory that
+    # sidesteps it builds a user the app can no longer produce. It cost an
+    # afternoon once: a courier with no customer role could not be given a
+    # session in the customer tab, and the test that found it looked like a
+    # bug in the code rather than in its fixtures.
     trait :customer do
-      after(:create) { |user| create(:user_role, user: user, role: :customer) }
+      after(:create) { |user| user.grant_role!(:customer) }
     end
 
     # The supply side, for both demand types. One human, one wallet, one
@@ -32,7 +39,7 @@ FactoryBot.define do
     trait :courier do
       last_active_role { :courier }
       after(:create) do |user|
-        create(:user_role, user: user, role: :courier)
+        user.grant_role!(:courier)
         create(:courier_profile, :approved, user: user)
         create(:courier_wallet, user: user)
       end
@@ -41,7 +48,7 @@ FactoryBot.define do
     trait :ride_courier do
       last_active_role { :courier }
       after(:create) do |user|
-        create(:user_role, user: user, role: :courier)
+        user.grant_role!(:courier)
         create(:courier_profile, :approved, user: user, accepted_job_kinds: [ "ride" ])
         create(:courier_wallet, user: user)
       end
@@ -49,12 +56,12 @@ FactoryBot.define do
 
     trait :merchant_owner do
       last_active_role { :merchant_owner }
-      after(:create) { |user| create(:user_role, user: user, role: :merchant_owner) }
+      after(:create) { |user| user.grant_role!(:merchant_owner) }
     end
 
     trait :admin do
       last_active_role { :admin }
-      after(:create) { |user| create(:user_role, user: user, role: :admin) }
+      after(:create) { |user| user.grant_role!(:admin) }
     end
   end
 

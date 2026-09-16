@@ -13,7 +13,9 @@ require "rails_helper"
 #        endpoint → spec/requests/api/v1/merchants/orders_spec.rb ("no_merchant"),
 #                   spec/requests/api/v1/couriers/wallet_spec.rb ("no_courier_profile"),
 #                   and below, for both in one place
-#   2. current_role ignores a client-supplied role            → BELOW
+#   2. the role never comes from the client                   → BELOW
+#      (`current_role` and `require_role!` are DELETED — they had no callers;
+#       see Authenticatable's header for what enforces this instead)
 #   3. granting a partner role also yields customer           → spec/models/user_spec.rb
 #   4. assigning a merchant owner grants, unassigning revokes → spec/models/merchant_ownership_spec.rb
 #                                                               spec/requests/admin/merchant_owner_spec.rb
@@ -67,62 +69,67 @@ RSpec.describe "Identity and roles", type: :request do
     end
   end
 
-  # ── §9.2, TESTED AT THE METHOD, BECAUSE NO ENDPOINT CAN TEST IT ───────────
+  # ── §9.2, TESTED WHERE IT IS ENFORCED, WHICH IS NOT WHERE IT WAS WRITTEN ──
   #
-  # The three examples above assert the OUTCOME: nothing the client sends
-  # changes what the app is told. They do not test `current_role`, and I found
-  # that out by planting the bug — I rewrote `current_role` to read
-  # `params[:role]` and `X-Role` first, and all twelve examples stayed green.
+  # The examples above assert the OUTCOME. They do not test `current_role`, and
+  # I found that out by planting the bug: I rewrote `current_role` to read
+  # `params[:role]` and `X-Role` first, and every example stayed green.
   #
-  # The reason is that **`current_role` has no callers.** The role namespaces
-  # and the Pundit scopes read `user_roles` directly, so the method is a
-  # contract waiting for its first consumer. That is exactly the kind of
-  # not-quite-dead code that gets used in six months by somebody who assumes
-  # it was tested.
-  #
-  # So it is tested directly, and the probe is the test: it includes the concern
-  # and defines NEITHER `params` NOR `request`. Any implementation that reaches
-  # for the request raises `NoMethodError` here. The rule is not "prefer the
-  # session" — it is "the request is not an input to this question at all".
-  describe "Authenticatable#current_role, at the method" do
-    let(:probe_class) do
-      Class.new do
-        include Authenticatable
-        public :current_role
+  # The reason was that **`current_role` had no callers** — nor did
+  # `require_role!` beside it. Two methods that read as the role gate, doing
+  # nothing. They are deleted; the audit that justified deleting them is in
+  # `Authenticatable`'s header, and what actually enforces role access is
+  # below: the policy helpers and scopes read `user_roles`, and
+  # `verify_authorized` makes forgetting to call a policy raise.
+  describe "what actually enforces role access" do
+    let(:courier) { create(:user, :courier) }
+    let(:customer) { create(:user, :customer) }
 
-        def initialize(session)
-          @current_session = session
-          @current_user = session&.user
-        end
-      end
+    it "reads the role from the user's own rows, in the policy" do
+      expect(ApplicationPolicy.new(courier, nil)).to be_courier
+      expect(ApplicationPolicy.new(customer, nil)).not_to be_courier
+      expect(ApplicationPolicy.new(nil, nil)).not_to be_courier
     end
 
-    it "reads the session's role" do
-      user = create(:user, :courier)
-      session, = UserSession.issue!(user, requested_role: "courier")
+    # The scopes are the half that leaks quietly if it is wrong: a missing
+    # predicate is a 403 somebody notices, a missing scope is another courier's
+    # jobs on the screen.
+    it "resolves nothing for a scope when the role row is absent" do
+      order = create(:order, courier: courier)
 
-      expect(probe_class.new(session).current_role).to eq("courier")
+      expect(OrderPolicy::CourierScope.new(courier, Order).resolve).to include(order)
+
+      courier.revoke_role!(:courier)
+      expect(OrderPolicy::CourierScope.new(courier.reload, Order).resolve).to be_empty
     end
 
-    # Not the user's preference either: two devices, two roles, and the
-    # preference is only what seeds a new one.
-    it "does not read the user's last chosen role" do
-      user = create(:user, :courier)
-      session, = UserSession.issue!(user, requested_role: "courier")
-      user.update!(last_active_role: :customer)
+    # ── THE MODE IS NOT A PERMISSION, AND THIS MUST STAY TRUE ────────────────
+    #
+    # `active_role` is which TAB a device is showing. Gating capability on it
+    # is the obvious-looking "fix" that would break the two-phone setup
+    # IDENTITY_AND_ROLES.md §6 requires: a courier watching rides on one phone
+    # and deliveries on the other, or one whose phone died and who signed in on
+    # a spare, must still be able to work the job he is carrying.
+    it "lets a courier work while his device is in the customer tab" do
+      courier.courier_profile.update!(is_available: true)
+      session, token = UserSession.issue!(courier, requested_role: "customer")
 
-      expect(probe_class.new(session).current_role).to eq("courier")
+      get "/api/v1/courier/job", headers: { "Authorization" => "Bearer #{token}" }
+
+      expect(session.active_role).to eq("customer")
+      expect(response).to have_http_status(:ok)
     end
 
-    it "cannot consult params or headers, because it has none to consult" do
-      probe = probe_class.new(UserSession.issue!(create(:user, :customer)).first)
+    # And the reverse: a session sitting in the courier tab buys nothing for
+    # somebody who is not a courier. The tab is a preference on both sides.
+    it "gives a customer nothing for having a session in a partner tab" do
+      session, = UserSession.issue!(customer)
+      session.update_column(:active_role, UserSession.active_roles[:courier])
 
-      expect(probe).not_to respond_to(:params)
-      expect { probe.current_role }.not_to raise_error
-    end
+      auth = { "Authorization" => "Bearer #{UserSession.issue!(customer).last}" }
+      get "/api/v1/courier/job", headers: auth
 
-    it "is nil for a signed-out request rather than guessing customer" do
-      expect(probe_class.new(nil).current_role).to be_nil
+      expect(response).to have_http_status(:forbidden)
     end
   end
 

@@ -14,9 +14,22 @@ class ApplicationPolicy
   def update?  = false
   def destroy? = false
 
-  # Belonging to something is not permission to act on it. edu-safi's lesson:
-  # `current_organization` is tenancy, not authorisation. Helpers here read
-  # from the authenticated user's own roles and nothing else.
+  # ── THIS IS WHERE ROLE ACCESS IS ENFORCED ─────────────────────────────────
+  #
+  # Not in a controller filter, and not from anything the client sends. These
+  # four helpers and the scopes below them read the authenticated user's own
+  # `user_roles` rows and nothing else — so a role in a param, a header or a
+  # session cannot buy access, and four roles in one app is exactly the shape
+  # where that gets forgotten.
+  #
+  # `Authenticatable` used to carry a `current_role` and a `require_role!` that
+  # read like this check and had no callers at all. They are gone; if you are
+  # looking for the role gate, it is here, plus `verify_authorized` in
+  # `Api::V1::BaseController`, which makes forgetting to call a policy raise.
+  #
+  # Belonging to something is not permission to act on it either — edu-safi's
+  # lesson: `current_organization` is tenancy, not authorisation. Hence the
+  # `own?`/`owner?` predicates in the subclasses ON TOP of these.
   def admin?
     user&.role?(:admin) || false
   end
