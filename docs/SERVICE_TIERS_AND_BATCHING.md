@@ -150,3 +150,52 @@ call at the edges.
 
 A spec asserts the alphabet, deliberately, because *"let's use base32, it's shorter"* reads as an
 improvement and would reintroduce all four collisions at once.
+
+---
+
+## 11. Seats and per-vehicle ride pricing — Hamma9900's numbers
+
+**Seats, and note the car is capped BELOW its physical capacity.** His words: *"one vehicle can
+have four seats but we said three."*
+
+| Vehicle | Passengers |
+|---|---|
+| car | **3** (physical 4) |
+| rishka | **2** |
+| motorbike | **1** |
+| bicycle / on_foot | not offered rides |
+
+Capping the car at 3 is deliberate — comfort, and it keeps the promise being sold. Record the
+physical count separately at application (§5) if it is ever wanted; the **offerable** number is
+what dispatch uses.
+
+**Per-vehicle ride pricing — confirmed, and it is why the passenger picks the class.** His
+example: the same trip is about **100 AFN by car** and **70–80 by rishka**. So the rate rows in
+`pricing_rates` under `ride / customer / <vehicle>` carry genuinely different tariffs, not one
+tariff with a multiplier.
+
+**This is what makes the upfront quote honest.** The passenger chooses cheap-and-open or
+comfortable-and-closed, sees that class's price, and dispatch then offers only to that class —
+so the fare cannot move after they agreed it (correction 13). A family of four cannot select
+motorbike, because the seat axis removes it from the picker before the price is shown.
+
+## 12. The courier's declared float — the cash gate that replaces the deposit
+
+Since a courier owes the platform nothing (see `MONEY_AND_SETTLEMENT.md`), the wallet no longer
+represents money we hold, so it cannot gate dispatch. **The courier declares his own working
+cash instead.**
+
+- He taps a number at the start of a shift — Hamma9900's benchmark is **1,000 AFN**, checked as
+  a qualification during the application review rather than held by us.
+- **Dispatch never offers a job whose advance exceeds his remaining declared float.**
+- **The float DECREMENTS as he accepts and restores on delivery.** Declares 1,000, takes a 500
+  job, has 500 to work with until he collects — exactly Hamma9900's two-orders-of-500 example,
+  with the platform doing the arithmetic rather than trusting him twice.
+- **Self-declared is honest here because lying only costs him**: he would accept work he cannot
+  fund and lose it.
+- **This is why the restaurant never cooks for a courier who cannot pay** — the case is refused
+  at the offer, not discovered at the counter. A courier who arrives unable to pay anyway gets a
+  reason code and a strike, because the cost should land on whoever caused it.
+
+**Two numbers, not one.** The **float** is what dispatch reads and it moves all day. **Earnings**
+are cumulative and only go up — and that is the number the courier actually wants to see.
