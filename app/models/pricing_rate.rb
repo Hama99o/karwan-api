@@ -19,18 +19,17 @@ class PricingRate < ApplicationRecord
             numericality: { greater_than_or_equal_to: 0 }
   validates :vehicle_type, uniqueness: { scope: %i[job_kind audience] }
 
-  # THE SAME INTEGERS AS `courier_profiles.vehicle_type`, taken from that enum
-  # rather than rebuilt here — so a rate and a courier can never disagree about
+  # FROM THE SHARED MODULE, so a rate and a courier can never disagree about
   # what a vehicle is.
   #
   # I wrote this as `CARRIES.keys.each_with_index` first, which looks
   # equivalent and is not: `CARRIES` is ordered by capacity (on_foot first) and
-  # the enum is ordered by when each vehicle was added (motorbike first), so
-  # every rate would have been stored against the wrong vehicle — a car's fare
-  # charged for a rishka, silently. Derive the mapping, never restate it.
+  # the vocabulary is ordered by when each vehicle was added (motorbike first),
+  # so every rate would have been stored against the wrong vehicle — a car's
+  # fare charged for a rishka, silently. Read the mapping, never restate it.
   #
   # Nil means "any vehicle", which is what a rate with no class dimension is.
-  enum :vehicle_type, CourierProfile.vehicle_types, prefix: :by
+  enum :vehicle_type, VehicleTypes::ALL, prefix: :by
 
   # ── THE DEFAULTS, AND WHERE THE NUMBERS COME FROM ──────────────────────────
   #

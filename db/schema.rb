@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_16_125612) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_16_135437) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -181,6 +181,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_16_125612) do
     t.string "national_id_number"
     t.string "plate_number"
     t.text "rejection_reason"
+    t.text "review_note"
+    t.datetime "reviewed_at"
     t.datetime "updated_at", null: false
     t.bigint "user_id", null: false
     t.integer "vehicle_type", default: 0, null: false

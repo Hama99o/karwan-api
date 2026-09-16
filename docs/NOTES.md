@@ -550,6 +550,67 @@ to all three locales or parity checks lie. For RTL use **logical** spacing
 utilities, and mirror directional icons — a correct `dir` with a left-pointing
 "next" arrow is still wrong. Pashto and Dari strings run longer than English.
 
+### A CLASS BODY THAT REACHED INTO ANOTHER MODEL WAS A PRODUCTION BOOT FAILURE
+`CARRIES` and `SEATS` lived on `CourierProfile`, and `Trip`, `Order` and
+`PricingRate` read them **in their class bodies** — `CourierProfile.vehicle_types`
+and `CourierProfile::SEATS`. That makes two models load-order dependent, and
+under eager loading `Trip` could be reached while `CourierProfile` was still
+part-way through its own body:
+
+```
+app/models/trip.rb:79: uninitialized constant CourierProfile::SEATS (NameError)
+```
+
+**It passed `zeitwerk:check`, passed all 1,304 examples, and reproduced only in
+`RAILS_ENV=test bin/rails runner`.** Production eager-loads, so it was a boot
+failure waiting for a load order nobody had hit — and the first person to hit
+it would have been Hamma9900 on a deploy.
+
+Fixed by moving the vocabulary, the capacities and the seat counts into
+`VehicleTypes`, a plain module that depends on nothing — the same shape as
+`Roles` and `SizeClasses`. **A shared vocabulary belongs in a module every
+model can read without loading another model.** A spec now greps for the old
+references, because the fix is only durable if nobody reintroduces one.
+
+Two smaller lessons from the same hour. The tell was in the output and I nearly
+skipped it: `warning: already initialized constant CourierProfile::STALE_AFTER`
+means a class body ran TWICE, which is the signature of a load cycle rather
+than noise. And my first attempt at the fix **deleted 129 lines** — associations,
+validations, scopes and the enum I had just added — because I sliced from a
+heading to `s.index("  enum :vehicle_type,")` and that anchor appears EARLIER in
+the file, so the slice ran backwards. The redo asserted that the only code lines
+removed were the constants being moved, and that check is what made the second
+attempt safe.
+
+### FCM data values are stringified, so anything structured must be encoded
+`FcmClient` runs every data value through `to_s`, because FCM's data map is
+string-to-string. An array of symbols therefore arrives as the literal
+`"[:id_document, :selfie]"` — Ruby inspect output the app would have to parse
+as Ruby. The courier review alert now JSON-encodes its `missing` list on
+purpose.
+
+Caught by a spec asserting the values were strings. Worth generalising: **any
+structured value crossing a string-typed boundary has to be encoded
+deliberately, or it ships as debug output.**
+
+### A review that ASKS is not a refusal, and needed its own state
+`verification_status` had pending / approved / rejected / suspended, so "we
+asked you for a better photo" could only be expressed as a refusal — and the
+console operator's only options were approve or reject. An applicant told he
+was refused when he had merely forgotten a photo is a courier we convinced and
+then lost, on the side of the market that is scarce.
+
+`needs_more` (4, appended) plus `ask_for_more!`, `review_note` for what a human
+noticed that a validation cannot, and a push per outcome. Three outcomes, three
+messages, and the specs assert they are not the same message.
+
+**The fixture lesson, again, caught by a plant:** my first test asserted that
+asking for more leaves `rejection_reason` nil — on a profile that had never
+been rejected, so nil either way, and deleting the clearing line broke nothing.
+The fixture has to REJECT first and then ask, which is also the only real case:
+a reviewer who refused somebody and thought better of it is exactly who uses
+that action.
+
 ### The tier shipped before batching, because consent cannot be retrofitted
 `orders.service_tier` and `trips.service_tier`, frozen at placement, with
 nothing batching yet. That is deliberate and it is the cheap direction: a tier

@@ -68,7 +68,7 @@ class Trip < ApplicationRecord
   # fare depend on the vehicle and still be honest (correction 13). Nil on
   # trips booked before classes existed, and nil means "any vehicle" to
   # dispatch rather than "no vehicle".
-  enum :vehicle_type, CourierProfile.vehicle_types, prefix: :by
+  enum :vehicle_type, VehicleTypes::ALL, prefix: :by
 
   # THE TIER THE PASSENGER CHOSE. `normal` consents to somebody else sharing
   # the car for a lower fare; `premium` means the car is theirs. Frozen at
@@ -76,7 +76,7 @@ class Trip < ApplicationRecord
   enum :service_tier, ServiceTiers::ALL, prefix: :tier
 
   validates :passenger_count, numericality: { only_integer: true, greater_than: 0,
-                                              less_than_or_equal_to: CourierProfile::SEATS.values.max }
+                                              less_than_or_equal_to: VehicleTypes::MAX_SEATS }
 
   validates :code, presence: true, uniqueness: true
   validates :passenger_phone, presence: true

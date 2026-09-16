@@ -10,7 +10,7 @@ require "rails_helper"
 #
 # Hamma9900 added `zarang` (a rishka built for heavy goods; his example is a
 # bed) for exactly this. The capacity map is PROVISIONAL — see
-# `CourierProfile::CARRIES` — so these examples assert the MECHANISM, and use
+# `VehicleTypes::CARRIES` — so these examples assert the MECHANISM, and use
 # the two ends of the scale where the ordering is not in doubt.
 RSpec.describe "how big a delivery is" do
   let(:merchant) { create(:merchant, latitude: 34.5553, longitude: 69.2075) }

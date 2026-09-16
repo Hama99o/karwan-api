@@ -90,7 +90,7 @@ class Order < ApplicationRecord
   # THE VEHICLE THAT EARNED THE COURIER FEE, written at assignment. Unlike
   # every other amount here it cannot be frozen at quote time, because we do
   # not know who will accept until they do. Nil until a courier takes it.
-  enum :courier_vehicle_type, CourierProfile.vehicle_types, prefix: :carried_by
+  enum :courier_vehicle_type, VehicleTypes::ALL, prefix: :carried_by
 
   # THE TIER THE CUSTOMER CHOSE, and their consent to be batched. Frozen at
   # placement like every other term of the order: `premium` bought this run

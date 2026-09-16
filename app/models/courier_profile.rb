@@ -33,52 +33,22 @@ class CourierProfile < ApplicationRecord
   # whole reason this is an array rather than a boolean per kind.
   JOB_KINDS = %w[delivery ride].freeze
 
-  # WHAT THEY RIDE, in Hamma9900's own words, because these two are not one
-  # thing:
+  # WHAT THEY RIDE. The vocabulary — including `rishka` and `zarang`, which are
+  # Hamma9900's own words and two different vehicles — plus what each one
+  # carries and how many it seats, all live in `VehicleTypes`.
   #
-  #   rishka — the common Kabul three-wheeler, between a bicycle and a car in
-  #            both capacity and cost. Without it, a courier who has one has to
-  #            register as something he is not.
-  #   zarang — a rishka built for heavy goods. His example is A BED. It carries
-  #            more furniture than a car does, which is why capacity is not a
-  #            simple ladder from bicycle to car.
+  # A PLAIN MODULE rather than constants here, because `Trip`, `Order` and
+  # `PricingRate` need the same mapping, and a class body reaching into another
+  # MODEL is load-order dependent. That was a real boot failure, not a tidiness
+  # preference: see the module's header for the error and how it reproduced.
+  enum :vehicle_type, VehicleTypes::ALL, prefix: :by
+  # `needs_more` is A REVIEW THAT ASKS. Hamma9900's rule: if something is
+  # missing we notify them and they send it from the phone — which is not a
+  # refusal and must never read like one. `rejected` stays for a genuine
+  # refusal: a failed identity check, a guarantor who declined.
   #
-  # ADDED AS NEW INTEGERS, never by renumbering: these values are in the
-  # database, and shifting them would silently turn every car into a rishka.
-  #
-  # It is about to matter twice over. For money: rides will let the CUSTOMER
-  # pick the class and quote that class's price, because a motorbike ride is
-  # much cheaper than a car and the passenger is the right person to choose,
-  # while deliveries keep one customer-facing fee and let the vehicle affect
-  # what the COURIER EARNS instead. For dispatch: a bed and a book are
-  # currently indistinguishable to the system, so a zarang-sized delivery can
-  # be offered to a courier on a bicycle who accepts it in good faith and
-  # cannot carry it. Neither is built yet; see docs/NOTES.md.
-  enum :vehicle_type, { motorbike: 0, bicycle: 1, car: 2, on_foot: 3, rishka: 4, zarang: 5 },
-       prefix: :by
-  # ── WHAT EACH VEHICLE CAN CARRY ─────────────────────────────────────────────
-  #
-  # PROVISIONAL. This is my guess, not a researched fact, and Hamma9900 has not
-  # confirmed the ordering. **The least certain pair is car versus rishka** —
-  # both are `large` here, and a rishka may well carry bulkier goods than a car
-  # does even though a car carries more people. He knows what a zarang actually
-  # takes and I do not; correcting this is ONE LINE, which is exactly why it is
-  # a constant and not a column. A column would be this same value copied onto
-  # every courier's row plus a migration to change it.
-  #
-  # The ordering is NOT a size ladder from bicycle to car: a zarang beats a car
-  # for furniture. That is why capacity is looked up per vehicle rather than
-  # derived from the enum's integers.
-  CARRIES = {
-    on_foot: :small,
-    bicycle: :small,
-    motorbike: :medium,
-    car: :large,
-    rishka: :large,
-    zarang: :bulky
-  }.freeze
-
-  enum :verification_status, { pending: 0, approved: 1, rejected: 2, suspended: 3 },
+  # Appended as 4, never renumbered: these values are in the database.
+  enum :verification_status, { pending: 0, approved: 1, rejected: 2, suspended: 3, needs_more: 4 },
        prefix: :verification
 
   belongs_to :user
@@ -123,57 +93,32 @@ class CourierProfile < ApplicationRecord
 
   # What the applicant still owes, as field names the app can translate. Never
   # an English sentence: the courier reads Pashto.
-  # ── HOW MANY PASSENGERS EACH VEHICLE TAKES ──────────────────────────────────
+  # Can this courier's vehicle take this many people, and this much cargo?
   #
-  # PROVISIONAL, like `CARRIES`, and for the same reason: Hamma9900 knows what a
-  # rishka actually seats and I do not. The least certain figure is `rishka`,
-  # which I have as 3 — a Kabul rishka commonly takes three across the back, but
-  # it depends on the body. `zarang` is 2 because it is built for goods rather
-  # than people. One line to correct, which is the whole argument for a constant.
-  #
-  # A bicycle and a pedestrian seat NOBODY: a passenger on a bicycle is not a
-  # service we offer, and `on_foot` carries parcels.
-  SEATS = {
-    on_foot: 0,
-    bicycle: 0,
-    motorbike: 1,
-    rishka: 3,
-    car: 4,
-    zarang: 2
-  }.freeze
-
-  # Can this courier's vehicle take this many people?
-  #
-  # Fails CLOSED on an unknown vehicle, exactly like `carries?`: a vehicle added
-  # to the enum with no seat count is one nobody should be sent a passenger on.
+  # Kept as instance predicates so dispatch asks the COURIER rather than
+  # unpacking his vehicle at the call site — `profile.carries?(size)` reads as
+  # the question being asked, and the table behind it can change without
+  # touching `Dispatch::Eligibility`. Both fail CLOSED on an unknown vehicle:
+  # see `VehicleTypes`.
   def seats?(passenger_count)
-    SEATS.fetch(vehicle_type&.to_sym, 0) >= passenger_count.to_i
+    VehicleTypes.seats?(vehicle_type, passenger_count)
   end
 
-  # Can this courier's vehicle take an order of this size?
-  #
-  # Unknown vehicle types answer NO. A vehicle added to the enum without a
-  # capacity is a vehicle nobody should be offered a bulky job on — failing
-  # closed here means a missing entry costs a dispatch, while failing open
-  # would cost a courier a wasted journey and a customer their delivery.
   def carries?(size_class)
-    capacity = CARRIES[vehicle_type&.to_sym]
-    return false if capacity.nil?
-
-    SizeClasses.covers?(capacity, size_class)
+    VehicleTypes.carries?(vehicle_type, size_class)
   end
 
   # The vehicle types that could take a job of this size, for asking the
   # question of a whole fleet in one query instead of per courier.
   def self.vehicle_types_carrying(size_class)
-    CARRIES.select { |_type, capacity| SizeClasses.covers?(capacity, size_class) }.keys.map(&:to_s)
+    VehicleTypes.carrying(size_class)
   end
 
   # The vehicle types that seat this many people. Used to filter the classes a
   # passenger is OFFERED, so a family of four never sees a motorbike fare they
   # cannot use.
   def self.vehicle_types_seating(passenger_count)
-    SEATS.select { |_type, seats| seats >= passenger_count.to_i }.keys.map(&:to_s)
+    VehicleTypes.seating(passenger_count)
   end
 
   def missing_for_approval
@@ -230,16 +175,39 @@ class CourierProfile < ApplicationRecord
 
     transaction do
       update!({ verification_status: :approved, verified_at: Time.current,
-                rejection_reason: nil }.merge(approver))
+                rejection_reason: nil, review_note: nil }.merge(approver))
       user.grant_role!(:courier)
       CourierWallet.create!(user: user, balance: 0,
                             credit_line: Setting.fetch("default_credit_line")) if user.courier_wallet.nil?
+      announce_review!
     end
+  end
+
+  # ASK, rather than refuse. The applicant keeps their application, the form
+  # stays open on their phone, and they are told what is still wanted — the
+  # `missing` list for absent fields, plus this note for what a human noticed
+  # and a validation could not ("the tazkira photo is unreadable").
+  #
+  # `is_available` is NOT touched: they were never on shift, and flipping it
+  # would be a second meaning for one flag.
+  def ask_for_more!(by:, note: nil)
+    raise ArgumentError, "a review must name its reviewer" if by.nil?
+
+    reviewer = by.is_a?(AdminUser) ? { verified_by_admin_user: by } : { verified_by: by }
+
+    update!({ verification_status: :needs_more, reviewed_at: Time.current,
+              review_note: note.presence,
+              # Cleared, because being asked for something is not a refusal and
+              # a stale refusal reason shown beside a request is the exact
+              # confusion this state exists to prevent.
+              rejection_reason: nil }.merge(reviewer))
+    announce_review!
   end
 
   def reject!(by:, reason:)
     update!(verification_status: :rejected, verified_at: Time.current, verified_by: by,
             rejection_reason: reason, is_available: false)
+    announce_review!
   end
 
   # Can this courier be offered this kind of job at all? A funded wallet is
@@ -255,6 +223,20 @@ class CourierProfile < ApplicationRecord
   end
 
   private
+
+  # THE ONE THING AN APPLICANT IS WAITING FOR.
+  #
+  # Enqueued from the MODEL rather than from the console controller, because an
+  # approval can also come from a script, a console session or a future admin
+  # path — and a courier told nothing is a courier who assumes he was refused.
+  # The same reasoning as `Merchant#sync_owner_role`: a callback is the only
+  # place that catches every path.
+  #
+  # Inside the transaction where there is one, so it cannot fire for a review
+  # that failed to save; ActiveJob delivers after commit.
+  def announce_review!
+    Notifications::CourierReviewAlertJob.perform_later(id)
+  end
 
   # An approved courier who accepts neither kind of work can never be offered
   # anything. That is not a courier, it is a silent dead end in the dispatch

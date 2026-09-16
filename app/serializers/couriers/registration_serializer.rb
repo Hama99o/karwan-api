@@ -22,6 +22,12 @@ module Couriers
     # courier who cannot see the reason cannot fix it.
     field :rejection_reason
 
+    # WHAT A HUMAN ASKED FOR, which is not the same thing and must never read
+    # like it. `missing` covers fields that are absent; this is for what a
+    # reviewer noticed and a validation could not — "the tazkira photo is
+    # unreadable". Present only on the asking path.
+    field :review_note
+
     field :missing do |profile|
       profile.missing_for_approval
     end

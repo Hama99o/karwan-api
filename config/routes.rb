@@ -47,6 +47,8 @@ Rails.application.routes.draw do
     resources :courier_profiles, only: %i[index show edit update] do
       member do
         patch :approve
+        # The asking path, which is not a refusal — see the controller.
+        patch :ask_for_more
         patch :reject
         patch :take_off_shift
       end

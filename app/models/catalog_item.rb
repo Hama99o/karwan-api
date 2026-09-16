@@ -21,7 +21,7 @@ class CatalogItem < ApplicationRecord
   # HOW BIG IT IS, and the merchant is the only one who knows. A restaurant
   # never touches this — food is always `small`, which is the default — and a
   # furniture shop sets `bulky` on beds once. It decides which vehicles can be
-  # offered the order (`CourierProfile::CARRIES`), so getting it wrong sends a
+  # offered the order (`VehicleTypes::CARRIES`), so getting it wrong sends a
   # bicycle to collect a bed.
   enum :size_class, SizeClasses::ALL, prefix: :size
 

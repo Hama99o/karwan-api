@@ -36,6 +36,29 @@ module Admin
       end
     end
 
+    # ASK, rather than refuse — the action that was missing.
+    #
+    # Hamma9900's approval flow: if something is missing WE NOTIFY THEM AND
+    # THEY SEND IT FROM THE PHONE. Before this, a console operator's only
+    # options were approve or reject, so an applicant who had merely forgotten
+    # a photo had to be REFUSED to be told anything — and an applicant told he
+    # was refused is a courier we convinced and then lost.
+    #
+    # A note is optional, because the `missing` list already covers absent
+    # fields: this is for what a human notices and a validation cannot, like an
+    # unreadable tazkira photo.
+    def ask_for_more
+      profile = requested_resource
+      profile.ask_for_more!(by: current_admin_user, note: params[:note].presence)
+
+      log_intervention("courier.more_asked", target: profile,
+                                             after: { verification_status: "needs_more" },
+                                             details: { note: params[:note].presence,
+                                                        missing: profile.missing_for_approval })
+      redirect_back fallback_location: admin_courier_profile_path(profile),
+                    notice: "Asked the applicant for more."
+    end
+
     def reject
       profile = requested_resource
       reason = params[:reason].presence
@@ -43,8 +66,10 @@ module Admin
       return redirect_back fallback_location: admin_courier_profile_path(profile),
                            alert: "A rejection needs a reason." if reason.blank?
 
-      profile.update!(verification_status: :rejected, verified_at: Time.current,
-                      rejection_reason: reason, is_available: false)
+      # Through the MODEL, not a bare `update!`: `reject!` is what records the
+      # reviewer and announces the outcome, and a rejection nobody is told
+      # about is an applicant waiting forever.
+      profile.reject!(by: nil, reason: reason)
       log_intervention("courier.rejected", target: profile,
                                            after: { verification_status: "rejected" },
                                            details: { reason: reason })

@@ -1,7 +1,7 @@
 # HOW BIG A THING IS, on one ordered scale, defined once.
 #
 # `catalog_items.size_class`, `orders.required_size_class` and
-# `CourierProfile::CARRIES` must never drift apart: a size that exists in one
+# `VehicleTypes::CARRIES` must never drift apart: a size that exists in one
 # and not the others is a delivery nobody can be offered.
 #
 # The scale is deliberately four coarse steps rather than kilograms or
