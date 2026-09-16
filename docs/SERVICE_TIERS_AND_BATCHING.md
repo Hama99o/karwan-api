@@ -116,3 +116,37 @@ From correction 19, and unchanged: **in a shared job neither customer sees anyth
 other** — not a name, not a phone, not an address, not their stop. The courier sees every leg;
 each customer sees only their own. Choosing the cheaper tier consents to *sharing a courier*, and
 to nothing else about the other person.
+
+---
+
+## 9. The premium incentive inverts the day batching ships
+
+Found before it could bite, and it is a business-model bug rather than a code one.
+
+**Today the premium uplift is the platform's, and that is correct** — nothing can be batched, so
+a courier on a premium job gives up nothing and is owed nothing extra.
+
+**The day batching ships, that becomes backwards.** A premium job would pay him the same as a
+normal one while *forbidding* him to combine it. So couriers would prefer normal work, and
+**premium customers — who paid more precisely to be prioritised — would wait the longest.** The
+tier would invert its own promise.
+
+**The fix is a number, not a redesign:** share the uplift with the courier at that point, enough
+that a premium job is worth at least as much to him as a batched normal run. Decide it when
+batching lands, with real batch rates to price against.
+
+**A ride already behaves correctly**, because there the fare is the driver's revenue and we take
+a percentage — so a higher premium fare pays him more automatically. Only delivery has the
+inversion, because there the courier's fee is a separate number from the customer's total.
+
+## 10. The order code: digits only, and why that is the whole rule
+
+§6 asks for a code that survives a pen, a phone call and Pashto. The implementation is a short
+prefix plus **six digits** — and the reason digits-only settles it is worth stating:
+
+**Every collision §6 names is a digit against a letter** — 0/O, 1/I/l, 5/S, 8/B. So an alphabet
+with no letters in it cannot contain any of them. No exclusion list to maintain, no judgement
+call at the edges.
+
+A spec asserts the alphabet, deliberately, because *"let's use base32, it's shorter"* reads as an
+improvement and would reintroduce all four collisions at once.
