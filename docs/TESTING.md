@@ -196,3 +196,37 @@ fixture, the test proves nothing about which one the code read.
 
 Same for anything else that freezes: order line prices, the distance source on a quote, the
 required size class, the merchant commission.
+
+---
+
+## A gate must tell code from prose — in both directions
+
+Two failures, mirror images of each other, and the pair teaches more than either alone.
+
+**One:** a rule's escape hatch was documented *inside* the escape hatch — so the documentation
+itself satisfied the exemption and **turned the rule off** for everything after it.
+
+**Two:** the separability gate failed on `ThemeProvider.tsx` and `useColors.ts` because **their
+comments explain the rule by quoting the thing it forbids** — `role === "courier"`. The code was
+correct; the prose describing why it is correct broke the check.
+
+The second is the more dangerous one, because of what it teaches whoever hits it:
+
+> **A gate that fails on its own documentation trains people to delete the documentation.**
+
+Nobody deletes a comment maliciously. They delete it because the build is red, the comment is
+"just a comment", and the deadline is real. Then the next person has the rule with no
+explanation, and changes it.
+
+**So: strip comments before matching, and assert on code.** A grep-based gate is a tiny parser,
+and a parser that cannot tell a string from a statement will eventually be wrong in the
+direction that costs most.
+
+### And exempt by exact name, never by pattern
+
+`app/index.tsx` and `app/_layout.tsx` legitimately know every role — routing by role IS the
+entry point's job, and correction 18's own test is *"changing only the entry point"*. Those two
+files are exempt **by exact filename**.
+
+Not by a pattern. **An exemption wide enough to catch a third file hides the next violation** —
+and it hides it in the one place the rule was written to protect.
