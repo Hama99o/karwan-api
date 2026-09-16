@@ -79,9 +79,12 @@ RSpec.describe Setting, type: :model do
     end
 
     it "gives every money setting a currency, so nothing is summed blind" do
+      # The `trip_*` fare keys are gone to `pricing_rates` — a ride fare varies
+      # by the vehicle class the passenger chose, which a key-value table
+      # cannot express without 48 rows. Their currency is asserted on the rate
+      # rows instead, in spec/models/pricing_rate_spec.rb.
       money_keys = %w[delivery_base_fee delivery_fee_per_km delivery_minimum_fee
-                      cash_in_hand_limit default_credit_line
-                      trip_base_fare trip_fare_per_km trip_fare_per_minute trip_minimum_fare]
+                      cash_in_hand_limit default_credit_line]
 
       money_keys.each do |key|
         expect(described_class::DEFINITIONS.dig(key, :currency)).to eq("AFN"), "#{key} has no currency"
@@ -101,9 +104,28 @@ RSpec.describe Setting, type: :model do
         "commission_rate", "delivery_base_fee", "delivery_fee_per_km", "delivery_minimum_fee",
         "cash_in_hand_limit", "default_credit_line", "eta_average_speed_kmh",
         "dispatch_offer_ttl_sec", "dispatch_max_offers", "support_phone",
-        "trip_base_fare", "trip_fare_per_km", "trip_fare_per_minute",
-        "trip_minimum_fare", "trip_commission_rate"
+        "trip_commission_rate"
       )
+    end
+
+    # ── THE RULE THAT KEEPS TWO CONFIG MECHANISMS FROM BECOMING A MESS ───────
+    #
+    # `Setting` holds SCALARS; `pricing_rates` holds anything that varies by
+    # vehicle. Asserted, because the failure mode is silent: a tariff key
+    # re-added here would be a second source of truth for a fare, and code
+    # would have to decide which to trust — the same reason the flat
+    # `delivery_fee` was replaced rather than kept alongside the distance
+    # formula.
+    it "holds no per-vehicle tariff, because those are rows" do
+      tariff_keys = described_class::DEFINITIONS.keys.grep(/\A(trip|ride)_.*(fare|base|per_km|per_minute|minimum)/)
+
+      expect(tariff_keys).to be_empty
+    end
+
+    # The commission rate STAYS here, and that is the distinction: it is the
+    # same share for every class, so it is a scalar.
+    it "keeps the ride commission, which does not vary by vehicle" do
+      expect(described_class::DEFINITIONS).to have_key("trip_commission_rate")
     end
 
     it "every declared default casts without raising" do

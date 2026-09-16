@@ -13,6 +13,8 @@ module Dispatch
       off_shift: "courier is not available",
       wrong_job_kind: "courier does not accept this kind of job",
       vehicle_too_small: "courier's vehicle cannot carry this order",
+      too_many_passengers: "courier's vehicle does not seat this many people",
+      wrong_vehicle_class: "passenger asked for a different kind of vehicle",
       already_on_a_job: "courier is already carrying a job",
       stale_location: "courier's last known position is too old to dispatch on",
       no_wallet: "courier has no wallet",
@@ -49,6 +51,19 @@ module Dispatch
       #
       # A ride has no size, so this only ever asks an Order.
       return :vehicle_too_small unless vehicle_big_enough?
+      # A PASSENGER WHO PAID FOR A CAR MUST NOT BE COLLECTED ON A MOTORBIKE.
+      #
+      # The class is part of what was agreed — it is why the fare could depend
+      # on the vehicle and still be quoted upfront — so dispatch matches it
+      # exactly rather than treating a bigger vehicle as a free upgrade. A car
+      # driver taking a motorbike fare would earn motorbike money and decline
+      # anyway; offering it wastes the offer's TTL, which the customer pays for
+      # in waiting.
+      return :wrong_vehicle_class unless vehicle_class_matches?
+      # And it must actually seat them. Without this a family of four could
+      # agree a fare and be undispatchable — the same failure as a bed on a
+      # bicycle, on a people axis.
+      return :too_many_passengers unless enough_seats?
       # ONE LIVE JOB PER COURIER, ACROSS BOTH DEMAND TYPES.
       #
       # This check did not exist, and its absence meant a courier riding to a
@@ -91,6 +106,24 @@ module Dispatch
 
     def profile
       @profile ||= @courier.courier_profile
+    end
+
+    # Only a ride has a class and a passenger count; a delivery has neither, so
+    # both questions answer yes for an Order without asking anything.
+    def vehicle_class_matches?
+      requested = @job.try(:vehicle_type)
+      # Nil means the passenger chose nothing — trips booked before classes
+      # existed, or a future path that does not ask. Any vehicle will do.
+      return true if requested.blank?
+
+      requested.to_s == profile.vehicle_type.to_s
+    end
+
+    def enough_seats?
+      count = @job.try(:passenger_count)
+      return true if count.blank?
+
+      profile.seats?(count)
     end
 
     # Rides are people, not goods, so there is nothing to fit.

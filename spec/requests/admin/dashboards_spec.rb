@@ -34,6 +34,7 @@ RSpec.describe "Every ops console page renders", type: :request do
     when "courier_wallets" then create(:user, :courier).courier_wallet
     when "users" then create(:user, :courier)
     when "settings" then Setting.first || create(:setting)
+    when "pricing_rates" then PricingRate.first || PricingRate.create!(job_kind: "ride", audience: :customer, vehicle_type: :car, base: 40, per_km: 10)
     when "audit_logs" then create(:audit_log)
     when "wallet_entries" then create(:wallet_entry)
     when "settlements" then create(:settlement)
@@ -45,9 +46,9 @@ RSpec.describe "Every ops console page renders", type: :request do
   # never asked for an edit form it does not have.
   RESOURCES = %w[
     orders trips merchants courier_profiles courier_wallets users
-    settings audit_logs wallet_entries settlements
+    settings pricing_rates audit_logs wallet_entries settlements
   ].freeze
-  EDITABLE = %w[merchants courier_profiles courier_wallets users settings].freeze
+  EDITABLE = %w[merchants courier_profiles courier_wallets users settings pricing_rates].freeze
 
   it "renders the console root" do
     get "/admin"

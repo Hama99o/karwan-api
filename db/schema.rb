@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_16_121645) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_16_123648) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -365,6 +365,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_16_121645) do
     t.decimal "commission", precision: 12, scale: 2, default: "0.0", null: false
     t.decimal "courier_fee", precision: 12, scale: 2, default: "0.0", null: false
     t.bigint "courier_id"
+    t.integer "courier_vehicle_type"
     t.datetime "created_at", null: false
     t.string "currency", default: "AFN", null: false
     t.bigint "customer_id", null: false
@@ -424,6 +425,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_16_121645) do
     t.datetime "updated_at", null: false
     t.index ["expires_at"], name: "index_otp_verifications_on_expires_at"
     t.index ["phone", "created_at"], name: "index_otp_verifications_on_phone_and_created_at"
+  end
+
+  create_table "pricing_rates", force: :cascade do |t|
+    t.integer "audience", null: false
+    t.decimal "base", precision: 12, scale: 2, default: "0.0", null: false
+    t.datetime "created_at", null: false
+    t.string "currency", default: "AFN", null: false
+    t.boolean "is_selectable", default: false, null: false
+    t.string "job_kind", null: false
+    t.decimal "minimum", precision: 12, scale: 2, default: "0.0", null: false
+    t.decimal "per_km", precision: 12, scale: 2, default: "0.0", null: false
+    t.decimal "per_minute", precision: 12, scale: 2, default: "0.0", null: false
+    t.integer "position", default: 0, null: false
+    t.datetime "updated_at", null: false
+    t.integer "vehicle_type"
+    t.index ["job_kind", "audience", "vehicle_type"], name: "index_pricing_rates_on_job_kind_and_audience_and_vehicle_type", unique: true
   end
 
   create_table "settings", force: :cascade do |t|
@@ -497,6 +514,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_16_121645) do
     t.datetime "in_progress_at"
     t.text "notes"
     t.decimal "origin_snap_metres", precision: 8, scale: 1
+    t.integer "passenger_count", default: 1, null: false
     t.bigint "passenger_id", null: false
     t.string "passenger_phone", null: false
     t.integer "payment_method", default: 0, null: false
@@ -509,6 +527,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_16_121645) do
     t.datetime "settled_at"
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
+    t.integer "vehicle_type"
     t.index ["code"], name: "index_trips_on_code", unique: true
     t.index ["courier_id", "payment_status"], name: "index_trips_on_courier_id_and_payment_status"
     t.index ["courier_id"], name: "index_trips_on_courier_id"
@@ -518,6 +537,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_16_121645) do
     t.index ["payment_status"], name: "index_trips_on_payment_status"
     t.index ["status", "created_at"], name: "index_trips_on_status_and_created_at"
     t.index ["status"], name: "index_trips_on_status"
+    t.index ["vehicle_type", "status"], name: "index_trips_on_vehicle_type_and_status"
   end
 
   create_table "user_roles", force: :cascade do |t|

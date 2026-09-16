@@ -54,11 +54,22 @@ class CourierWallet < ApplicationRecord
   # An earlier version gated both on the commission alone. That made every job
   # fundable by almost any wallet, which defeats the point of the gate — the
   # commission is what they end up OWING, not what they have to put up front.
-  def can_fund?(job)
-    return false unless job.currency == currency
+  # ── WRITTEN SUMMABLE ON PURPOSE (correction 19) ─────────────────────────────
+  #
+  # Multi-job is the next major feature, and batched, a courier advances the
+  # SUM of two merchant payouts rather than one. `can_fund?(job)` taking a
+  # single job is the exact shape that would have to change, so the arithmetic
+  # is over a collection already — while the call sites stay `can_fund?(job)`,
+  # because a set-based API today would be speculative generality.
+  #
+  # The requirement itself stays on the job (`wallet_requirement`), so batching
+  # sums jobs rather than teaching this method about batches.
+  def can_fund?(*jobs)
+    jobs = jobs.flatten
     return false if blocked?
+    return false if jobs.any? { |job| job.currency != currency }
 
-    balance - job.wallet_requirement >= floor
+    balance - jobs.sum { |job| job.wallet_requirement } >= floor
   end
 
   def blocked?

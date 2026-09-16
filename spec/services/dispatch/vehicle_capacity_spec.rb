@@ -240,4 +240,91 @@ RSpec.describe "how big a delivery is" do
       expect(quote(bed).dispatch_warning).to be_nil
     end
   end
+
+  # ── THE PEOPLE AXIS ─────────────────────────────────────────────────────────
+  #
+  # The same shape as cargo size, on a different quantity. It is in v0 because
+  # it is the first piece of multi-job (correction 19) and because without it a
+  # family of four could agree a motorbike fare and be undispatchable.
+  describe "how many people are travelling" do
+    def reason_for(courier, job)
+      Dispatch::Eligibility.new(courier: courier, job: job).reason
+    end
+
+    it "refuses a motorbike four passengers" do
+      trip = create(:trip, passenger_count: 4)
+
+      expect(reason_for(courier_with(:motorbike), trip)).to eq(:too_many_passengers)
+    end
+
+    it "offers a car the same four" do
+      trip = create(:trip, passenger_count: 4, vehicle_type: :car)
+
+      expect(reason_for(courier_with(:car), trip)).to be_nil
+    end
+
+    it "offers a motorbike one passenger" do
+      expect(reason_for(courier_with(:motorbike), create(:trip, passenger_count: 1))).to be_nil
+    end
+
+    # Nobody rides pillion on a bicycle, and `on_foot` carries parcels.
+    it "refuses a bicycle any passenger at all" do
+      trip = create(:trip, passenger_count: 1)
+
+      expect(reason_for(courier_with(:bicycle), trip)).to eq(:too_many_passengers)
+    end
+
+    it "refuses more people than any vehicle seats, at the model" do
+      expect(build(:trip, passenger_count: 9)).not_to be_valid
+      expect(build(:trip, passenger_count: 0)).not_to be_valid
+    end
+
+    it "lists only the classes that seat the party, so a family never sees a motorbike fare" do
+      expect(CourierProfile.vehicle_types_seating(4)).to eq([ "car" ])
+      expect(CourierProfile.vehicle_types_seating(1)).to include("motorbike", "rishka", "car")
+      expect(CourierProfile.vehicle_types_seating(1)).not_to include("bicycle", "on_foot")
+    end
+  end
+
+  # ── THE CLASS THE PASSENGER PAID FOR ───────────────────────────────────────
+  #
+  # Part of what was agreed, which is why the fare could depend on the vehicle
+  # and still be quoted upfront. A bigger vehicle is NOT a free upgrade: that
+  # driver would earn motorbike money, decline, and the customer would pay for
+  # the wasted TTL in waiting.
+  describe "matching the vehicle class a passenger chose" do
+    def reason_for(courier, job)
+      Dispatch::Eligibility.new(courier: courier, job: job).reason
+    end
+
+    it "offers a car trip to a car" do
+      expect(reason_for(courier_with(:car), create(:trip, vehicle_type: :car))).to be_nil
+    end
+
+    it "refuses a motorbike a trip that asked for a car" do
+      expect(reason_for(courier_with(:motorbike), create(:trip, vehicle_type: :car)))
+        .to eq(:wrong_vehicle_class)
+    end
+
+    it "refuses a car a trip that asked for a motorbike, rather than treating it as an upgrade" do
+      trip = create(:trip, vehicle_type: :motorbike, passenger_count: 1)
+
+      expect(reason_for(courier_with(:car), trip)).to eq(:wrong_vehicle_class)
+    end
+
+    # Trips booked before classes existed chose nothing, and must stay
+    # dispatchable to anybody rather than becoming undeliverable.
+    it "offers a trip with no class to any courier" do
+      trip = create(:trip, vehicle_type: nil, passenger_count: 1)
+
+      expect(reason_for(courier_with(:motorbike), trip)).to be_nil
+      expect(reason_for(courier_with(:car), trip)).to be_nil
+    end
+
+    it "asks a delivery nothing about class or seats" do
+      order = place(item(:small))
+
+      expect(reason_for(courier_with(:car), order)).to be_nil
+    end
+  end
 end

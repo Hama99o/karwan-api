@@ -1,30 +1,74 @@
 require "rails_helper"
 
 RSpec.describe Pricing::RideQuote do
-  def quote(pickup: [ 34.5400, 69.1750 ], dropoff: [ 34.5658, 69.2123 ])
+  def quote(pickup: [ 34.5400, 69.1750 ], dropoff: [ 34.5658, 69.2123 ], vehicle_type: nil)
     described_class.new(
       pickup_latitude: pickup[0], pickup_longitude: pickup[1],
-      dropoff_latitude: dropoff[0], dropoff_longitude: dropoff[1]
+      dropoff_latitude: dropoff[0], dropoff_longitude: dropoff[1],
+      vehicle_type: vehicle_type
     ).call
   end
 
+  # THE TARIFF IS A ROW, and this is the rate the un-classed quote reads.
+  def any_vehicle_rate
+    PricingRate.fetch(job_kind: "ride", audience: :customer)
+  end
+
   describe "the simple distance-and-time formula" do
-    # base 50 + 25/km + 2/min, at the default 18 km/h. Derived from the actual
-    # distance rather than hardcoded: the first version of this example asserted
-    # 14 minutes from an assumed 4.2km, and the real pair is ~4.35km, so 15.
-    # Hardcoding a number computed by hand from a rounded input is how a spec
-    # ends up asserting the author's arithmetic instead of the code's.
+    # Derived from the actual distance rather than hardcoded: the first version
+    # of this example asserted 14 minutes from an assumed 4.2km, and the real
+    # pair is ~4.35km, so 15. Hardcoding a number computed by hand from a
+    # rounded input is how a spec ends up asserting the author's arithmetic
+    # instead of the code's.
     it "charges base, distance and time" do
       result = quote
       km = BigDecimal(result.distance_km.to_s)
+      rate = any_vehicle_rate
 
-      expected = Setting.fetch("trip_base_fare") +
-                 (Setting.fetch("trip_fare_per_km") * km) +
-                 (Setting.fetch("trip_fare_per_minute") * result.duration_minutes)
+      expected = rate.base + (rate.per_km * km) + (rate.per_minute * result.duration_minutes)
 
       expect(result.distance_km).to be_within(0.5).of(4.3)
       expect(result.duration_minutes).to eq(Geo::Distance.travel_minutes(result.distance_km))
       expect(result.amounts[:fare]).to eq(expected.round(2))
+    end
+
+    # ── THE EXAMPLE THAT SAYS WHERE THE TARIFF COMES FROM ───────────────────
+    #
+    # The one above cannot tell: the seeded any-vehicle row reproduces the old
+    # `trip_*` settings exactly, so both sources agree and a fare read from
+    # either would pass. `docs/TESTING.md`: make the sources disagree.
+    #
+    # So this one writes a rate NOTHING ELSE COULD HAVE PRODUCED — a 777 floor
+    # is not a number any setting or default holds — and asserts the fare
+    # follows the row.
+    it "reads the tariff from the rate row, not from anywhere else" do
+      PricingRate.seed_defaults!
+      PricingRate.find_by!(job_kind: "ride", audience: :customer, vehicle_type: nil)
+                 .update!(base: 0, per_km: 0, per_minute: 0, minimum: 777)
+
+      expect(quote.amounts[:fare]).to eq(777)
+    end
+
+    # THE PASSENGER'S CHOICE IS THE PRICE. A car costs more than a motorbike
+    # over the same route, which is the whole reason the class is chosen before
+    # the quote rather than discovered after dispatch.
+    it "charges a car more than a motorbike for the same route" do
+      PricingRate.seed_defaults!
+
+      motorbike = quote(vehicle_type: :motorbike).amounts[:fare]
+      car = quote(vehicle_type: :car).amounts[:fare]
+
+      expect(car).to be > motorbike
+    end
+
+    it "hits the figures Hamma9900 gave: a rider near 150 and a driver near 200 over 10km" do
+      PricingRate.seed_defaults!
+      rider = PricingRate.fetch(job_kind: "ride", audience: :customer, vehicle_type: :motorbike)
+      driver = PricingRate.fetch(job_kind: "ride", audience: :customer, vehicle_type: :car)
+      minutes = Geo::Distance.travel_minutes(10)
+
+      expect(rider.amount_for(distance_km: 10, duration_minutes: minutes)).to be_within(15).of(150)
+      expect(driver.amount_for(distance_km: 10, duration_minutes: minutes)).to be_within(15).of(200)
     end
 
     # The per-minute term is what stops a short crawl through Kabul traffic
@@ -32,8 +76,9 @@ RSpec.describe Pricing::RideQuote do
     # sitting in it.
     it "charges more when the time term rises" do
       before = quote.amounts[:fare]
-      Setting.seed_defaults!
-      Setting.find_by!(key: "trip_fare_per_minute").update!(value: "10.0")
+      PricingRate.seed_defaults!
+      PricingRate.find_by!(job_kind: "ride", audience: :customer, vehicle_type: nil)
+                 .update!(per_minute: 10)
 
       expect(quote.amounts[:fare]).to be > before
     end
@@ -41,7 +86,7 @@ RSpec.describe Pricing::RideQuote do
     it "applies the minimum on a very short ride" do
       result = quote(dropoff: [ 34.5401, 69.1751 ])
 
-      expect(result.amounts[:fare]).to eq(Setting.fetch("trip_minimum_fare"))
+      expect(result.amounts[:fare]).to eq(any_vehicle_rate.minimum)
     end
 
     it "charges more for a longer ride" do

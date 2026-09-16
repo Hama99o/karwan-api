@@ -71,6 +71,11 @@ Rails.application.routes.draw do
     # The Config screen. Editable with no deploy is the whole point.
     resources :settings, only: %i[index show edit update]
 
+    # The per-vehicle tariffs, for the same reason. `only:` spelled out because
+    # this is an `api_only` app, where a bare `resources` omits `new` and
+    # `edit` — see the merchants block above for what that cost.
+    resources :pricing_rates, only: %i[index show new create edit update]
+
     # Read-only by design: an editable audit log is not an audit log, and a
     # ledger whose entries can be rewritten cannot be reconciled.
     resources :audit_logs, only: %i[index show]

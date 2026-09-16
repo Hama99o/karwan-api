@@ -8,6 +8,18 @@ seed_section "settings" do
   Setting.seed_defaults!
 end
 
+seed_section "pricing rates" do
+  # The per-vehicle tariffs. Same discipline as settings: creates what is
+  # missing and NEVER overwrites a number Hamma9900 has typed, because
+  # silently repricing every ride on a deploy is how a courier is underpaid
+  # without anybody noticing.
+  #
+  # The delivery rows reproduce today's fee exactly, so introducing this table
+  # moves no money. See `PricingRate::DEFAULTS` for the arithmetic behind the
+  # ride figures and which of his numbers each one targets.
+  PricingRate.seed_defaults!
+end
+
 seed_section "merchant kinds" do
   # A growable taxonomy, not an enum — Hamma9900 broadened the supply side
   # three times in one hour. A new kind is a row here.

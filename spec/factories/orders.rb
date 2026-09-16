@@ -12,8 +12,14 @@ FactoryBot.define do
     delivery_fee      { 100 }
     commission        { 50 }
     courier_fee       { 100 }
-    merchant_payout { 350 }
-    customer_total    { 500 }
+    # DERIVED, not stated, so overriding `commission` or `items_total` in an
+    # example keeps the row VALID. Stated as 350 it built an order whose
+    # payout did not match its commission — a row the app cannot produce, and
+    # `docs/TESTING.md`'s fourth question: could this database state occur
+    # through the app? The `merchant_payout = items_total - commission`
+    # validation caught four such fixtures the day it was added.
+    merchant_payout { items_total - commission }
+    customer_total { items_total + delivery_fee }
     currency { "AFN" }
 
     payment_method { :cash }

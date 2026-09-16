@@ -84,6 +84,11 @@ class Order < ApplicationRecord
   # month's order needed, or a completed delivery becomes unexplainable.
   enum :required_size_class, SizeClasses::ALL, prefix: :requires
 
+  # THE VEHICLE THAT EARNED THE COURIER FEE, written at assignment. Unlike
+  # every other amount here it cannot be frozen at quote time, because we do
+  # not know who will accept until they do. Nil until a courier takes it.
+  enum :courier_vehicle_type, CourierProfile.vehicle_types, prefix: :carried_by
+
   validates :code, presence: true, uniqueness: true
   validates :customer_phone, presence: true
   validates :delivery_latitude,  presence: true, numericality: { greater_than_or_equal_to: -90,  less_than_or_equal_to: 90 }
@@ -91,7 +96,27 @@ class Order < ApplicationRecord
   validates :items_total, :delivery_fee, :commission, :courier_fee, :merchant_payout,
             :customer_total, numericality: { greater_than_or_equal_to: 0 }
   validate  :totals_add_up
-  validate  :merchant_is_paid_the_food_less_our_cut
+  # ── THE SECOND FREEZE POINT ─────────────────────────────────────────────────
+  #
+  # Every other amount on an order freezes at the QUOTE. The courier fee cannot:
+  # it depends on the vehicle, and we do not know who will accept until they do.
+  # So it freezes at ASSIGNMENT, together with the vehicle that earned it —
+  # without that column a payout cannot be explained six months later, and
+  # "explain this fare" is the question this whole pricing design exists to
+  # answer.
+  #
+  # Correction 13's PURPOSE survives intact and only its wording needed
+  # amending: the customer-facing total never moves, so the customer is never
+  # surprised, and the payout stays explainable because the vehicle is on the
+  # row. The consequence, which belongs in the admin copy rather than only
+  # here: the platform's margin on a delivery is not known until a courier
+  # accepts, so the Today and Reports figures are MARGIN SO FAR.
+  #
+  # ON THE MODEL, not in the accept controller, because a courier is also
+  # assigned by admin reassignment and by seeds. A callback is the only place
+  # that catches all of them — the same reasoning as `Merchant#sync_owner_role`.
+  after_save :freeze_courier_pay, if: :saved_change_to_courier_id?
+  validate :merchant_is_paid_the_food_less_our_cut
 
   before_validation :assign_code, on: :create
 
@@ -144,6 +169,29 @@ class Order < ApplicationRecord
       candidate = "K#{Time.current.strftime('%y%m%d')}#{SecureRandom.random_number(10_000).to_s.rjust(4, '0')}"
       break candidate unless self.class.exists?(code: candidate)
     end
+  end
+
+  # What this courier earns, from the courier rate for THEIR vehicle.
+  #
+  # Skipped when there is no distance to price on — a fixture or an import with
+  # no route keeps the fee it was given, because re-pricing on a distance of
+  # zero would quietly replace a real figure with a floor. In production the
+  # distance is always set by the quote.
+  #
+  # `update_columns`: this is a derived freeze inside an `after_save`, so it
+  # must not re-enter validation or recurse. Nothing validates `courier_fee`
+  # against the other amounts — deliberately, see below.
+  def freeze_courier_pay
+    return if courier_id.nil? || distance_km.blank?
+
+    vehicle = courier&.courier_profile&.vehicle_type
+    rate = PricingRate.fetch(job_kind: self.class::JOB_KIND, audience: :courier,
+                             vehicle_type: vehicle)
+
+    update_columns(
+      courier_vehicle_type: vehicle.present? ? self.class.courier_vehicle_types[vehicle] : nil,
+      courier_fee: rate.amount_for(distance_km: distance_km)
+    )
   end
 
   # WHAT THE COURIER HANDS OVER AT THE COUNTER. Model A: the food, less our

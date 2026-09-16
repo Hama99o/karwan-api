@@ -60,6 +60,23 @@
       <% end %>
     </tbody>
   </table>
+  <%#
+    MARGIN SO FAR, NOT MARGIN BOOKED — and it is said on the screen rather than
+    only in a commit message, because these figures get read before the code
+    does and a number that quietly means something else is how a market gets
+    mispriced.
+
+    A delivery's courier fee depends on the vehicle that takes it, and nobody
+    knows which vehicle that is until a courier accepts. So an unassigned order
+    has a customer total but no final payout: a bicycle on the same run leaves
+    more margin than a zarang. The commission above is settled and exact; the
+    delivery margin on live orders is not yet decided.
+  %>
+  <p class="karwan-note">
+    Commission is settled. <strong>Delivery margin on live orders is “so far”, not booked</strong> —
+    a courier’s fee depends on the vehicle that takes the job, and that is only known once
+    somebody accepts.
+  </p>
 
   <h2>Last ten interventions</h2>
   <%# Every one names the admin who did it. That is a one-way door in

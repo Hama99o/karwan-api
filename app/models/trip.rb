@@ -61,6 +61,15 @@ class Trip < ApplicationRecord
   # commission as the rider in the food tab.
   belongs_to :courier, class_name: User.name, optional: true, inverse_of: :courier_trips
 
+  # WHAT THE PASSENGER CHOSE, frozen before the quote — which is what lets the
+  # fare depend on the vehicle and still be honest (correction 13). Nil on
+  # trips booked before classes existed, and nil means "any vehicle" to
+  # dispatch rather than "no vehicle".
+  enum :vehicle_type, CourierProfile.vehicle_types, prefix: :by
+
+  validates :passenger_count, numericality: { only_integer: true, greater_than: 0,
+                                              less_than_or_equal_to: CourierProfile::SEATS.values.max }
+
   validates :code, presence: true, uniqueness: true
   validates :passenger_phone, presence: true
   validates :pickup_latitude,   presence: true, numericality: { greater_than_or_equal_to: -90,  less_than_or_equal_to: 90 }

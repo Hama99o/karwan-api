@@ -92,11 +92,18 @@ class Setting < ApplicationRecord
     # Ride fares. Present so the numbers are tunable from day one, exactly like
     # the delivery fee — NOT because the ride product is built. Distance comes
     # from the straight line and eta_average_speed_kmh, not from a router.
-    "trip_base_fare"         => { type: :decimal, default: "50.0", currency: "AFN", description: "Charged on every trip before distance" },
-    "trip_fare_per_km"       => { type: :decimal, default: "25.0", currency: "AFN", description: "Added per straight-line kilometre" },
-    "trip_fare_per_minute"   => { type: :decimal, default: "2.0", currency: "AFN", description: "Added per estimated minute" },
-    "trip_minimum_fare"      => { type: :decimal, default: "80.0", currency: "AFN", description: "Floor, so a very short trip is still worth taking" },
-    "trip_commission_rate"   => { type: :decimal, default: "0.125", description: "Platform share of a trip fare (0.125 = 12.5%)" }
+    # THE FOUR `trip_*` FARE KEYS ARE GONE, to `pricing_rates`. They cannot live
+    # in both places: a ride fare now depends on the vehicle class the passenger
+    # chose, and two mechanisms would mean code deciding which to trust — the
+    # exact reason the flat `delivery_fee` was replaced by a distance formula
+    # rather than kept alongside it.
+    #
+    # `Setting` keeps the SCALARS. The commission rate is the same for every
+    # class, so it stays here; the tariff varies by vehicle, so it is a row.
+    # The rows for the retired keys are deleted by a migration, because a dead
+    # price key on the Config screen is a number Hamma9900 would type and watch
+    # do nothing.
+    "trip_commission_rate"   => { type: :decimal, default: "0.125", description: "Platform share of a trip fare (0.125 = 12.5%). The tariff itself is in pricing_rates, per vehicle." }
   }.freeze
 
   # Raises on an unknown key. A silent nil here becomes a zero fee in

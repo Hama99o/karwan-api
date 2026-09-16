@@ -123,6 +123,33 @@ class CourierProfile < ApplicationRecord
 
   # What the applicant still owes, as field names the app can translate. Never
   # an English sentence: the courier reads Pashto.
+  # ── HOW MANY PASSENGERS EACH VEHICLE TAKES ──────────────────────────────────
+  #
+  # PROVISIONAL, like `CARRIES`, and for the same reason: Hamma9900 knows what a
+  # rishka actually seats and I do not. The least certain figure is `rishka`,
+  # which I have as 3 — a Kabul rishka commonly takes three across the back, but
+  # it depends on the body. `zarang` is 2 because it is built for goods rather
+  # than people. One line to correct, which is the whole argument for a constant.
+  #
+  # A bicycle and a pedestrian seat NOBODY: a passenger on a bicycle is not a
+  # service we offer, and `on_foot` carries parcels.
+  SEATS = {
+    on_foot: 0,
+    bicycle: 0,
+    motorbike: 1,
+    rishka: 3,
+    car: 4,
+    zarang: 2
+  }.freeze
+
+  # Can this courier's vehicle take this many people?
+  #
+  # Fails CLOSED on an unknown vehicle, exactly like `carries?`: a vehicle added
+  # to the enum with no seat count is one nobody should be sent a passenger on.
+  def seats?(passenger_count)
+    SEATS.fetch(vehicle_type&.to_sym, 0) >= passenger_count.to_i
+  end
+
   # Can this courier's vehicle take an order of this size?
   #
   # Unknown vehicle types answer NO. A vehicle added to the enum without a
@@ -140,6 +167,13 @@ class CourierProfile < ApplicationRecord
   # question of a whole fleet in one query instead of per courier.
   def self.vehicle_types_carrying(size_class)
     CARRIES.select { |_type, capacity| SizeClasses.covers?(capacity, size_class) }.keys.map(&:to_s)
+  end
+
+  # The vehicle types that seat this many people. Used to filter the classes a
+  # passenger is OFFERED, so a family of four never sees a motorbike fare they
+  # cannot use.
+  def self.vehicle_types_seating(passenger_count)
+    SEATS.select { |_type, seats| seats >= passenger_count.to_i }.keys.map(&:to_s)
   end
 
   def missing_for_approval
