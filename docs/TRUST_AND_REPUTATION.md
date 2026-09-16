@@ -129,6 +129,26 @@ costs him relationships he needs more than it saves money he has not lost.
 restaurant, so a restaurant cancelling a fifth of its orders is something Hamma9900 can see and
 talk about. Visibility is not a penalty, and the data is already recorded.
 
+**C-bis. Afghan restaurants PRE-COOK, which largely dissolves C.** Hamma9900's local knowledge,
+and it changes the reasoning rather than the conclusion: *"in Afghanistan the restaurant family
+almost cook everything — fried chicken, kabuli palaw — they are almost cooked. Karahi maybe it's
+not cooked."*
+
+So a cancellation usually costs the restaurant **nothing** — the dish goes to the next customer.
+The wasted-meal problem barely exists, and neither a compensation scheme nor a
+cancel-before-cooking window is needed. *"Unfortunately it has been cancelled"* is the whole
+answer. Karahi and other made-to-order dishes are the minority exception.
+
+**And the more valuable consequence, which is a product advantage rather than a risk:
+pre-cooked food means prep time is near zero for most dishes.** Western food apps quote a kitchen
+that starts when the order lands; Karwan's quote is mostly the ride.
+
+`catalog_items.prep_time_minutes` already exists per item, falling back to the merchant's
+default — so karahi can be 20 minutes and kabuli palaw 2, and the quote computes the right
+figure per basket. **Set these honestly and a 10-minute ETA is something customers talk about.
+Set one lazy number per restaurant and the advantage is thrown away**, promising 20 minutes on
+food already in the pot. Worth saying to every merchant at onboarding.
+
 **D. The customer cancels AFTER pickup. UNRESOLVED, and the hardest.** The courier has paid the
 restaurant with his own cash and is holding food. `MONEY_AND_SETTLEMENT.md` §5 gives him the
 right to return it and be refunded — but that is written for a *refusal at the door*, not a
