@@ -10,6 +10,23 @@ module Couriers
 
     fields :code, :status, :currency
 
+    # WHAT HE IS AGREEING TO, before he accepts. Hamma9900: *"same for rider,
+    # they should check before accepting, they should see if other customers
+    # are allowed or not."*
+    #
+    # A job he cannot combine is worth less to him at the same fee, so premium
+    # has to be visible on the offer rather than discovered afterwards. Sent as
+    # the tier plus the plain fact it implies, because the second is what the
+    # screen actually says and the server must not make the app derive a
+    # promise from an enum.
+    field :service_tier do |job|
+      job.service_tier
+    end
+
+    field :can_be_combined do |job|
+      ServiceTiers.batchable?(job.service_tier)
+    end
+
     field :kind do |job|
       job.class.job_kind
     end

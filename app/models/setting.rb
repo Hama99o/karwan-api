@@ -30,6 +30,23 @@ class Setting < ApplicationRecord
     "delivery_base_fee"      => { type: :decimal, default: "50.0", currency: "AFN", description: "Charged on every delivery before distance" },
     "delivery_fee_per_km"    => { type: :decimal, default: "20.0", currency: "AFN", description: "Added per straight-line kilometre" },
     "delivery_minimum_fee"   => { type: :decimal, default: "80.0", currency: "AFN", description: "Floor, so a very short delivery is still worth taking" },
+    # ── THE TIERS ─────────────────────────────────────────────────────────────
+    #
+    # A SCALAR, so it is a `Setting` and not a `pricing_rates` dimension: the
+    # premium uplift is the same proportion whatever the vehicle, and adding a
+    # tier axis to the rate table would double every row to express one number.
+    #
+    # It multiplies the customer-facing amount only — the delivery fee, or the
+    # ride fare. What the courier earns is unchanged by it: he is paid for the
+    # run he did, and a premium run is the same run with nothing else on it.
+    # The uplift is the platform's, because what premium buys is the CAPACITY
+    # we hold empty for it.
+    "premium_price_multiplier" => { type: :decimal, default: "1.3", description: "Premium costs this much more than normal (1.3 = +30%). Applies to the customer's fee or fare, never to the courier's pay." },
+    # How many jobs a courier may carry at once, counting the one he has. 1
+    # means no batching at all, which is v0: the tier is RECORDED now because
+    # consent cannot be retrofitted, and honoured by never batching until this
+    # is raised.
+    "batch_max_jobs"         => { type: :integer, default: "1", description: "Jobs a courier may hold at once, including the current one. 1 = no batching. Raise to 3 when there is enough demand to combine runs." },
     "cash_in_hand_limit"     => { type: :decimal, default: "3000.0", currency: "AFN", description: "Above this a rider must settle before taking more work" },
     "default_credit_line"    => { type: :decimal, default: "500.0", currency: "AFN", description: "How far a new rider's wallet may go below zero" },
     "eta_average_speed_kmh"  => { type: :decimal, default: "18.0", description: "Straight-line distance / this = ETA. Calibrate from real deliveries." },

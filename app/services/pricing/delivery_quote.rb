@@ -18,11 +18,16 @@ module Pricing
   class DeliveryQuote
     Error = Class.new(StandardError)
 
-    def initialize(merchant:, items_total:, delivery_latitude:, delivery_longitude:)
+    # `service_tier` is the customer's CONSENT, not a quality level: `normal`
+    # is cheaper and agrees that the courier may combine this run with others,
+    # `premium` buys the run outright. See SERVICE_TIERS_AND_BATCHING.md §1.
+    def initialize(merchant:, items_total:, delivery_latitude:, delivery_longitude:,
+                   service_tier: :normal)
       @merchant = merchant
       @items_total = BigDecimal(items_total.to_s)
       @delivery_latitude = delivery_latitude
       @delivery_longitude = delivery_longitude
+      @service_tier = service_tier.presence || :normal
     end
 
     def call
@@ -42,7 +47,7 @@ module Pricing
           # of delivery without a migration — but taking one now would mean
           # paying couriers less than the customer already believes they pay,
           # and courier supply is the scarce side.
-          courier_fee: delivery_fee,
+          courier_fee: base_delivery_fee,
           merchant_payout: (@items_total - commission).round(2),
           customer_total: (@items_total + delivery_fee).round(2)
         }
@@ -80,13 +85,37 @@ module Pricing
     end
 
     def delivery_fee
-      @delivery_fee ||= begin
+      @delivery_fee ||= (base_delivery_fee * tier_multiplier).round(2)
+    end
+
+    def base_delivery_fee
+      @base_delivery_fee ||= begin
         computed = Setting.fetch("delivery_base_fee") +
                    (Setting.fetch("delivery_fee_per_km") * BigDecimal(distance_km.to_s))
 
         # The floor is what makes a 200-metre order worth taking at all.
         [ computed, Setting.fetch("delivery_minimum_fee") ].max.round(2)
       end
+    end
+
+    # THE PREMIUM UPLIFT IS THE PLATFORM'S, on a delivery. What premium buys is
+    # the capacity we hold empty for it, and the courier is paid for the run he
+    # did — `courier_fee` comes from the courier rate for his vehicle and is
+    # untouched by this.
+    #
+    # NOTE, and it is a real one for when batching ships: a premium job then
+    # pays the courier the same as a normal one while forbidding him to combine
+    # it, so couriers would prefer normal work and premium customers would wait
+    # longest — backwards. The fix is to share the uplift with him at that
+    # point, which is a number, not a redesign. Recorded in docs/NOTES.md.
+    #
+    # A RIDE behaves differently on purpose: there the fare IS the courier's
+    # revenue and we take a percentage, so a premium fare lifts both sides. The
+    # asymmetry is Model A's two shapes, not an oversight.
+    def tier_multiplier
+      return 1 unless ServiceTiers::ALL.key?(@service_tier.to_sym) && @service_tier.to_s == "premium"
+
+      Setting.fetch("premium_price_multiplier")
     end
 
     # The merchant's own rate, not the global one — a deal struck with one

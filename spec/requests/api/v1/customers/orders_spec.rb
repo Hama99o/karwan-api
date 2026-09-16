@@ -71,7 +71,7 @@ RSpec.describe "Api::V1::Customers::Orders", type: :request do
           .to change(Order, :count).by(1)
 
         expect(response).to have_http_status(:created)
-        expect(json.dig("order", "code")).to match(/\AK\d{10}\z/)
+        expect(json.dig("order", "code")).to match(/\AK\d{6}\z/)
         expect(json.dig("order", "status")).to eq("placed")
         expect(json.dig("order", "items").first).to include("name" => "Chicken Kabab", "quantity" => 1)
       end

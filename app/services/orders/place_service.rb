@@ -35,7 +35,8 @@ module Orders
     # `lines` is an array of:
     #   { catalog_item_id:, quantity:, option_value_ids: [], notes: }
     def initialize(customer:, merchant:, lines:, delivery_latitude:, delivery_longitude:,
-                   delivery_landmark_note: nil, customer_phone: nil, notes: nil)
+                   delivery_landmark_note: nil, customer_phone: nil, notes: nil,
+                   service_tier: :normal)
       @customer = customer
       @merchant = merchant
       @lines = Array(lines)
@@ -46,6 +47,10 @@ module Orders
       # for a relative, and the courier must ring whoever is at the door.
       @customer_phone = customer_phone.presence || customer.phone
       @notes = notes
+      # THE CONSENT, and the reason this column shipped before batching did:
+      # nobody can ask a past customer whether their completed order could have
+      # been shared.
+      @service_tier = service_tier.presence || :normal
     end
 
     def call
@@ -84,7 +89,8 @@ module Orders
     def price(items_total)
       Pricing::DeliveryQuote.new(
         merchant: @merchant, items_total: items_total,
-        delivery_latitude: @delivery_latitude, delivery_longitude: @delivery_longitude
+        delivery_latitude: @delivery_latitude, delivery_longitude: @delivery_longitude,
+        service_tier: @service_tier
       ).call
     end
 
@@ -101,6 +107,7 @@ module Orders
       Order.new(
         quote.to_attributes.merge(
           required_size_class: required_size,
+          service_tier: @service_tier,
           customer: @customer,
           merchant: @merchant,
           payment_method: :cash,

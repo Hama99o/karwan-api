@@ -39,7 +39,8 @@ class Api::V1::Customers::OrdersController < Api::V1::BaseController
     result = Orders::QuoteService.new(
       merchant: merchant, lines: cart_lines,
       delivery_latitude: order_params[:delivery_latitude],
-      delivery_longitude: order_params[:delivery_longitude]
+      delivery_longitude: order_params[:delivery_longitude],
+      service_tier: tier_param
     ).call
 
     render_blue(Customers::QuoteSerializer, result)
@@ -57,7 +58,8 @@ class Api::V1::Customers::OrdersController < Api::V1::BaseController
       delivery_longitude: order_params[:delivery_longitude],
       delivery_landmark_note: order_params[:delivery_landmark_note],
       customer_phone: order_params[:customer_phone],
-      notes: order_params[:notes]
+      notes: order_params[:notes],
+      service_tier: tier_param
     ).call
 
     render_blue(Customers::OrderSerializer, order, view: :detailed, status: :created)
@@ -108,7 +110,7 @@ class Api::V1::Customers::OrdersController < Api::V1::BaseController
   def order_params
     params.require(:order).permit(
       :merchant_id, :delivery_latitude, :delivery_longitude,
-      :delivery_landmark_note, :customer_phone, :notes
+      :delivery_landmark_note, :customer_phone, :notes, :service_tier
     )
   end
 
@@ -139,6 +141,16 @@ class Api::V1::Customers::OrdersController < Api::V1::BaseController
     raise Orders::PlaceService::EmptyCart, "an order needs at least one item" if lines.empty?
 
     lines
+  end
+
+  # An unrecognised tier becomes `normal` rather than an error: the DEFAULT IS
+  # THE CHEAPER, LESS-PROMISING ONE, so a stale client cannot accidentally sell
+  # somebody a premium they did not ask for, and cannot fail an order over a
+  # word. Charging more than a customer chose is the one mistake here that
+  # costs trust.
+  def tier_param
+    tier = order_params[:service_tier].to_s
+    ServiceTiers::ALL.key?(tier.to_sym) ? tier : "normal"
   end
 
   # A stable marker per failure, so a client with three locales renders its own

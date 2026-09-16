@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_16_123648) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_16_125612) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -398,6 +398,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_16_123648) do
     t.integer "rejection_reason"
     t.integer "required_size_class", default: 0, null: false
     t.jsonb "route_geometry"
+    t.integer "service_tier", default: 0, null: false
     t.datetime "settled_at"
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
@@ -411,6 +412,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_16_123648) do
     t.index ["merchant_id"], name: "index_orders_on_merchant_id"
     t.index ["payment_status"], name: "index_orders_on_payment_status"
     t.index ["required_size_class", "status"], name: "index_orders_on_required_size_class_and_status"
+    t.index ["service_tier", "status"], name: "index_orders_on_service_tier_and_status"
     t.index ["status", "created_at"], name: "index_orders_on_status_and_created_at"
     t.index ["status"], name: "index_orders_on_status"
   end
@@ -524,6 +526,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_16_123648) do
     t.decimal "pickup_longitude", precision: 10, scale: 6, null: false
     t.datetime "requested_at"
     t.jsonb "route_geometry"
+    t.integer "service_tier", default: 0, null: false
     t.datetime "settled_at"
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
@@ -535,6 +538,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_16_123648) do
     t.index ["distance_source"], name: "index_trips_on_distance_source"
     t.index ["passenger_id"], name: "index_trips_on_passenger_id"
     t.index ["payment_status"], name: "index_trips_on_payment_status"
+    t.index ["service_tier", "status"], name: "index_trips_on_service_tier_and_status"
     t.index ["status", "created_at"], name: "index_trips_on_status_and_created_at"
     t.index ["status"], name: "index_trips_on_status"
     t.index ["vehicle_type", "status"], name: "index_trips_on_vehicle_type_and_status"

@@ -22,12 +22,15 @@ module Pricing
     # Nil falls back to the any-vehicle rate, so a caller that has not asked
     # the question yet still gets a price rather than an exception.
     def initialize(pickup_latitude:, pickup_longitude:, dropoff_latitude:, dropoff_longitude:,
-                   vehicle_type: nil)
+                   vehicle_type: nil, service_tier: :normal)
       @pickup_latitude = pickup_latitude
       @pickup_longitude = pickup_longitude
       @dropoff_latitude = dropoff_latitude
       @dropoff_longitude = dropoff_longitude
       @vehicle_type = vehicle_type
+      # `normal` consents to another passenger sharing the car for a lower
+      # fare; `premium` means the car is theirs.
+      @service_tier = service_tier.presence || :normal
     end
 
     def call
@@ -76,7 +79,18 @@ module Pricing
     end
 
     def fare
-      @fare ||= rate.amount_for(distance_km: distance_km, duration_minutes: duration_minutes)
+      @fare ||= (rate.amount_for(distance_km: distance_km, duration_minutes: duration_minutes) *
+                 tier_multiplier).round(2)
+    end
+
+    # On a ride the uplift lifts BOTH sides, unlike a delivery: the fare is the
+    # courier's revenue and we take a percentage of it, so a passenger paying
+    # for exclusivity pays the driver more for it too. That is Model A's two
+    # shapes rather than an inconsistency — see `DeliveryQuote#tier_multiplier`.
+    def tier_multiplier
+      return 1 unless @service_tier.to_s == "premium"
+
+      Setting.fetch("premium_price_multiplier")
     end
 
     # Rounded DOWN to the minor unit in the platform's favour by never rounding

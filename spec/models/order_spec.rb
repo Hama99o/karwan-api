@@ -4,10 +4,30 @@ RSpec.describe Order, type: :model do
   describe "validations" do
     it { is_expected.to validate_presence_of(:customer_phone) }
 
+    # ── IT HAS TO WORK ON PAPER AND OVER A PHONE ────────────────────────────
+    #
+    # SERVICE_TIERS_AND_BATCHING.md §6. Every collision that section names is
+    # between a digit and a LETTER — 0/O, 1/I/l, 5/S, 8/B — so a digits-only
+    # alphabet cannot have them. Asserted rather than assumed, because a
+    # future "let's use base32, it's shorter" would reintroduce all four and
+    # look like an improvement.
+    it "uses an alphabet with no character that collides when spoken or written" do
+      codes = 30.times.map { create(:order).code }
+
+      codes.each do |code|
+        expect(code).to match(/\A#{Order::CODE_PREFIX}\d+\z/)
+        expect(code.delete_prefix(Order::CODE_PREFIX)).not_to match(/[OIlSB]/i)
+      end
+    end
+
+    it "stays short enough to write on paper at a counter" do
+      expect(create(:order).code.length).to be <= 8
+    end
+
     it "generates a unique code on create so support can read it out loud" do
       order = create(:order)
 
-      expect(order.code).to match(/\AK\d{10}\z/)
+      expect(order.code).to match(/\AK\d{6}\z/)
     end
 
     it "rejects a delivery pin outside real coordinates" do

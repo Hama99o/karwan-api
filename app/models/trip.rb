@@ -10,6 +10,9 @@
 # day is where the fee pays them with no subsidy. A second demand stream on the
 # same pool fills the idle hours.
 class Trip < ApplicationRecord
+  # T, so a trip code and an order code are never confused over a phone.
+  CODE_PREFIX = "T".freeze
+
   include Monetary
   include Dispatchable
 
@@ -67,6 +70,11 @@ class Trip < ApplicationRecord
   # dispatch rather than "no vehicle".
   enum :vehicle_type, CourierProfile.vehicle_types, prefix: :by
 
+  # THE TIER THE PASSENGER CHOSE. `normal` consents to somebody else sharing
+  # the car for a lower fare; `premium` means the car is theirs. Frozen at
+  # quote time, because it is a promise rather than a preference.
+  enum :service_tier, ServiceTiers::ALL, prefix: :tier
+
   validates :passenger_count, numericality: { only_integer: true, greater_than: 0,
                                               less_than_or_equal_to: CourierProfile::SEATS.values.max }
 
@@ -116,13 +124,6 @@ class Trip < ApplicationRecord
   end
 
   private
-
-  def assign_code
-    self.code ||= loop do
-      candidate = "T#{Time.current.strftime('%y%m%d')}#{SecureRandom.random_number(10_000).to_s.rjust(4, '0')}"
-      break candidate unless self.class.exists?(code: candidate)
-    end
-  end
 
   # The fare must split into exactly what the courier keeps plus what we take.
   # Same discipline as Order#totals_add_up: the parts sum to the whole, or the

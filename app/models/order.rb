@@ -5,6 +5,9 @@
 # only what is actually about food: a merchant, line items, a prep time, and a
 # courier who advances money out of their own pocket at the counter.
 class Order < ApplicationRecord
+  # The letter a human reads out. `Dispatchable` owns the rest of the format.
+  CODE_PREFIX = "K".freeze
+
   include Monetary
   include Dispatchable
 
@@ -89,6 +92,14 @@ class Order < ApplicationRecord
   # not know who will accept until they do. Nil until a courier takes it.
   enum :courier_vehicle_type, CourierProfile.vehicle_types, prefix: :carried_by
 
+  # THE TIER THE CUSTOMER CHOSE, and their consent to be batched. Frozen at
+  # placement like every other term of the order: `premium` bought this run
+  # outright, and that promise cannot be re-read from a live setting later.
+  #
+  # Nothing batches yet, which is exactly why this is here — consent cannot be
+  # retrofitted. See docs/SERVICE_TIERS_AND_BATCHING.md §1.
+  enum :service_tier, ServiceTiers::ALL, prefix: :tier
+
   validates :code, presence: true, uniqueness: true
   validates :customer_phone, presence: true
   validates :delivery_latitude,  presence: true, numericality: { greater_than_or_equal_to: -90,  less_than_or_equal_to: 90 }
@@ -163,13 +174,6 @@ class Order < ApplicationRecord
   end
 
   private
-
-  def assign_code
-    self.code ||= loop do
-      candidate = "K#{Time.current.strftime('%y%m%d')}#{SecureRandom.random_number(10_000).to_s.rjust(4, '0')}"
-      break candidate unless self.class.exists?(code: candidate)
-    end
-  end
 
   # What this courier earns, from the courier rate for THEIR vehicle.
   #

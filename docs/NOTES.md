@@ -550,6 +550,59 @@ to all three locales or parity checks lie. For RTL use **logical** spacing
 utilities, and mirror directional icons — a correct `dir` with a left-pointing
 "next" arrow is still wrong. Pashto and Dari strings run longer than English.
 
+### The tier shipped before batching, because consent cannot be retrofitted
+`orders.service_tier` and `trips.service_tier`, frozen at placement, with
+nothing batching yet. That is deliberate and it is the cheap direction: a tier
+without batching is a price difference that costs nothing to honour — we simply
+never batch, and `batch_max_jobs` ships at **1** — while batching without a
+recorded tier is unshippable, because no past customer can be asked whether
+their completed order could have been shared.
+
+`premium_price_multiplier` is a `Setting` rather than a `pricing_rates`
+dimension, because the uplift is the same proportion whatever the vehicle and a
+tier axis would double every row to express one number. That is the same rule
+as everywhere else here: **scalars are settings, per-vehicle things are rows.**
+
+**An unrecognised tier becomes `normal`, never `premium`.** The default is the
+cheaper, less-promising one, so a stale client cannot sell somebody an
+exclusivity they did not ask for and cannot fail an order over a word.
+Charging more than a customer chose is the one mistake on this path that costs
+trust rather than money.
+
+### THE COURIER INCENTIVE ON A PREMIUM JOB IS BACKWARDS ONCE BATCHING SHIPS
+Recorded now because it will not be obvious later, and it is a number rather
+than a redesign.
+
+On a delivery the premium uplift is the **platform's**: what premium buys is
+the capacity we hold empty, and the courier is paid for the run he did, from
+the courier rate for his vehicle. That is right today, when nothing can be
+batched and he gives up nothing.
+
+**The moment batching is switched on it inverts.** A premium job would then pay
+him the same as a normal one while forbidding him to combine it — so couriers
+would prefer normal work, and premium customers, who paid more, would wait
+longest. The fix is to share the uplift with him at that point.
+
+A RIDE already behaves correctly and the asymmetry is Model A's two shapes
+rather than an oversight: there the fare IS the courier's revenue and we take a
+percentage, so a premium fare lifts both sides automatically.
+
+### The order code has to survive a pen and a phone call
+`SERVICE_TIERS_AND_BATCHING.md` §6. It was `K` + `yymmdd` + 4 digits — eleven
+characters, six of them a date that told a human nothing, because support
+searches by code and not by day. Now a prefix plus six digits: seven
+characters, said in one breath over a bad line.
+
+**Digits only, and that is the whole of the unambiguity requirement rather than
+laziness:** every collision §6 names is between a digit and a LETTER — 0/O,
+1/I/l, 5/S, 8/B — so an alphabet with no letters cannot have them. A base32
+code would be shorter for the same entropy and would reintroduce all four,
+which is why there is now an example asserting the alphabet rather than only
+the length.
+
+One generator, in `Dispatchable`, because orders and trips had the same format
+duplicated and only one of them got shortened first.
+
 ### TWO METHODS THAT LOOKED LIKE THE ROLE GATE, WITH NO CALLERS — DELETED
 `Authenticatable#current_role` and `Authenticatable#require_role!`. The first
 carried a comment explaining that the role is never taken from the client

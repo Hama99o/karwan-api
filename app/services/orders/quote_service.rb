@@ -6,11 +6,13 @@ module Orders
   # the same number. Two code paths would drift, and the customer would be
   # asked for a different total at the door than the one they agreed to.
   class QuoteService
-    def initialize(merchant:, lines:, delivery_latitude:, delivery_longitude:)
+    def initialize(merchant:, lines:, delivery_latitude:, delivery_longitude:,
+                   service_tier: :normal)
       @merchant = merchant
       @lines = Array(lines)
       @delivery_latitude = delivery_latitude
       @delivery_longitude = delivery_longitude
+      @service_tier = service_tier.presence || :normal
     end
 
     def call
@@ -27,7 +29,8 @@ module Orders
 
       quote = Pricing::DeliveryQuote.new(
         merchant: @merchant, items_total: resolver.items_total(resolved),
-        delivery_latitude: @delivery_latitude, delivery_longitude: @delivery_longitude
+        delivery_latitude: @delivery_latitude, delivery_longitude: @delivery_longitude,
+        service_tier: @service_tier
       ).call
 
       quote.with(lines: resolved, dispatch_warning: dispatch_warning(resolved))

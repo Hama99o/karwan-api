@@ -4,17 +4,40 @@
 # machine where every step must name who moved it, ending in cash that has to be
 # tracked until it reaches us. None of that is specific to food.
 #
-# The including class supplies four constants, because the vocabularies differ:
+# The including class supplies five constants, because the vocabularies differ:
 #   STATUSES    — name => integer, for the enum
 #   TRANSITIONS — state => { next_state => [roles allowed to make the move] }
 #   TERMINAL    — the states with no way out
 #   TIMEOUTS    — state => duration it may sit there
+#   CODE_PREFIX — the letter a human reads out: K for an order, T for a trip
 #
 # Keeping them as class constants rather than a shared table is what lets a trip
 # have `arrived` and an order have `preparing` without either pretending to
 # understand the other.
 module Dispatchable
   extend ActiveSupport::Concern
+
+  # ── THE CODE HAS TO WORK ON PAPER ───────────────────────────────────────────
+  #
+  # Hamma9900: *"they should be able to print if they want, otherwise they can
+  # just write the number on paper."* A restaurant with no printer, no charger
+  # and a queue at the counter is the NORMAL case, not the degraded one — so
+  # printing is the nice-to-have and writing it down must always work.
+  #
+  # A prefix letter plus six digits: seven characters, said in one breath over a
+  # bad line, written with a pen in three seconds. It replaced a prefix plus
+  # `yymmdd` plus four digits, eleven characters of which six were a date that
+  # told a human nothing — support searches by code, not by day.
+  #
+  # DIGITS ONLY, which is the whole of SERVICE_TIERS_AND_BATCHING.md §6's
+  # unambiguity requirement rather than laziness: every collision it names is
+  # between a digit and a LETTER — 0/O, 1/I/l, 5/S, 8/B — and an alphabet with
+  # no letters in it cannot have them. A base32 code would be shorter for the
+  # same entropy and would reintroduce all four.
+  #
+  # ONE generator for both job types, because the two had the same eleven-
+  # character format duplicated and only one of them got shortened first.
+  CODE_DIGITS = 6
 
   included do
     has_many :offers, as: :offerable, dependent: :destroy
@@ -128,5 +151,18 @@ module Dispatchable
       )
     end
     true
+  end
+  private
+
+  # One million codes and a retry loop against the unique index. At Kabul
+  # volumes a second attempt is rare and a third will not happen; the index is
+  # what guarantees uniqueness, and this loop only avoids showing a customer an
+  # error when it fires.
+  def assign_code
+    self.code ||= loop do
+      digits = SecureRandom.random_number(10**Dispatchable::CODE_DIGITS)
+      candidate = "#{self.class::CODE_PREFIX}#{digits.to_s.rjust(Dispatchable::CODE_DIGITS, '0')}"
+      break candidate unless self.class.exists?(code: candidate)
+    end
   end
 end

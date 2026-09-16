@@ -5,8 +5,8 @@ RSpec.describe Trip, type: :model do
     it { is_expected.to validate_presence_of(:passenger_phone) }
 
     it "generates a T-prefixed code, distinguishable from an order's K" do
-      expect(create(:trip).code).to match(/\AT\d{10}\z/)
-      expect(create(:order).code).to match(/\AK\d{10}\z/)
+      expect(create(:trip).code).to match(/\AT\d{6}\z/)
+      expect(create(:order).code).to match(/\AK\d{6}\z/)
     end
 
     it "requires both pins" do
