@@ -4,6 +4,16 @@
 # created, if it is known they are signed in. Nobody should have to choose
 # between "register" and "log in".
 class Api::V1::Auth::SessionsController < ApplicationController
+  # WHERE A REFUSED PARTNER APPLIES. A rider or a driver applies and waits for
+  # approval; a restaurant leaves its details and gets a phone call
+  # (IDENTITY_AND_ROLES.md §5). Both are "we will get back to you" and neither
+  # is an error state, which is why the refusal carries a path rather than only
+  # a message.
+  APPLICATION_PATHS = {
+    "courier" => "/api/v1/courier/registration",
+    "merchant_owner" => "/api/v1/merchant_application"
+  }.freeze
+
   # Code guesses are already capped per code by OtpVerification::MAX_ATTEMPTS.
   # This bounds a script working through many phone numbers from one address.
   throttle to: 120, within: 1.hour, by: :ip, only: :create
@@ -34,7 +44,17 @@ class Api::V1::Auth::SessionsController < ApplicationController
     # not applied yet. `role_not_held` is the front door to onboarding, so the
     # app can offer the application path instead of showing an error.
     if (refusal = UserSession.role_refusal(user, requested_role))
-      body[:role_request] = { requested: requested_role, granted: false, code: refusal.to_s }
+      body[:role_request] = {
+        requested: requested_role, granted: false, code: refusal.to_s,
+        # THE PATH TO THE FORM, not a screen name: which of our own endpoints
+        # this person should apply to. Naming a client route here would couple
+        # the API to the app's navigation, which correction 18 forbids —
+        # naming an API resource does not.
+        #
+        # nil for `not_a_mobile_role`, because there is nothing to apply for,
+        # and the app must say something different about that.
+        apply_to: APPLICATION_PATHS[requested_role]
+      }
     end
 
     render json: body, status: :created

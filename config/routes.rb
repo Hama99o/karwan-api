@@ -106,6 +106,13 @@ Rails.application.routes.draw do
         resource :app_config, only: :show, controller: "app_config"
       end
 
+      # THE TWO PARTNER FRONT DOORS. Neither is role-namespaced, because an
+      # applicant holds no partner role yet — that is what they are asking for.
+      # Courier registration is `courier/registration`, since it belongs to a
+      # courier profile; a shop's application IS a `merchants` row in its `lead`
+      # state, so its door is here.
+      resource :merchant_application, only: %i[show create], controller: "merchant_applications"
+
       # Namespaced by ROLE. Three thin controllers beat one fat one branching
       # on current_user — duplication between roles is cheaper than coupling
       # between roles, because roles diverge and the conditionals never get

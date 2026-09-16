@@ -36,7 +36,7 @@ class MerchantDashboard < Administrate::BaseDashboard
     created_at: Field::DateTime
   }.freeze
 
-  COLLECTION_ATTRIBUTES = %i[name merchant_kind status is_open phone commission_rate storefront_photo].freeze
+  COLLECTION_ATTRIBUTES = %i[name merchant_kind status owner_phone is_open phone commission_rate].freeze
   SHOW_PAGE_ATTRIBUTES = %i[
     name merchant_kind phone status is_open prep_time_minutes commission_rate
     latitude longitude landmark_note owner owner_name owner_phone
@@ -56,6 +56,10 @@ class MerchantDashboard < Administrate::BaseDashboard
 
   COLLECTION_FILTERS = {
     open_now: ->(resources) { resources.where(is_open: true) },
+    # THE CALL LIST. Shops that asked through the app and that nobody has
+    # spoken to — the only queue in this console with a person waiting by a
+    # phone at the other end of it.
+    leads: ->(resources) { resources.leads.order(created_at: :desc) },
     pending: ->(resources) { resources.status_pending },
     discarded: ->(resources) { resources.discarded }
   }.freeze

@@ -4,7 +4,17 @@ class Merchant < ApplicationRecord
   include TrigramSearchable
   include Searchable
 
-  enum :status, { pending: 0, active: 1, suspended: 2, rejected: 3 }, prefix: true
+  # `lead` is a shop that asked us, through the app, and that nobody has called
+  # yet. A lead IS a merchant awaiting verification — the same row in an earlier
+  # state — so it lives here rather than in a table of its own: the console
+  # Hamma9900 already watches is the call list, and onboarding is then
+  # continuous. He calls them, fills in the rest of THIS row, assigns the owner,
+  # and `sync_owner_role` grants the role.
+  #
+  # Distinct from `pending`, which means "we are onboarding this one". The
+  # difference is whether a human has spoken to them, which is exactly what a
+  # worklist needs to sort by.
+  enum :status, { pending: 0, active: 1, suspended: 2, rejected: 3, lead: 4 }, prefix: true
 
   # Nullable: admin onboards merchants, so one exists before its owner has an
   # account. Merchants are not self-serve in v0.
@@ -63,6 +73,8 @@ class Merchant < ApplicationRecord
   validates :commission_rate, numericality: { greater_than_or_equal_to: 0, less_than: 1 }
 
   scope :listed,       -> { kept.status_active }
+  # The call list: shops that asked and have not been spoken to.
+  scope :leads,        -> { kept.status_lead }
   scope :orderable,    -> { listed.where(is_open: true) }
   scope :alphabetical, -> { order(:name) }
   scope :by_merchant_category,   ->(merchant_category_id) { joins(:merchant_category_assignments).where(merchant_category_assignments: { merchant_category_id: merchant_category_id }) }

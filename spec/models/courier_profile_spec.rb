@@ -205,7 +205,15 @@ RSpec.describe CourierProfile, type: :model do
 
   describe "vehicle types" do
     it "covers the ways a courier actually travels in Kabul" do
-      expect(described_class.vehicle_types.keys).to eq(%w[motorbike bicycle car on_foot])
+      expect(described_class.vehicle_types.keys).to eq(%w[motorbike bicycle car on_foot rishka zarang])
+      # THE INTEGERS ARE THE CONTRACT, not the order of the keys. The two new
+      # types were appended rather than slotted in beside the bicycle, because
+      # these values are stored and renumbering them would turn every car in
+      # the database into a rishka.
+      expect(described_class.vehicle_types).to eq(
+        "motorbike" => 0, "bicycle" => 1, "car" => 2, "on_foot" => 3,
+        "rishka" => 4, "zarang" => 5
+      )
     end
   end
 end

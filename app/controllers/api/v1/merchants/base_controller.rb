@@ -14,6 +14,17 @@ class Api::V1::Merchants::BaseController < Api::V1::BaseController
   end
 
   def require_merchant!
+    # A LEAD IS NOT A MERCHANT ACCOUNT. Assigning an owner is what grants the
+    # role, and Hamma9900 may well assign one while calling a shop that is
+    # still a `lead` — that must not hand over the order board of a shop whose
+    # terms nobody has agreed. `pending` deliberately DOES pass: a merchant
+    # being onboarded builds their menu before they go live.
+    if current_merchant&.status_lead?
+      return render json: {
+        error: "this shop is still an application — we will call you", code: "merchant_is_a_lead"
+      }, status: :forbidden
+    end
+
     return if current_merchant.present?
 
     render json: {

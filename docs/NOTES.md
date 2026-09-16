@@ -550,6 +550,88 @@ to all three locales or parity checks lie. For RTL use **logical** spacing
 utilities, and mirror directional icons — a correct `dir` with a left-pointing
 "next" arrow is still wrong. Pashto and Dari strings run longer than English.
 
+### A SHOP'S APPLICATION IS A `merchants` ROW, NOT A LEADS TABLE
+The "sign in as a restaurant" door writes a `merchants` row in a new `lead`
+state. I had built a `merchant_leads` table first; Hamma9901 was right that it
+was the wrong shape, and the reasoning is worth keeping: `merchants` already
+carries `owner_phone`, `owner_name` and a verification status, the console
+already has a merchants index Hamma9900 watches, and a lead genuinely IS a
+merchant awaiting verification. So onboarding is **continuous** — he calls
+them, finishes the same row, assigns the owner, and `sync_owner_role` grants
+the role — with no second dashboard and no schema change beyond one enum value.
+
+What made it safe to put an unvetted row in that table:
+
+- **`MerchantPolicy::Scope` is `kept.status_active`**, so a lead is invisible to
+  browsing and unorderable. Asserted rather than assumed.
+- **The form sets no `owner_id`.** Assigning an owner grants the role and
+  `Merchants::BaseController` resolves the board from `owner_id` alone, so
+  setting it would hand a merchant board to anyone who typed a shop name into a
+  form. The applicant's phone goes in `owner_phone`, which is how he finds their
+  account — the phone IS the identity.
+- **`require_merchant!` refuses a `lead` outright**, because he may well assign
+  an owner while on the phone to a shop that is still a lead. `pending` still
+  passes: a merchant being onboarded builds their menu before going live.
+- **Strong params drop everything else.** A form that could set its own
+  `commission_rate` would be the most expensive input field in the app.
+
+### CONSOLE FORM SAVES WERE NOT AUDITED AT ALL
+`log_intervention` was called by hand from the custom actions, so approve,
+suspend, reassign and credit were audited and Administrate's own
+create/update/destroy were not. That covered the buttons and missed the form —
+where the two most consequential edits in the system live: `commission_rate`
+changes what a merchant is paid and `owner_id` changes who controls a
+restaurant, and both are a plain save.
+
+Hooked on `Admin::ApplicationController` so every dashboard inherits it,
+including ones added later. `create` uses Administrate's own block (it keeps
+the record in a local), `update` reads `previous_changes`, which is already the
+before/after this table stores, and `destroy` snapshots the row first — that
+one matters most, because afterwards the audit log is the only place those
+values still exist. Nothing is written when nothing changed or when the save
+was refused, and `search_text` is excluded or it would dominate every row.
+
+`Admin::SettingsController` keeps its own `setting.changed` line, which is
+better than a generic edit because it names the key — "why did the delivery fee
+change last Tuesday" is a question about a key, not a row id.
+
+### A TEST CAN BE ABOUT THE OUTCOME AND NOT ABOUT THE CODE
+`docs/IDENTITY_AND_ROLES.md` §9.2 requires that `current_role` never takes a
+client-supplied role. Three endpoint examples asserting exactly that stayed
+**green** when I rewrote `current_role` to read `params[:role]` and an `X-Role`
+header first.
+
+The reason: **`current_role` has no callers.** The role namespaces and the
+Pundit scopes read `user_roles` directly, so the method is a contract waiting
+for its first consumer — the kind of not-quite-dead code somebody uses in six
+months assuming it was tested.
+
+It is now tested at the method, by a probe that includes the concern and
+defines **neither `params` nor `request`**, so any implementation reaching for
+the request raises. The rule is not "prefer the session" — it is "the request
+is not an input to this question".
+
+### Vehicles: `rishka` and `zarang` exist, and nothing knows how big a delivery is
+Added as new integers 4 and 5 (never renumber — the values are in the
+database). `zarang` is a rishka built for heavy goods; Hamma9900's example is a
+bed, and it carries more furniture than a car does, so **capacity is not a
+ladder from bicycle to car**.
+
+**The gap that is still open: nothing expresses how big a delivery is.**
+`orders` has no size or weight and neither does `catalog_items`, so a bed and a
+book are indistinguishable to dispatch, and a bed-sized delivery can be offered
+to a courier on a bicycle — who accepts in good faith, arrives, and cannot
+carry it. That failure costs the customer, the merchant and the courier at
+once. Proposed shape (with Hamma9901, not built): a size class on
+`catalog_items` defaulting to smallest, the order's requirement being the
+maximum over its items and **snapshotted onto the order** like the prices, an
+ordered capacity per vehicle class taken from Hamma9900 rather than guessed,
+and one more `Dispatch::Eligibility` check — `:vehicle_too_small`, needing no
+new query once the requirement is on the row.
+
+Dormant until a store with beds signs up: the first ten merchants are
+restaurants and food is always small.
+
 ### NOTHING GRANTED THE MERCHANT ROLE — CLOSED, and it would have hit the first restaurant
 `merchants.owner_id` is set through the console's generic form, and setting it
 granted nothing. `:merchant_owner` existed in `db/seeds/sample.rb` and

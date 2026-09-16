@@ -33,7 +33,29 @@ class CourierProfile < ApplicationRecord
   # whole reason this is an array rather than a boolean per kind.
   JOB_KINDS = %w[delivery ride].freeze
 
-  enum :vehicle_type, { motorbike: 0, bicycle: 1, car: 2, on_foot: 3 }, prefix: :by
+  # WHAT THEY RIDE, in Hamma9900's own words, because these two are not one
+  # thing:
+  #
+  #   rishka — the common Kabul three-wheeler, between a bicycle and a car in
+  #            both capacity and cost. Without it, a courier who has one has to
+  #            register as something he is not.
+  #   zarang — a rishka built for heavy goods. His example is A BED. It carries
+  #            more furniture than a car does, which is why capacity is not a
+  #            simple ladder from bicycle to car.
+  #
+  # ADDED AS NEW INTEGERS, never by renumbering: these values are in the
+  # database, and shifting them would silently turn every car into a rishka.
+  #
+  # It is about to matter twice over. For money: rides will let the CUSTOMER
+  # pick the class and quote that class's price, because a motorbike ride is
+  # much cheaper than a car and the passenger is the right person to choose,
+  # while deliveries keep one customer-facing fee and let the vehicle affect
+  # what the COURIER EARNS instead. For dispatch: a bed and a book are
+  # currently indistinguishable to the system, so a zarang-sized delivery can
+  # be offered to a courier on a bicycle who accepts it in good faith and
+  # cannot carry it. Neither is built yet; see docs/NOTES.md.
+  enum :vehicle_type, { motorbike: 0, bicycle: 1, car: 2, on_foot: 3, rishka: 4, zarang: 5 },
+       prefix: :by
   enum :verification_status, { pending: 0, approved: 1, rejected: 2, suspended: 3 },
        prefix: :verification
 

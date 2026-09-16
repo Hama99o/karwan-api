@@ -81,8 +81,12 @@ RSpec.describe "Api::V1::Auth::Sessions", type: :request do
         expect(response).to have_http_status(:created)
         expect(json["token"]).to be_present
         expect(json.dig("user", "active_role")).to eq("customer")
+        # AND WHERE TO APPLY. "Tell to create account... they have different
+        # form to submit" — so the refusal carries the door to knock on, which
+        # is the front entrance courier registration never had from the app.
         expect(json["role_request"]).to eq(
-          "requested" => "courier", "granted" => false, "code" => "role_not_held"
+          "requested" => "courier", "granted" => false, "code" => "role_not_held",
+          "apply_to" => "/api/v1/courier/registration"
         )
       end
 
@@ -98,9 +102,23 @@ RSpec.describe "Api::V1::Auth::Sessions", type: :request do
         expect(response).to have_http_status(:created)
         expect(json.dig("user", "active_role")).to eq("customer")
         expect(json.dig("role_request", "code")).to eq("not_a_mobile_role")
+        # NOTHING TO APPLY FOR, so no path — the app must say something
+        # different here, not offer a form that does not exist.
+        expect(json.dig("role_request", "apply_to")).to be_nil
         # And the app is never even offered admin as a role it could switch to.
         expect(json.dig("user", "roles")).not_to include("admin")
         expect(admin.user_sessions.last.active_role).to eq("customer")
+      end
+
+      it "points a would-be restaurant at the lead form, not at an error" do
+        create(:user, phone: phone)
+        code = request_code
+
+        post "/api/v1/auth/session", params: { phone: phone, code: code, role: "merchant_owner" }
+
+        expect(response).to have_http_status(:created)
+        expect(json.dig("role_request", "code")).to eq("role_not_held")
+        expect(json.dig("role_request", "apply_to")).to eq("/api/v1/merchant_application")
       end
 
       it "treats a role that does not exist the same way" do
