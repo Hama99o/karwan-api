@@ -25,7 +25,8 @@ module Users
       @platform = platform
     end
 
-    # Returns [user, plaintext_token].
+    # Returns [user, plaintext_token, session]. The session is returned because
+    # the mode the app opens in is a fact about it, not about the user.
     def call
       # The newest code for this number, live or not, so the three cases can be
       # told apart. Collapsing them was misleading: someone replaying a
@@ -43,8 +44,7 @@ module Users
       ActiveRecord::Base.transaction do
         user = find_or_create_user
         session, token = UserSession.issue!(user, device_name: @device_name, platform: @platform)
-        @current_session = session
-        [ user, token ]
+        [ user, token, session ]
       end
     end
 
@@ -61,7 +61,9 @@ module Users
           # sends the device locale on first sign-in so most users never see a
           # language they did not choose.
           locale: @locale.presence_in(User::LOCALES) || "fa",
-          active_role: :customer,
+          # Everyone's first device opens in the customer tab. This is the
+          # PREFERENCE that seeds it; the session holds the live mode.
+          last_active_role: :customer,
           phone_verified_at: Time.current
         )
         # Everyone starts as a customer. Courier and merchant roles are granted

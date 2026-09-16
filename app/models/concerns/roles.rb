@@ -1,6 +1,7 @@
-# The four roles, defined once. `User#active_role` and `UserRole#role` must
-# never drift apart — a role that exists in one enum and not the other is a
-# switch to a role the user cannot hold.
+# The four roles, defined once. `UserSession#active_role`,
+# `User#last_active_role` and `UserRole#role` must never drift apart — a role
+# that exists in one enum and not the other is a switch to a role the user
+# cannot hold.
 #
 # `courier` is role-neutral on purpose: the same human delivers a meal and
 # carries a passenger, with one wallet and one commission. The UI says "rider"

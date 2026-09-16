@@ -113,7 +113,7 @@ class CourierProfile < ApplicationRecord
   #
   #   1. the status, so dispatch will consider them
   #   2. the ROLE, without which `OrderPolicy::CourierScope` resolves to
-  #      `none` (they see no jobs), `User#switch_role!` refuses (they cannot
+  #      `none` (they see no jobs), `UserSession#switch_role!` refuses (they cannot
   #      reach the courier tab), and every symptom points at the app rather
   #      than at the missing row
   #   3. a WALLET, without which they cannot be charged commission — so

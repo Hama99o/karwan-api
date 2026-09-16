@@ -10,6 +10,12 @@ class UserSession < ApplicationRecord
 
   belongs_to :user
 
+  # WHICH MODE THIS DEVICE IS IN. Per session rather than per user, because one
+  # human runs a merchant tablet on a counter and a phone in his pocket, and a
+  # courier whose phone dies mid-shift signs in on a second one. Switching to
+  # the customer tab on one must not flip the other.
+  enum :active_role, Roles::ALL, prefix: :acting_as
+
   validates :token_digest, presence: true, uniqueness: true
 
   scope :live, -> { where(revoked_at: nil).where(expires_at: [ nil, Time.current.. ]) }
@@ -22,10 +28,23 @@ class UserSession < ApplicationRecord
       token_digest: digest(token),
       device_name: device_name,
       platform: platform,
+      active_role: seeded_role_for(user),
       expires_at: TTL.from_now,
       last_used_at: Time.current
     )
     [ record, token ]
+  end
+
+  # A NEW device starts where the person left off — a reinstall must not drop a
+  # courier back into the customer tab, and a reinstall is a new session, so
+  # the preference has to live on the user for this to be possible at all.
+  #
+  # Checked against the roles they STILL hold: a courier whose approval was
+  # revoked would otherwise be seeded straight back into a tab with no jobs in
+  # it and no way to explain why.
+  def self.seeded_role_for(user)
+    preferred = user.last_active_role
+    user.role?(preferred) ? preferred : :customer
   end
 
   def self.digest(token)
@@ -44,5 +63,25 @@ class UserSession < ApplicationRecord
 
   def touch_usage!
     update_column(:last_used_at, Time.current)
+  end
+
+  # ONE ACCOUNT, SEVERAL ROLES — and the switch belongs to THIS device.
+  #
+  # Returns false for one reason only: the user does not hold that role. A
+  # stale client asking for a role it lost must get a clean refusal rather than
+  # a 500, but a write that actually fails must raise — `update` returning
+  # false made those two cases indistinguishable, so a failed save read as "you
+  # do not hold that role", which is a lie the client then shows the user.
+  #
+  # The preference is written through, so the NEXT device and the next
+  # reinstall open in the same mode.
+  def switch_role!(role)
+    return false unless user.role?(role)
+
+    transaction do
+      update!(active_role: role)
+      user.update!(last_active_role: role)
+    end
+    true
   end
 end

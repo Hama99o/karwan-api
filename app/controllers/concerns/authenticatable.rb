@@ -57,9 +57,12 @@ module Authenticatable
     current_user.present?
   end
 
-  # Derived from what the user actually holds, never from a header or a param.
+  # Derived from THIS SESSION, never from a header or a param. Per session
+  # rather than per user because one human's tablet and phone can be in two
+  # modes at once — and because the session is already resolved here, so this
+  # costs no extra query.
   def current_role
-    current_user&.active_role
+    current_session&.active_role
   end
 
   def require_role!(role)

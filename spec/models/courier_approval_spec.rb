@@ -6,7 +6,7 @@ require "rails_helper"
 # and it NEVER granted the `courier` role. The result is the worst kind of bug:
 # a courier told they are approved, who then sees no jobs because
 # `OrderPolicy::CourierScope` resolves to `none` for a user without the role,
-# and cannot even switch into the courier tab because `User#switch_role!`
+# and cannot even switch into the courier tab because `UserSession#switch_role!`
 # refuses a role they do not hold. Every symptom points at the app.
 RSpec.describe "approving a courier" do
   let(:admin) { create(:admin_user) }
@@ -44,8 +44,9 @@ RSpec.describe "approving a courier" do
   it "lets them switch into the courier tab, which the missing role prevented" do
     profile.approve!(by: admin)
 
-    expect(user.reload.switch_role!(:courier)).to be_truthy
-    expect(user.reload.active_role).to eq("courier")
+    session, = UserSession.issue!(user.reload)
+    expect(session.switch_role!(:courier)).to be_truthy
+    expect(session.reload.active_role).to eq("courier")
   end
 
   it "records WHICH ADMIN approved, on the row" do

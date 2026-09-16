@@ -6,7 +6,7 @@ class UserDashboard < Administrate::BaseDashboard
     phone: Field::String,
     name: Field::String,
     locale: Field::Select.with_options(collection: ->(_f) { User::LOCALES }),
-    active_role: Field::Select.with_options(collection: ->(_f) { User.active_roles.keys }),
+    last_active_role: Field::Select.with_options(collection: ->(_f) { User.last_active_roles.keys }),
     status: Field::Select.with_options(collection: ->(_f) { User.statuses.keys }),
     phone_verified_at: Field::DateTime,
     user_roles: Field::HasMany,
@@ -17,9 +17,9 @@ class UserDashboard < Administrate::BaseDashboard
     created_at: Field::DateTime
   }.freeze
 
-  COLLECTION_ATTRIBUTES = %i[phone name active_role status created_at].freeze
+  COLLECTION_ATTRIBUTES = %i[phone name last_active_role status created_at].freeze
   SHOW_PAGE_ATTRIBUTES = %i[
-    phone name locale active_role status phone_verified_at user_roles addresses
+    phone name locale last_active_role status phone_verified_at user_roles addresses
     courier_profile courier_wallet deleted_at created_at
   ].freeze
   FORM_ATTRIBUTES = %i[name locale status].freeze

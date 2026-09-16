@@ -11,38 +11,44 @@ class Api::V1::MeController < Api::V1::BaseController
   def show
     authorize current_user, :show?
 
-    render_blue(Shared::UserSerializer, current_user, view: :detailed)
+    render_blue(Shared::UserSerializer, current_user, view: :detailed,
+                options: { session: current_session })
   end
 
   def update
     authorize current_user, :update?
 
     if current_user.update(profile_params)
-      render_blue(Shared::UserSerializer, current_user, view: :detailed)
+      render_blue(Shared::UserSerializer, current_user, view: :detailed,
+                options: { session: current_session })
     else
       render_unprocessable_entity(current_user)
     end
   end
 
-  # ONE ACCOUNT, SEVERAL ROLES. The switch must be obvious and fast, and the
-  # app remembers the last role — which is why it is stored server-side rather
-  # than only on the device: a reinstall must not drop a courier back into the
-  # customer tab.
+  # ONE ACCOUNT, SEVERAL ROLES, AND THE SWITCH IS PER DEVICE.
   #
-  # `switch_role!` refuses a role the user does not hold, returning false
-  # rather than raising, so a stale client cannot 500 this.
+  # It switches THIS session, so a merchant flipping his pocket phone to the
+  # customer tab does not flip the tablet on the counter. It also writes the
+  # choice through to the user as a preference, which is what makes the app
+  # remember: a reinstall is a new session, and a courier must not land back in
+  # the customer tab after one.
+  #
+  # `switch_role!` returns false for exactly one reason — the user does not
+  # hold that role — so a stale client cannot 500 this.
   def switch_role
     authorize current_user, :update?
 
     role = params.require(:role).to_s
 
-    unless current_user.switch_role!(role)
+    unless current_session.switch_role!(role)
       return render_unprocessable_entity(
         "you do not hold the #{role} role", code: "role_not_held"
       )
     end
 
-    render_blue(Shared::UserSerializer, current_user.reload, view: :detailed)
+    render_blue(Shared::UserSerializer, current_user.reload, view: :detailed,
+                options: { session: current_session })
   end
 
   # WHERE TO SEND A PUSH.

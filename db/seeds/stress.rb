@@ -125,7 +125,7 @@ seed_section "stress users" do
       phone: "+93#{stress_user_offset + i}",
       name: "Stress User #{i}",
       locale: %w[fa ps en][i % 3],
-      active_role: role,
+      last_active_role: role,
       status: 0,
       phone_verified_at: now,
       created_at: now, updated_at: now
@@ -133,9 +133,10 @@ seed_section "stress users" do
   end
   bulk(User, rows)
 
-  # Roles as their own rows, since `active_role` is which hat is on and
-  # `user_roles` is which hats they hold.
-  ids = User.where("phone LIKE '+9379%'").order(:id).pluck(:id, :active_role)
+  # Roles as their own rows, since `last_active_role` is the hat they last
+  # chose and `user_roles` is which hats they hold. The hat actually ON is a
+  # fact about a session, which stress data has none of.
+  ids = User.where("phone LIKE '+9379%'").order(:id).pluck(:id, :last_active_role)
   bulk(UserRole, ids.map { |id, role| { user_id: id, role: role, created_at: now, updated_at: now } })
 end
 

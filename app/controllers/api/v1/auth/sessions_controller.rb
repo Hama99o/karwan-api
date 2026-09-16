@@ -9,7 +9,7 @@ class Api::V1::Auth::SessionsController < ApplicationController
   throttle to: 120, within: 1.hour, by: :ip, only: :create
 
   def create
-    user, token = Users::SignInService.new(
+    user, token, session = Users::SignInService.new(
       phone: params.require(:phone), code: params.require(:code),
       name: params[:name], locale: params[:locale],
       device_name: params[:device_name], platform: params[:platform]
@@ -17,7 +17,7 @@ class Api::V1::Auth::SessionsController < ApplicationController
 
     render json: {
       token: token,
-      user: Shared::UserSerializer.render_as_hash(user, view: :detailed)
+      user: Shared::UserSerializer.render_as_hash(user, view: :detailed, session: session)
     }, status: :created
   rescue Users::SignInService::NoCodeIssued => e
     render_unprocessable_entity(e.message, code: "otp_not_issued")

@@ -4,7 +4,11 @@ class User < ApplicationRecord
   include SoftDeletable
   LOCALES = %w[ps fa en].freeze
 
-  enum :active_role, Roles::ALL, prefix: :acting_as
+  # WHERE THIS PERSON LEFT OFF — a preference, not a state. The live mode lives
+  # on the session, because one human can have two devices in two modes; this
+  # only seeds the next new one, so a reinstall does not drop a courier back
+  # into the customer tab. See `UserSession#switch_role!`.
+  enum :last_active_role, Roles::ALL, prefix: :last_acted_as
   enum :status, { active: 0, suspended: 1 }, prefix: :account
 
   has_many :user_roles, dependent: :destroy
@@ -38,14 +42,6 @@ class User < ApplicationRecord
 
   def role?(role)
     user_roles.exists?(role: UserRole.roles[role.to_s])
-  end
-
-  # A role the user does not hold is not switchable to. Returns false rather
-  # than raising so a stale client cannot 500 the endpoint.
-  def switch_role!(role)
-    return false unless role?(role)
-
-    update(active_role: role)
   end
 
   def phone_verified?

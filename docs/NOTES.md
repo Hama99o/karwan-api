@@ -550,6 +550,78 @@ to all three locales or parity checks lie. For RTL use **logical** spacing
 utilities, and mirror directional icons — a correct `dir` with a left-pointing
 "next" arrow is still wrong. Pashto and Dari strings run longer than English.
 
+### One account had one mode everywhere — CLOSED by moving it to the session
+`users.active_role` decided which tab the app opens in, which made it a fact
+about a PERSON. It is a fact about a DEVICE: a merchant keeps a tablet on the
+counter and a phone in his pocket, and a courier whose phone dies mid-shift
+signs in on a second one without signing out of the first. Flipping the phone
+to the customer tab flipped the tablet's next launch too.
+
+Now `user_sessions.active_role` holds the live mode — the same scope
+`Authenticatable` already resolves per request, so it costs no extra query —
+and `switch_role!` moved to `UserSession`.
+
+**The column on `users` was NOT dropped; it was renamed `last_active_role`,
+because it was doing a second job that is still wanted.** `MeController` says
+why in its own comment: a reinstall must not drop a courier back into the
+customer tab, and a reinstall is a NEW session. So there are two columns with
+two meanings — `users.last_active_role` is a PREFERENCE that seeds the next new
+session, `user_sessions.active_role` is the FACT of what a device is showing —
+and the seeding is checked against the roles the person still holds, so a
+courier whose approval was revoked is not seeded back into a tab with no jobs
+in it.
+
+`switch_role!` also stopped using `update`. Returning false covered both "you
+do not hold that role" and "the write failed", so a failed save was reported to
+the user as a permissions problem. It is `update!` now, inside a transaction
+with the preference write, and `false` means exactly one thing.
+
+Worth knowing: `current_role` had **no other callers** — the role namespaces
+and Pundit scopes never consulted it — so this was a UI-mode fact throughout,
+not an authorization one. That is also why the fix was cheap.
+
+### FIVE OPS CONSOLE PAGES RETURNED 500 AND 1,078 EXAMPLES WERE GREEN
+Found while renaming `active_role`: `UserDashboard` named the column, and
+nothing in the suite rendered an Administrate page, so `/admin/users` would
+have died on Hamma9900's first click. Adding `spec/requests/admin/dashboards_spec.rb`
+— which walks every dashboard's index, show and edit — immediately found that
+**five pages were already broken before the rename**:
+
+| Page | Why |
+|---|---|
+| `/admin/orders/:id` | no `OrderItemDashboard` |
+| `/admin/trips/:id` | no `StatusTransitionDashboard` |
+| `/admin/merchants` (index and show) | no `MerchantKindDashboard` |
+| `/admin/users/:id` | no `UserRoleDashboard` |
+| `/admin/merchants/:id/edit` | route did not exist — see below |
+
+Administrate resolves an associated dashboard **by class name at render time**,
+so a `Field::HasMany` or `Field::BelongsTo` pointing at a model with no
+dashboard is not a boot error, not a model failure and not a request-spec
+failure — it is a `NameError` inside an ERB template, on that page only. Eight
+dashboards were missing (`Address`, `CatalogCategory`, `CatalogItem`,
+`MerchantKind`, `Offer`, `OrderItem`, `OrderItemOption`, `StatusTransition`,
+`UserRole`); they are display-only, `FORM_ATTRIBUTES = []`, because a snapshot
+or a history that can be hand-edited is neither.
+
+**This is the "verify at the layer where it lands" trap in its purest form.**
+The console is the one surface in this project with no second mechanism behind
+it: correction 16 says there is no web app, so when an ops page 500s there is
+nowhere else for the person in Kabul to go.
+
+### `config.api_only` makes a bare `resources` silently omit `new` and `edit`
+`resources :merchants` in the admin namespace generated index, create, show,
+update and destroy — **no `new`, no `edit`** — because an API has no forms.
+Administrate is all forms, so the "Edit" button on the merchant page pointed at
+a route that did not exist, and a merchant's commission rate could not be
+changed without a deploy. Every other admin resource happened to spell out its
+actions with `only:`, so merchants was the only casualty.
+
+The fix is to spell out `only:` even when you want the default set — in an
+`api_only` app there IS no default set for a browser. Nothing warns: the route
+is simply absent, the link still renders, and the failure is a 404 on a page
+that looks like it should exist.
+
 ### A courier could hold a delivery and a ride at the same time — CLOSED
 `Dispatch::Eligibility` had nine checks and none of them asked whether the
 courier was already carrying a job. So a courier riding to a customer with a

@@ -204,7 +204,10 @@ Enough detail to start. Extend, do not redesign.
 ### People and roles
 
 - `users` — **phone number is the identity**, OTP login. Not email: everyone has a phone,
-  few have email. Store `phone`, `name`, `locale`, `active_role`.
+  few have email. Store `phone`, `name`, `locale`, and `last_active_role` —
+  which mode a DEVICE is in lives on `user_sessions.active_role`, because one
+  person's counter tablet and pocket phone can be in two modes at once. See
+  `docs/NOTES.md`.
 - `user_roles` — a user may hold several: `customer`, `rider`, `restaurant_owner`, `admin`.
   **One app, one account, switched roles** (Hatiwal's buyer/seller pattern, extended).
 - `addresses` — belongs to user. See "The address problem".
@@ -708,3 +711,58 @@ its own subject is exactly that.
 
 **The measure to hold:** if the API is unreachable, every screen must show a real failure or a
 real last-known state. If any screen still shows content, something is faking — find it.
+
+**18. THE APPS MUST STAY SEPARABLE. One identity, one backend, four client apps that can be
+split apart later without a rewrite.** Hamma9900, planning ahead: *"we will not mix the apps,
+that's important. Imagine I have 10 million users and I want to separate the apps to 3 or 4 —
+delivery and driver and client and restaurant or store. It should be easy. If we mix it, it can
+make problem."*
+
+He is right, and this is what every platform at scale does: Uber, Grab and Gojek all run one
+backend behind separate rider, driver and merchant apps. So:
+
+**WHAT SPLITS LATER: the mobile apps.** Customer, courier (delivery), courier (ride) and
+merchant could each become their own binary in their own store listing.
+
+**WHAT NEVER SPLITS: the backend.** One API, one courier pool, one wallet, one dispatch, one
+admin. Splitting that would destroy the business thesis — courier utilisation across two demand
+streams is the number this company turns on, and two backends means two pools.
+
+**WHAT NEVER SPLITS: the identity.** One person, one phone number, one `users` row, several
+`user_roles`. A courier orders food; a restaurant owner takes taxis. The platform must always
+know they are the same human — that is also how a courier's wallet stays one wallet.
+
+### What separability demands of the code, concretely
+
+The test for every decision: **could this role's screens be lifted into their own Expo app
+tomorrow, changing only the entry point?** If the answer is no, the coupling is the defect.
+
+- **Shared, and safe to share:** the primitive library, the theme tokens, i18n, the HTTP client,
+  the auth and session store, the map component. These are infrastructure — four apps would each
+  import the same ones.
+- **Never shared between roles:** screens, flows, role-specific stores, role-specific API
+  modules. A customer screen must never import from `screens/courier/`, and no shared module may
+  branch on role. ARCHITECTURE.md already says duplication between roles is cheaper than
+  coupling between roles; this is the reason, stated in money.
+- **The API namespaces are already right** — `api/v1/customers/`, `/merchants/`, `/couriers/`,
+  `/public/`. A split app calls the same namespace it calls today, so the backend needs no change
+  when it happens. Keep them strictly separate; never a shared controller that serves two roles.
+- **Route groups are already right** — `app/(customer)/`, `(merchant)/`, `(courier)/`. Each group
+  is the seam a split would cut along. Nothing outside a group may reach into it.
+
+### The login flow he specified
+
+One identity, but the role is chosen **at sign-in**, not discovered afterwards:
+
+- **Customer is the default and is never asked.** A first-time user signs in and is a customer.
+  Asking "what are you?" of somebody who wants a kebab is a question that loses users.
+- **A second, quieter action — "Sign in as partner"** — then choose: restaurant/store, delivery
+  rider, or taxi driver. The words are his: *"login as business or etc, and when we click we
+  choose login as how — restaurant or rider or driver."*
+- The chosen role is per **session**, not per person (correction on `active_role` in
+  `user_sessions`), so three phones can hold three roles at once and one phone holds one.
+- A person who does not hold the role they picked is told so plainly and offered the application
+  path — that is the entry point to courier onboarding.
+
+**This also answers the PIN question:** choosing a money-handling role at sign-in IS the gate, so
+a separate in-app PIN is only needed for switching roles inside a session, not for entering one.

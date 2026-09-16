@@ -6,7 +6,8 @@ RSpec.describe "Api::V1::Me", type: :request do
   end
 
   let(:user) { create(:user, :customer, name: "احمد کریمی") }
-  let(:auth) { { "Authorization" => "Bearer #{UserSession.issue!(user).last}" } }
+  let(:phone_session) { UserSession.issue!(user, device_name: "his phone") }
+  let(:auth) { { "Authorization" => "Bearer #{phone_session.last}" } }
 
   describe "GET /api/v1/me" do
     it "returns who they are and which roles they hold" do
@@ -14,6 +15,8 @@ RSpec.describe "Api::V1::Me", type: :request do
 
       expect(response).to have_http_status(:ok)
       expect(json.dig("user", "phone")).to eq(user.phone)
+      # Which mode THIS device is in, which is what the app opens on.
+      expect(json.dig("user", "active_role")).to eq("customer")
       expect(json.dig("user", "roles")).to eq([ "customer" ])
       expect(json.dig("user", "can_switch_roles")).to be false
     end
@@ -26,16 +29,43 @@ RSpec.describe "Api::V1::Me", type: :request do
   end
 
   describe "POST /api/v1/me/switch_role" do
-    # ONE ACCOUNT, SEVERAL ROLES. Stored server-side rather than only on the
-    # device, so a reinstall does not drop a courier back into the customer tab.
+    # ONE ACCOUNT, SEVERAL ROLES, ONE DEVICE AT A TIME.
     it "switches to a role the person holds" do
       user.user_roles.create!(role: :courier)
 
       post "/api/v1/me/switch_role", params: { role: "courier" }, headers: auth
 
       expect(response).to have_http_status(:ok)
-      expect(user.reload.active_role).to eq("courier")
+      expect(phone_session.first.reload.active_role).to eq("courier")
+      expect(json.dig("user", "active_role")).to eq("courier")
       expect(json.dig("user", "can_switch_roles")).to be true
+    end
+
+    # THE REASON THIS MOVED OFF `users`. A merchant keeps a tablet on the
+    # counter and a phone in his pocket. Flipping the phone to the customer tab
+    # used to flip the tablet's next launch too — one account, one shared hat.
+    it "does not change the mode of his OTHER device" do
+      user.user_roles.create!(role: :merchant_owner)
+      tablet, tablet_token = UserSession.issue!(user, device_name: "counter tablet")
+      tablet.switch_role!(:merchant_owner)
+
+      post "/api/v1/me/switch_role", params: { role: "customer" }, headers: auth
+
+      expect(tablet.reload.active_role).to eq("merchant_owner")
+      get "/api/v1/me", headers: { "Authorization" => "Bearer #{tablet_token}" }
+      expect(json.dig("user", "active_role")).to eq("merchant_owner")
+    end
+
+    # And it is still remembered across a reinstall, which is what the column
+    # on `users` is now for: a new session is not a fresh start.
+    it "is remembered by the NEXT device the person signs in on" do
+      user.user_roles.create!(role: :courier)
+
+      post "/api/v1/me/switch_role", params: { role: "courier" }, headers: auth
+      _reinstalled, new_token = UserSession.issue!(user.reload, device_name: "same phone, reinstalled")
+
+      get "/api/v1/me", headers: { "Authorization" => "Bearer #{new_token}" }
+      expect(json.dig("user", "active_role")).to eq("courier")
     end
 
     # Returns a 422 with a code rather than raising, so a stale client cannot
@@ -45,7 +75,7 @@ RSpec.describe "Api::V1::Me", type: :request do
 
       expect(response).to have_http_status(:unprocessable_content)
       expect(json["code"]).to eq("role_not_held")
-      expect(user.reload.active_role).to eq("customer")
+      expect(phone_session.first.reload.active_role).to eq("customer")
     end
 
     it "refuses a role that does not exist" do

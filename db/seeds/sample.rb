@@ -10,7 +10,7 @@ KABUL = { lat: 34.5553, lng: 69.2075 }.freeze
 
 def find_user!(phone, name:, role:, locale: "fa")
   user = User.find_or_initialize_by(phone: phone)
-  user.update!(name: name, locale: locale, active_role: role, phone_verified_at: Time.current)
+  user.update!(name: name, locale: locale, last_active_role: role, phone_verified_at: Time.current)
   user.user_roles.find_or_create_by!(role: role)
   user
 end

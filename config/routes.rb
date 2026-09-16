@@ -29,7 +29,13 @@ Rails.application.routes.draw do
 
     resources :trips, only: %i[index show]
 
-    resources :merchants do
+    # `only:` spelled out because this is an `api_only` app, where a bare
+    # `resources` SILENTLY OMITS `new` and `edit` — there are no forms in an
+    # API. Administrate is all forms, so the console's "Edit merchant" button
+    # pointed at a route that did not exist and 404'd, which is how a merchant's
+    # commission rate became uneditable without a deploy. Every other resource
+    # here already listed its actions and was unaffected.
+    resources :merchants, only: %i[index show new create edit update destroy] do
       member do
         patch :open_merchant
         patch :close_merchant

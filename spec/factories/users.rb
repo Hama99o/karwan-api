@@ -6,7 +6,7 @@ FactoryBot.define do
     sequence(:phone) { |n| "+9377#{n.to_s.rjust(7, '0')}" }
     name { Faker::Name.name }
     locale { "fa" }
-    active_role { :customer }
+    last_active_role { :customer }
     status { :active }
     phone_verified_at { Time.current }
 
@@ -30,7 +30,7 @@ FactoryBot.define do
     # commission — the UI calls them a rider in the food tab and a driver in
     # the ride tab.
     trait :courier do
-      active_role { :courier }
+      last_active_role { :courier }
       after(:create) do |user|
         create(:user_role, user: user, role: :courier)
         create(:courier_profile, :approved, user: user)
@@ -39,7 +39,7 @@ FactoryBot.define do
     end
 
     trait :ride_courier do
-      active_role { :courier }
+      last_active_role { :courier }
       after(:create) do |user|
         create(:user_role, user: user, role: :courier)
         create(:courier_profile, :approved, user: user, accepted_job_kinds: [ "ride" ])
@@ -48,12 +48,12 @@ FactoryBot.define do
     end
 
     trait :merchant_owner do
-      active_role { :merchant_owner }
+      last_active_role { :merchant_owner }
       after(:create) { |user| create(:user_role, user: user, role: :merchant_owner) }
     end
 
     trait :admin do
-      active_role { :admin }
+      last_active_role { :admin }
       after(:create) { |user| create(:user_role, user: user, role: :admin) }
     end
   end

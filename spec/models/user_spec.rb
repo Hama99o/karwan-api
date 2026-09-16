@@ -53,9 +53,12 @@ RSpec.describe User, type: :model do
   end
 
   describe "enums" do
-    it "defines the four roles once, shared with UserRole" do
-      expect(described_class.active_roles.keys).to eq(%w[customer courier merchant_owner admin])
-      expect(described_class.active_roles).to eq(UserRole.roles)
+    it "defines the four roles once, shared with UserRole and UserSession" do
+      expect(described_class.last_active_roles.keys).to eq(%w[customer courier merchant_owner admin])
+      expect(described_class.last_active_roles).to eq(UserRole.roles)
+      # All three must agree, or a switch writes a role the other side cannot
+      # read back.
+      expect(UserSession.active_roles).to eq(UserRole.roles)
     end
 
     it "defines account status" do
@@ -83,21 +86,12 @@ RSpec.describe User, type: :model do
     end
   end
 
-  describe "#switch_role!" do
-    let(:user) { create(:user, active_role: :customer) }
-
-    it "switches to a role the user holds" do
-      create(:user_role, user: user, role: :courier)
-
-      expect(user.switch_role!(:courier)).to be_truthy
-      expect(user.reload.active_role).to eq("courier")
-    end
-
-    # Returns false rather than raising, so a stale client cannot 500 the
-    # endpoint by asking for a role that was revoked.
-    it "refuses a role the user does not hold, and does not raise" do
-      expect(user.switch_role!(:admin)).to be false
-      expect(user.reload.active_role).to eq("customer")
+  # Switching moved to `UserSession`, because which mode the app is in is a
+  # fact about a DEVICE. What is left here is the preference that seeds the
+  # next new session — see spec/models/user_session_spec.rb.
+  describe "#last_active_role" do
+    it "does not answer for a device, and says so by not existing" do
+      expect(create(:user)).not_to respond_to(:switch_role!)
     end
   end
 

@@ -147,6 +147,103 @@ RSpec.describe UserSession, type: :model do
     end
   end
 
+  # ── WHICH MODE THIS DEVICE IS IN ────────────────────────────────────────────
+  #
+  # This lived on `users`, which meant one human had one mode everywhere. The
+  # specs below are the three things that has to mean.
+  describe "#switch_role!" do
+    let(:user) { create(:user, :customer) }
+    let(:session) { described_class.issue!(user).first }
+
+    it "switches to a role the user holds" do
+      user.user_roles.create!(role: :courier)
+
+      expect(session.switch_role!(:courier)).to be true
+      expect(session.reload.active_role).to eq("courier")
+    end
+
+    # Returns false rather than raising, so a stale client asking for a role
+    # that was revoked gets a clean refusal instead of a 500.
+    it "refuses a role the user does not hold, and does not raise" do
+      expect(session.switch_role!(:admin)).to be false
+      expect(session.reload.active_role).to eq("customer")
+    end
+
+    it "refuses a role that is not a role at all" do
+      expect(session.switch_role!("wizard")).to be false
+      expect(session.reload.active_role).to eq("customer")
+    end
+
+    # ONE DEVICE AT A TIME. A merchant keeps a tablet on the counter and a
+    # phone in his pocket; flipping the phone must not flip the tablet.
+    it "leaves the person's other devices in the mode they were in" do
+      user.user_roles.create!(role: :merchant_owner)
+      tablet = described_class.issue!(user, device_name: "counter tablet").first
+      tablet.switch_role!(:merchant_owner)
+
+      session.switch_role!(:customer)
+
+      expect(tablet.reload.active_role).to eq("merchant_owner")
+    end
+
+    # ...but the choice IS remembered, because a reinstall is a new session and
+    # a courier must not land back in the customer tab after one.
+    it "writes the choice through as the user's preference" do
+      user.user_roles.create!(role: :courier)
+
+      expect { session.switch_role!(:courier) }
+        .to change { user.reload.last_active_role }.from("customer").to("courier")
+    end
+
+    # The false return must mean ONE thing. `update` returning false made "you
+    # do not hold that role" and "the write failed" indistinguishable, so a
+    # failed save was reported to the user as a permissions problem.
+    it "raises rather than returning false when the write itself fails" do
+      user.user_roles.create!(role: :courier)
+      allow(session).to receive(:update!).and_raise(ActiveRecord::RecordInvalid.new(session))
+
+      expect { session.switch_role!(:courier) }.to raise_error(ActiveRecord::RecordInvalid)
+    end
+
+    it "leaves the preference alone when the session write fails" do
+      user.user_roles.create!(role: :courier)
+      allow(session).to receive(:update!).and_raise(ActiveRecord::RecordInvalid.new(session))
+
+      expect { session.switch_role!(:courier) rescue nil }
+        .not_to change { user.reload.last_active_role }
+    end
+  end
+
+  describe ".issue! and the mode a new device opens in" do
+    it "opens in the customer tab for a brand new account" do
+      record, = described_class.issue!(create(:user))
+
+      expect(record.active_role).to eq("customer")
+    end
+
+    # THE REASON THE COLUMN ON `users` WAS KEPT RATHER THAN DROPPED. A
+    # reinstall is a new session, so without a preference a courier reinstalling
+    # mid-shift would open in the customer tab with no jobs in it.
+    it "opens where the person left off" do
+      user = create(:user, :courier, last_active_role: :courier)
+
+      record, = described_class.issue!(user)
+
+      expect(record.active_role).to eq("courier")
+    end
+
+    # A demoted courier must not be seeded into a tab that has nothing in it
+    # and no way to explain why.
+    it "falls back to customer when the person no longer holds that role" do
+      user = create(:user, last_active_role: :courier)
+      user.user_roles.create!(role: :customer)
+
+      record, = described_class.issue!(user)
+
+      expect(record.active_role).to eq("customer")
+    end
+  end
+
   describe "revoking one device does not revoke the others" do
     it "leaves sibling sessions alive" do
       user = create(:user)
