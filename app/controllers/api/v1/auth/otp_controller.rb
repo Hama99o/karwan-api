@@ -11,6 +11,17 @@ class Api::V1::Auth::OtpController < ApplicationController
   throttle to: 60, within: 1.hour, by: :ip, only: :create
 
   def create
+    # SWITCHED OFF, not deleted. Hamma9900 replaced the code with a password
+    # and said "for now", so this refuses with a machine-readable code the app
+    # can render — rather than sending an SMS, which is the one real per-unit
+    # cost in this system and would be spent on a flow nothing uses.
+    unless Users::SignInService.enabled?
+      return render_unprocessable_entity(
+        "signing in with a code is switched off — use your password",
+        code: "otp_disabled"
+      )
+    end
+
     # Read rather than `require`: `params.require` treats a blank string as
     # missing and raises, which returns a bare 400 with no machine-readable
     # code — and a client rendering Pashto has nothing to translate from that.

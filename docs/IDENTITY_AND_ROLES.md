@@ -5,15 +5,49 @@
 > do, and how they get in. If a change would contradict this file, the change is wrong — bring
 > it to Hamma9901 rather than working around it.
 
-Read `CLAUDE.md` corrections 2, 9, 10, 15 and 18 alongside this.
+Read `CLAUDE.md` corrections 2, 9, 10, 15 and 18 alongside this. **Correction 2 is struck**
+and correction 10's "no email, no password" no longer holds — §1 below replaces both, and the
+reason is at the top of it.
 
 ---
 
-## 1. One person, one phone, one account
+## 1. One person, one account, two ways to name it
+
+> **REWRITTEN 16 SEPT 2026.** This section used to say "no email, no password" and describe a
+> phone-plus-OTP login. Hamma9900 struck that after seeing the code screen on a device:
+> *"We will not use OTP. We will have login simple with email and password or phone number and
+> password."* `CLAUDE.md` correction 2 is struck with it. The OTP machinery is **retained and
+> switched off**, not deleted — see the end of this section.
+
+### The argument that settles it, and it is not a UX argument
+
+**Google Play requires an email address to publish an app at all.** So does the App Store.
+Hamma9900 cannot ship Karwan to a single phone without holding a Google account, which means
+**email was never avoidable for this platform** — it was only ever avoidable for its *users*.
+
+That reframes the original reasoning, which was true and still reached the wrong conclusion.
+"Many Afghan users have no email" is a fact about users; it was turned into "the system must
+not have email", which does not follow. Once the owner is standing in a Google account in
+order to publish, refusing a user the option of an email address is a restriction with
+nothing behind it — and it costs the one identifier that works when a SIM is swapped, a
+number is recycled, or a handset is shared.
+
+And the second half of the original argument turned out to point the other way too. **An SMS
+code is not the simplest login; it is the slowest one.** It needs a message to arrive on a
+weak network, six digits read off a lock screen and typed into another app, inside five
+minutes, and it costs real money per attempt — the single recurring per-unit cost in v0
+(correction 6). A password in one field needs none of that and works with no signal at all
+except the request itself. Correction 10 asks for **the simplest thing in the app**; that is
+the requirement, and OTP was one reading of it rather than the requirement itself.
+
+### The shape
 
 ```
-users                       ← ONE row per human. Identity = phone, unique index.
-  phone (unique)               No email. No password. No username.
+users                       ← ONE row per human. TWO ways to name them, both unique.
+  phone (NOT NULL, unique)     the GUARANTEED identifier
+  email (nullable, unique)     the ADDITIONAL identifier — partial index, WHERE NOT NULL
+  encrypted_password           Devise :database_authenticatable, bcrypt
+  reset_password_token         Devise :recoverable
   name, locale, status
       │
       ├── user_roles        ← one row per role this human HOLDS
@@ -27,10 +61,74 @@ users                       ← ONE row per human. Identity = phone, unique inde
             active_role     ← which role THIS device is using
 ```
 
-**The phone number is the identity.** Not an email — in Afghanistan many users have none, and
-it is one more thing to type on a bad connection. Email exists in exactly one place in this
-platform: `admin_users`, a separate table for a browser login with a password, so that no
-customer or courier token can ever reach an admin screen.
+**Phone is the guaranteed identifier; email is the additional one.** The asymmetry is in the
+schema, not in a comment:
+
+- **`phone` is NOT NULL and unique.** Everyone has one, a courier has to be ringable, and a
+  customer has to be reachable when the rider is at the wrong blue gate. Registration
+  requires it.
+- **`email` is nullable and unique.** Accepted, never required. Requiring it would lock out
+  the two cases that are normal here and nowhere else: a **sideloaded APK** passed over
+  Bluetooth or WhatsApp, whose owner may hold no Google account at all, and a **shared
+  handset** whose Gmail belongs to somebody's brother. The app asks for both; the API refuses
+  neither.
+- The unique index on email is **partial — `WHERE email IS NOT NULL`**. Postgres already
+  treats NULLs as distinct, but an empty *string* is not NULL, and two accounts saved with
+  `email: ""` would collide on a plain index and be refused for no reason a user could
+  understand. `presence` in `Users::RegistrationService` plus the partial index is what makes
+  both things true at once: many accounts with no email, at most one per real address.
+
+**One field on the screen, not two and not a toggle.** `Users::Identifier` resolves what was
+typed by its shape — an `@` means email (downcased), anything else is normalised as a phone
+number. Two fields is a decision the user has to make and a screen they can get wrong, and
+`AFGHAN_UX.md` asks for the fewest taps and the fewest choices.
+
+**Normalise before the uniqueness check, always.** `0700000801` and `+93700000801` are the
+same phone. A uniqueness check on the raw string lets one person hold two accounts, which in
+a cash business means two wallets and two credit lines. `PhoneNumbers.normalise` runs in a
+`before_validation`, so there is no path that skips it.
+
+### One failure for every wrong credential
+
+`Users::PasswordSignInService` answers **`invalid_credentials`** for all of: no such account,
+a deleted account, an account with no password yet, and a wrong password. Told apart, this
+form is an **account-existence oracle** — type an address, learn whether that person uses
+Karwan. In one Kabul neighbourhood where everyone knows everyone that is a real privacy leak
+rather than a theoretical one, and the people most exposed by it are exactly the ones
+`AFGHAN_UX.md` §7 is about.
+
+The password is verified **even when no account was found**, against a decoy bcrypt digest,
+because otherwise the *response time* is the oracle the shared message closes.
+
+**The one case told apart is a SUSPENDED account** — 403 `account_unavailable` — because the
+password was right. "Try again" would be a lie, and that person needs to ring support.
+
+**The same rule applies to the reset door.** A login form and a reset form are two doors to
+the same question, so `POST /auth/password_reset` answers identically whether or not the
+account exists, and reports its channel from the *shape of what was typed* rather than from
+the account.
+
+### No verification step
+
+Hamma9900: *"For now no authentication."* In context — he had just described the login — that
+means no verification: no OTP, no emailed confirmation link. Register, set a password, you are
+in, and `phone_verified_at` stays nil.
+
+**What that costs, recorded rather than glossed:** a mistyped phone number reaches a courier
+who then cannot ring the customer. The mitigation is operational rather than technical — the
+courier is standing outside the address and calls, and support is a human with a phone number
+in the app. It is a real cost and it is his call.
+
+### OTP is retained, switched off, and has a new job
+
+The table, the throttle, the SMS adapter and their tests are all built and all kept, behind
+the `otp_sign_in_enabled` setting (default **false**). `Api::V1::Auth::OtpController` refuses
+with `otp_disabled` rather than sending a message, because an SMS is the one real per-unit
+cost in v0 and spending it on a flow no client drives is spending Hamma9900's money.
+
+He said "for now", and it earned its keep: **a one-time code is now the password-RESET
+channel**, which is what a one-time code is actually good for — rare, and where the friction
+is the point rather than a tax on every login. See §5.
 
 **Why one account and not four.** A courier orders food. A restaurant owner takes taxis. They
 are one human with several capabilities, and the platform must always know it:
@@ -122,10 +220,14 @@ phone leaves no courier-shaped session behind.
 
 ## 5. The login flow
 
+> **REWRITTEN 16 SEPT 2026** alongside §1. The mechanism is an identifier and a password; the
+> doors either side of it are unchanged, because it was never the doors Hamma9900 objected to.
+
 ```
-                    ┌──────────────────────────┐
-                    │  phone  →  OTP  →  in    │   one mechanism, always
-                    └────────────┬─────────────┘
+              ┌──────────────────────────────────────────┐
+              │  one field: email OR phone   →  password  │  one mechanism, always
+              │  resolved by SHAPE, not by a toggle       │
+              └──────────────────┬───────────────────────┘
                                  │
               ┌──────────────────┴──────────────────┐
               │                                     │
@@ -140,12 +242,66 @@ phone leaves no courier-shaped session behind.
 **Customer is the default and is never asked.** Asking "what are you?" of somebody who wants a
 kebab is a question that loses users. The partner path is a second, quieter action.
 
-**One login mechanism, always: phone + OTP.** Never a second flow per role. Three login paths
-would mean three OTP paths, three throttles, three SMS bills and three copies of bugs already
-paid for once — and the phone number is the identity, so one human would need three phones.
+**One login mechanism, always.** Never a second flow per role. Three login paths would mean
+three credential paths, three throttles and three copies of bugs already paid for once — and
+one human holds one account, so a courier who also orders food would need two.
 
-**Browse before login.** A first-time user sees restaurants before being asked for anything;
-the phone number is requested at the cart. See correction 10.
+**Three endpoints, and they are three because a password forces it.** Under OTP, signing up
+and signing in were the *same* action: possessing the phone was the proof, so a new number
+created an account and a known one signed in. With a password they cannot be one — "sign me
+in" needs the account to exist and "make me an account" needs a password to be chosen.
+Folding them together means a mistyped digit silently registering a second account with its
+own wallet.
+
+| | What it is |
+|---|---|
+| `POST /api/v1/auth/registration` | make an account. Phone + password required, email optional, granted `customer` |
+| `POST /api/v1/auth/session` | sign in. One identifier, one password |
+| `POST` / `PUT /api/v1/auth/password_reset` | ask for a code, then spend it |
+
+**Browse before login.** A first-time user sees restaurants before being asked for anything.
+See correction 10 — that part of it stands unchanged.
+
+### Forgotten password → a CODE, never a link
+
+This is where the retained OTP machinery does its real job, and the shape is **forced by
+correction 16: there is no web app**, so there is no page for a reset link to open.
+`hatiwal-api/app/mailers/user_mailer.rb` sends a token in a URL on hatiwal.com; Karwan has
+nowhere equivalent, and a deep link back into the app opened from a webview on a cheap
+Android fails silently with no way to recover. So the person types a six-digit code into the
+app, exactly as they would have typed a login code — once, when they have actually lost
+something, rather than on every sign-in.
+
+- **The code is always issued against `user.phone`**, whichever identifier was typed, because
+  phone is the one key every account has. That also puts email resets behind the **same**
+  counter that protects the SMS bill rather than behind a second one nobody tuned.
+- **It is delivered on the channel the identifier named** — an `@` means the email, anything
+  else means an SMS. So a user with no email is never told to check one.
+- **The code is never returned in the response, in any environment.** `POST /auth/otp` does
+  return its code outside production so the QA rig can drive a sign-in; doing the same here
+  would mean anybody who can type an address takes over an account on any non-production
+  deploy, and "it is only staging" is how that ships.
+- **A code issued to one account cannot reset another.** The lookup is by the *resolved
+  user's* phone, never by the phone that asked — otherwise anyone could reset the account of
+  anyone whose email they know by requesting a code for their own number. It is the worst
+  failure available in this flow and it has its own test.
+- **Completing a reset revokes every other session.** A reset is what somebody does when they
+  think another person has their password; leaving that person's token alive makes it
+  theatre. On a shared handset (`AFGHAN_UX.md` §7) that person is often still holding the
+  phone.
+- **It signs them in on this device immediately, as `customer`.** Sending somebody who just
+  proved they hold the phone back to the login screen to retype a password they set four
+  seconds ago is a dead end for a user who is already frustrated — and a reset proves
+  possession of a phone, which is not evidence that anybody approved them to carry cash.
+- **The SMS is worded differently from the sign-in code, deliberately.** "Your code is
+  123456" could mean either, and an ambiguous code SMS is exactly what a phishing message
+  imitates. Somebody who did *not* ask for it has to be able to tell what it is for.
+
+**Still blocked on Hamma9900, and it is the same blocker as before:** the SMS gateway. Phone
+is the guaranteed identifier, so for most accounts the reset is an SMS — and no real Afghan
+phone can receive one until he picks a provider. The email half works today once SMTP has its
+four environment variables. That is a narrower gap than it was: an SMS gateway used to be
+required to *log in at all*, and is now required only to *recover* an account.
 
 ### Picking a role you do not hold → the FORM, never an error
 
@@ -237,3 +393,22 @@ Each of these encodes a rule above. Prove each one fails by planting the bug bac
    and the accept path.
 8. A suspended user's valid token stops working.
 9. Choosing an unheld partner role returns the application path, not an error.
+
+**Added with the password login (§1, §5), and each one has been planted and proven red:**
+
+10. **An unknown identifier and a wrong password give the identical answer** — same status,
+    same code, same message. The oracle rule, and the plant is to tell them apart.
+11. **The same is true of the reset door**, whose response must not depend on whether the
+    account exists.
+12. **A local `07…` number and a `+937…` number are one account** — asserted at
+    registration, at sign-in and in the seeds, because the check that matters happens
+    *after* normalisation and the plant is to check the raw string.
+13. **A second account may exist with no email**; one may not exist with a duplicate email.
+14. **A code issued to one account cannot reset another.** The plant is to look up any live
+    code rather than the resolved user's.
+15. **Completing a reset revokes every other session** but not the one it just issued.
+16. **The reset response never contains six digits**, in any environment.
+17. **The seeded QA accounts can actually sign in through the live path** — asked of the
+    sign-in service, not of the column, because "a hash is present" is not the claim. The
+    switch from a code to a password made every seeded account unreachable in one commit and
+    it would have presented as "the login is broken".

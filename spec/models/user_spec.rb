@@ -194,4 +194,82 @@ RSpec.describe User, type: :model do
       expect(described_class.find(user.id)).to eq(user)
     end
   end
+
+  # ── TWO IDENTIFIERS, ONE PASSWORD ───────────────────────────────────────────
+  #
+  # Hamma9900: *"We will not use OTP. We will have login simple with email and
+  # password or phone number and password."*
+  #
+  # The PHONE is the guaranteed identifier — NOT NULL and unique since the first
+  # migration, because a courier has to ring somebody. The EMAIL is the
+  # additional one. That asymmetry fits the market: a Play Store install
+  # requires a Google account, so a Play user has Gmail, while a SIDELOADED
+  # user (an APK over Bluetooth, which is common here) may have none, and on a
+  # SHARED HANDSET the Gmail may belong to somebody's brother.
+  describe "the identifiers" do
+    it "stores an email downcased, because nobody types it the same way twice" do
+      user = create(:user, email: " Ahmad@Gmail.COM ")
+
+      expect(user.email).to eq("ahmad@gmail.com")
+    end
+
+    it "refuses a second account on the same email, whatever the case" do
+      create(:user, email: "ahmad@gmail.com")
+
+      expect(build(:user, email: "AHMAD@gmail.com")).not_to be_valid
+    end
+
+    # ── MANY ACCOUNTS WITH NO EMAIL MUST COEXIST ────────────────────────────
+    #
+    # Postgres treats NULLs as distinct in a unique index, which is the
+    # behaviour we want and the reason the column can be nullable at all.
+    # Asserted rather than assumed, because the alternative — fabricating
+    # `+93700000801@something` to satisfy a NOT NULL — is worse than a null:
+    # it is unique, it looks real, and one day somebody registers that address
+    # for real.
+    it "allows any number of accounts with no email" do
+      expect(create(:user, email: nil)).to be_persisted
+      expect(create(:user, email: nil)).to be_persisted
+      expect(User.where(email: nil).count).to be >= 2
+    end
+
+    it "treats a blank email as no email rather than as a value" do
+      expect(create(:user, email: "")).to be_persisted
+      expect(create(:user, email: "   ").email).to be_nil
+    end
+
+    it "refuses something that is not an address" do
+      expect(build(:user, email: "not-an-address")).not_to be_valid
+    end
+
+    # THE SAME FAILURE ON THE OTHER FIELD, and worse: a second account gets its
+    # own wallet.
+    it "normalises the phone before it is stored" do
+      expect(create(:user, phone: "0700000901").phone).to eq("+93700000901")
+    end
+
+    it "refuses a second account on the same number written differently" do
+      create(:user, phone: "+93700000901")
+
+      expect(build(:user, phone: "0700000901")).not_to be_valid
+    end
+  end
+
+  describe "the password" do
+    it "is checked against the stored digest, never in the clear" do
+      user = create(:user, password: "a-long-enough-password")
+
+      expect(user.encrypted_password).not_to include("a-long-enough-password")
+      expect(user.valid_password?("a-long-enough-password")).to be true
+      expect(user.valid_password?("something else")).to be false
+    end
+
+    # Every account created before passwords existed signed in with a code.
+    # They are not broken and not locked out — they reset, which is what
+    # `:recoverable` is for.
+    it "knows when an account has none" do
+      expect(create(:user, :passwordless).password_set?).to be false
+      expect(create(:user, password: "a-long-enough-password").password_set?).to be true
+    end
+  end
 end

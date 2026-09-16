@@ -471,16 +471,44 @@ inside the API repo (`app/dashboards/`, `app/controllers/admin/`, `AdminAuditLog
 its own CLAUDE.md claiming the dashboard was never built. Hamma9900 has settled it:
 **Administrate, in `karwan-api`. One repo, one deploy.**
 
-**2. Do NOT use `devise_token_auth`, even though `hatiwal-api` does.** It authenticates on
-an **email uid**, which is incompatible with phone-as-identity — it would mean synthesising
-a fake email for every Kabul customer. **Phone + OTP is the product requirement and it beats
-the reference implementation.** Built instead: bcrypt-digested OTP codes and HMAC-digested
-session tokens.
+**2. ~~Phone + OTP is the login.~~ STRUCK BY HAMMA9900 ON 16 SEPT 2026 — the login is an
+email or a phone number, plus a password.** His words, after seeing the code screen on a
+device: *"We will not use OTP. We will have login simple with email and password or phone
+number and password."* And, asked why a code was needed at all: *"we don't need this."*
 
-The general rule this establishes, which matters beyond auth: **"mirror Hatiwal" means take
-its patterns and discipline, not its every dependency.** Where a Hatiwal choice contradicts
-a stated product requirement here, the requirement wins — say so rather than bending the
-product to the reference.
+The full reasoning, and what it means for the code, is `docs/IDENTITY_AND_ROLES.md` §1. The
+short version is the one that overturns the original argument: **Google Play requires an
+email address to publish an app at all**, so email was never avoidable for this platform —
+and once the owner has one, refusing to let a user have one is a restriction with nothing
+behind it. The OTP machinery is **retained and switched off** behind the
+`otp_sign_in_enabled` setting, not deleted, because he said "for now" — and it has since
+found a second job as the password-RESET channel, which is what a one-time code is actually
+good for.
+
+**What survives this correction unchanged, and it is the important half:**
+
+- **`devise_token_auth` is still refused.** It authenticates on an email **uid**, and email
+  is the *additional* identifier here, not the guaranteed one — a user with a phone and no
+  email must still be able to sign in. Built instead: Devise's `:database_authenticatable`
+  for the credential only, with `Users::Identifier` resolving one field by shape, and
+  HMAC-digested session tokens carrying a per-device `active_role`.
+- **Phone is still the identity.** It is NOT NULL and unique; email is nullable and unique.
+  A courier still has to be ringable.
+- **The general rule this correction established stands, and now cuts the other way too:**
+  *"mirror Hatiwal" means take its patterns and discipline, not its every dependency* — and
+  where a Hatiwal choice contradicts a stated product requirement here, the requirement
+  wins. That is what happened twice: once when the requirement was OTP, and once when
+  Hamma9900 changed the requirement. **The rule is to follow the stated requirement, not to
+  defend the last inference drawn from it.**
+
+**The lesson worth keeping.** This correction was argued from a real constraint — everyone
+has a phone, few have email — and was still wrong, because it treated a true fact about
+users as a conclusion about the login. Correction 10 ("the simplest thing in the app") is
+the requirement; OTP was one reading of it, and a password in one field turned out to be the
+simpler one: no SMS to wait for, no code to mistype, nothing to receive, and no per-message
+bill on the one recurring cost in v0. **State which part of a decision is the owner's
+requirement and which part is your inference from it, so the inference can be replaced
+without re-litigating the requirement.**
 
 **3. No Redis.** All three solid-queue/cache/cable adapters run on Postgres, so Redis was a
 container and a gem earning nothing. Dropped.
@@ -546,9 +574,12 @@ pool is the business thesis, and the same person takes a ride at 08:00 and a del
 between two kinds of people. Keep `courier` for the person, and use his words in the UI copy
 where they read naturally to an Afghan user.
 
-**10. The customer login must be the simplest thing in the app.** Phone, OTP, in. No email,
-no password, no profile-completion wall, no "create an account" framing before they have seen
-a single restaurant. Let them browse before they log in and ask for the phone number at the
+**10. The customer login must be the simplest thing in the app.** ~~Phone, OTP, in. No email,
+no password~~ — **the mechanism was struck with correction 2 on 16 Sept 2026; the requirement
+was not.** It is now one field taking an email or a phone number, plus a password, and that
+turned out to be the simpler reading: nothing to receive, nothing to wait for on a weak
+network, and no per-message bill. No profile-completion wall, no "create an account" framing
+before they have seen a single restaurant. Let them browse before they log in and ask for the phone number at the
 cart. A login screen is where a first-time user with a cheap phone and a bad connection gives
 up, and he is acquiring these users one conversation at a time.
 

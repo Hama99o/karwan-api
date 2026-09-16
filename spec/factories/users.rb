@@ -10,6 +10,25 @@ FactoryBot.define do
     status { :active }
     phone_verified_at { Time.current }
 
+    # ── A FIXTURE THAT CAN SIGN IN THE WAY A REAL USER DOES ──────────────────
+    #
+    # Every account registration produces has a password, so a factory whose
+    # users have none builds a person the app can no longer create — the same
+    # trap `docs/TESTING.md` records and the same one the `merchant_owner`
+    # comment below cost an afternoon over. Cheap here: Devise stretches are 1
+    # in test (config/initializers/devise.rb), so this is not the 1,400-example
+    # bcrypt tax it would be at 12.
+    password { "a-long-test-password" }
+
+    # AN ACCOUNT FROM BEFORE PASSWORDS EXISTED. Real, and it must stay
+    # expressible: `encrypted_password` defaults to "" rather than being
+    # backfilled, so every account that signed in with a code has one. It can
+    # reset, and until it does it must not be TOLD APART from a wrong password
+    # — see the sign-in spec.
+    trait :passwordless do
+      password { nil }
+    end
+
     trait :unverified do
       phone_verified_at { nil }
     end

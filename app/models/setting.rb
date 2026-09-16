@@ -61,6 +61,19 @@ class Setting < ApplicationRecord
     # somebody hammering one number — harassment, and a fast bill. The daily
     # limit caps what a single number can ever cost us, however patient the
     # caller is.
+    # ── OTP IS RETAINED AND OFF ───────────────────────────────────────────────
+    #
+    # Hamma9900: *"We will not use OTP"* — and *"for now"*. The table, the
+    # throttle, the SMS adapter and the whole verification flow are built and
+    # tested; deleting them is work now and work again later, so they are
+    # switched off behind this row instead.
+    #
+    # Turning it back on is one word in the console. While it is false,
+    # `POST /auth/otp` refuses with `otp_disabled` and `/auth/session` accepts
+    # only a password — so there is exactly one live login path, which is the
+    # thing that matters: two mechanisms would mean code deciding which to
+    # trust.
+    "otp_sign_in_enabled"      => { type: :boolean, default: "false", description: "Whether a customer can sign in with an SMS code instead of a password. Off: Hamma9900 chose email-or-phone plus a password. The flow is retained." },
     "otp_max_sends_per_window" => { type: :integer, default: "3", description: "OTP messages allowed to one number within the burst window" },
     "otp_send_window_minutes"  => { type: :integer, default: "15", description: "Length of the OTP burst window, in minutes" },
     "otp_max_sends_per_day"    => { type: :integer, default: "10", description: "Hard daily cap on OTP messages to one number" },
@@ -118,6 +131,27 @@ class Setting < ApplicationRecord
     "otp_sms_body_ps"        => { type: :string, default: "Karwan: your code is %{code}", description: "OTP message, Pashto. AWAITING TRANSLATION. Must contain %{code}." },
     "otp_sms_body_fa"        => { type: :string, default: "Karwan: your code is %{code}", description: "OTP message, Dari. AWAITING TRANSLATION. Must contain %{code}." },
     "otp_sms_body_en"        => { type: :string, default: "Karwan: your code is %{code}", description: "OTP message, English. Must contain %{code}." },
+
+    # ── FORGOTTEN-PASSWORD COPY, in the two channels a user can be reached ──
+    #
+    # Here for the same reason the OTP copy is: neither an SMS nor an email has
+    # a device to translate it, so the server holds the words — and holding
+    # them in `Setting` rows is what lets Hamma9900 paste real Pashto in
+    # without a deploy. Defaults are English placeholders on purpose.
+    #
+    # DISTINCT WORDING FROM THE OTP MESSAGE, deliberately: "your code is
+    # 123456" could mean signing in or resetting, and an ambiguous code SMS is
+    # exactly what a phishing message imitates. Somebody who did not ask for
+    # this has to be able to tell what it is.
+    "password_reset_sms_body_ps" => { type: :string, default: "Karwan: use %{code} to set a new password. If you did not ask for this, ignore it.", description: "Password-reset SMS, Pashto. AWAITING TRANSLATION. Must contain %{code}." },
+    "password_reset_sms_body_fa" => { type: :string, default: "Karwan: use %{code} to set a new password. If you did not ask for this, ignore it.", description: "Password-reset SMS, Dari. AWAITING TRANSLATION. Must contain %{code}." },
+    "password_reset_sms_body_en" => { type: :string, default: "Karwan: use %{code} to set a new password. If you did not ask for this, ignore it.", description: "Password-reset SMS, English. Must contain %{code}." },
+    "password_reset_email_subject_ps" => { type: :string, default: "Your Karwan password", description: "Password-reset email subject, Pashto. AWAITING TRANSLATION." },
+    "password_reset_email_subject_fa" => { type: :string, default: "Your Karwan password", description: "Password-reset email subject, Dari. AWAITING TRANSLATION." },
+    "password_reset_email_subject_en" => { type: :string, default: "Your Karwan password", description: "Password-reset email subject, English." },
+    "password_reset_email_body_ps" => { type: :string, default: "Use this code in the Karwan app to set a new password. If you did not ask for this, ignore this email.", description: "Password-reset email body, Pashto. AWAITING TRANSLATION. %{code} optional — the code is also shown on its own." },
+    "password_reset_email_body_fa" => { type: :string, default: "Use this code in the Karwan app to set a new password. If you did not ask for this, ignore this email.", description: "Password-reset email body, Dari. AWAITING TRANSLATION." },
+    "password_reset_email_body_en" => { type: :string, default: "Use this code in the Karwan app to set a new password. If you did not ask for this, ignore this email.", description: "Password-reset email body, English." },
 
     # Ride fares. Present so the numbers are tunable from day one, exactly like
     # the delivery fee — NOT because the ride product is built. Distance comes

@@ -11,7 +11,71 @@ RSpec.describe "Rate limiting", type: :request do
     JSON.parse(response.body)
   end
 
+  # Turns the retained code flow back on, for the examples that drive it. The
+  # OTP endpoint refuses with `otp_disabled` otherwise, and a 422 is not a
+  # statement about the limiter.
+  def enable_otp!
+    Setting.find_or_initialize_by(key: "otp_sign_in_enabled")
+           .update!(value: "true", value_type: :boolean)
+  end
+
+  # ── THE DOORS THAT ACTUALLY HAND OUT A SESSION TODAY ──────────────────────
+  #
+  # These three replaced the OTP endpoint as the live entrances when Hamma9900
+  # switched to a password. The distinction matters for the limiter: an
+  # unthrottled endpoint here is somebody working through a list of numbers on
+  # the owner's infrastructure, and on `password_reset` it is his SMS bill.
   describe "the endpoints that hand out a session" do
+    it "eventually limits SIGN-IN attempts from one address" do
+      121.times { post "/api/v1/auth/session", params: { identifier: "+93700001234", password: "wrong" } }
+
+      expect(response).to have_http_status(:too_many_requests)
+      expect(json["code"]).to eq("rate_limited")
+    end
+
+    it "does not limit a normal number of sign-in attempts" do
+      create(:user, phone: "+93700001234", password: "a-long-enough-password")
+
+      5.times { post "/api/v1/auth/session", params: { identifier: "+93700001234", password: "a-long-enough-password" } }
+
+      expect(response).to have_http_status(:created)
+    end
+
+    # Tighter than sign-in, because an account is a row AND a wallet.
+    it "eventually limits REGISTRATIONS from one address" do
+      31.times do |i|
+        post "/api/v1/auth/registration",
+             params: { phone: "+9370001#{i.to_s.rjust(4, '0')}", password: "a-long-enough-password" }
+      end
+
+      expect(response).to have_http_status(:too_many_requests)
+      expect(json["code"]).to eq("rate_limited")
+    end
+
+    # THE TIGHTEST OF THE THREE, and the only one that spends money: every
+    # attempt here can send an SMS. The per-phone counter inside
+    # OtpVerification cannot see a script working through a list of ADDRESSES,
+    # which is what this limit is for.
+    it "eventually limits PASSWORD RESET requests from one address" do
+      21.times { |i| post "/api/v1/auth/password_reset", params: { identifier: "someone#{i}@example.com" } }
+
+      expect(response).to have_http_status(:too_many_requests)
+      expect(json["code"]).to eq("rate_limited")
+    end
+
+    it "does not limit somebody legitimately mistyping their email twice" do
+      2.times { post "/api/v1/auth/password_reset", params: { identifier: "ahmad@gmail.com" } }
+
+      expect(response).to have_http_status(:ok)
+    end
+  end
+
+  # The retained flow keeps its limits, and they keep being tested — a switched
+  # off path whose protections have quietly rotted is worse than a deleted one,
+  # because switching it back on looks free.
+  describe "the retained OTP endpoint" do
+    before { enable_otp! }
+
     # Keyed on IP because there is no user yet, and kept GENEROUS: mobile users
     # in Afghanistan sit behind carrier-grade NAT, so a whole neighbourhood can
     # share one address.
@@ -35,6 +99,17 @@ RSpec.describe "Rate limiting", type: :request do
 
       expect(response).to have_http_status(:too_many_requests)
       expect(json["code"]).to eq("otp_throttled")
+    end
+
+    # THE LIMIT STILL APPLIES WHILE THE FLOW IS OFF. `throttle` runs as a
+    # before_action, ahead of the refusal — so a script hammering a disabled
+    # endpoint is still capped rather than handed a free 422 loop.
+    it "limits the endpoint even when the flow is switched off" do
+      Setting.find_by(key: "otp_sign_in_enabled").update!(value: "false")
+
+      61.times { |i| post "/api/v1/auth/otp", params: { phone: "+9370000#{i.to_s.rjust(4, '0')}" } }
+
+      expect(response).to have_http_status(:too_many_requests)
     end
   end
 
@@ -95,25 +170,30 @@ RSpec.describe "Rate limiting", type: :request do
   end
 
   describe "safety properties" do
-    # THE IMPORTANT ONE. An unreachable cache must not turn sign-in into a 500.
-    # Losing a limit for the duration of an outage is far cheaper than losing
-    # the endpoint.
+    # THE IMPORTANT ONE, and now asserted on THE LIVE SIGN-IN rather than on the
+    # disabled code endpoint. That is what this example always meant — the
+    # header of this file says "a limiter that turns sign-in into a 500 during a
+    # cache outage is worse than no limiter" — and it was quietly testing a door
+    # nobody walks through any more. Losing a limit for the duration of an
+    # outage is far cheaper than losing the endpoint.
     it "FAILS OPEN when the cache store is broken" do
+      create(:user, phone: "+93700001234", password: "a-long-enough-password")
       allow(RateLimitable.store).to receive(:increment).and_raise(Redis::CannotConnectError) if defined?(Redis)
       allow(RateLimitable.store).to receive(:increment).and_raise(StandardError, "cache is gone")
 
-      post "/api/v1/auth/otp", params: { phone: "+93700001234" }
+      post "/api/v1/auth/session", params: { identifier: "+93700001234", password: "a-long-enough-password" }
 
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(:created)
     end
 
     it "reports the failure rather than swallowing it" do
+      create(:user, phone: "+93700001234", password: "a-long-enough-password")
       allow(RateLimitable.store).to receive(:increment).and_raise(StandardError, "cache is gone")
       expect(Rails.error).to receive(:report).at_least(:once).and_call_original
 
-      post "/api/v1/auth/otp", params: { phone: "+93700001234" }
+      post "/api/v1/auth/session", params: { identifier: "+93700001234", password: "a-long-enough-password" }
 
-      expect(response).to have_http_status(:ok)
+      expect(response).to have_http_status(:created)
     end
 
     # The test environment defaults to :null_store, whose increment always

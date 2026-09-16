@@ -1016,3 +1016,72 @@ edu-safi had five endpoints where the correct scope existed, was correct, and wa
 never consulted. Write the scope **and use it**, and add a request spec proving
 both the refusal and the legitimate path. The analogue here is
 `merchant_id` — belonging to a merchant is not permission to act on it.
+
+---
+
+## The password login — what is honest about it, and what is still open
+
+Landed 16 Sept 2026 (see `REQUIREMENTS.md` and `IDENTITY_AND_ROLES.md` §1/§5).
+The gaps below are recorded because they are real, not because they are
+blocking.
+
+**1. The reset endpoint has a residual TIMING difference, and it is not closed.**
+`POST /auth/password_reset` returns an identical status and body whether or not
+the account exists, and the bcrypt cost of issuing a code is spent either way so
+the dominant CPU asymmetry is equalised. **Delivery is not**: a found account
+sends an SMS or enqueues mail, and an unknown one does nothing. That is
+measurable from outside with enough samples. The mitigations are the IP throttle
+(20/hour, tighter than sign-in) and the fact that the *message* — the part
+Hamma9900's instruction was about — is identical. Closing it properly means
+enqueuing a no-op job for the unknown branch; noted rather than done, because it
+trades a real oracle narrowing for a queue full of decoy jobs.
+
+**2. Being THROTTLED implies an account exists.** `reset_throttled` is only
+reachable when a code was actually issued, so a script that sees it learns the
+identifier is real. Accepted deliberately: the alternative is a silent no-op,
+which leaves somebody who genuinely forgot their password tapping a dead button
+with no idea they have to wait. A dead end for a real user is worse than a slow
+leak to an attacker who could learn the same thing by other means.
+
+**3. `phone_verified_at` is now always nil, and stays in the schema.** The only
+thing that ever set it was the OTP sign-in, which is switched off, and
+registration leaves it nil because there is no verification step. It is not
+removed because the column is where a verification step would land if Hamma9900
+ever wants one, and because "no verification" is a *product* decision that could
+reverse, unlike the one-way doors. **Do not write code that reads it as
+meaningful**; today it encodes nothing.
+
+Both seed files were still stamping it, which made every fixture account
+`phone_verified: true` while every real account is false — a state the app can no
+longer produce, found by reading the field off a live HTTP sign-in rather than
+out of a spec. Now unset in both. Nothing branches on it (one serializer field,
+one console column, no policy, no client), so the visible effect is that the ops
+console shows fixtures the way it shows real users.
+
+**4. Accounts with no password exist and must keep working.**
+`encrypted_password` defaults to `""` rather than being backfilled, so every
+account that ever signed in with a code has one. They are not locked out — they
+reset — and critically they are **not distinguishable** from a wrong password at
+the login, or the oracle reopens through the back. The `:passwordless` factory
+trait exists to keep that case testable.
+
+**5. The email reset cannot be end-to-end verified here.** SMTP takes four
+environment variables and there is no mail server on this box, so the mailer is
+proven at the message layer (`UserMailer.password_reset` — recipient, code in
+both parts, RTL, LTR-isolated digits, Setting-driven copy) and the delivery is
+`deliver_later` into solid_queue. **Verified at the layer below the wire**, and
+that is the honest sentence: nobody has watched this email arrive.
+
+**6. The QA rig's sign-in step changed shape and the mobile half is not done.**
+`db/seeds/e2e.rb` now sets `E2E_PASSWORD` and gives each fixture account an
+email; `qa/lib/common.sh` in karwan-mobile holds the other half of that contract
+and still expects to read a code out of `POST /auth/otp`, which now answers
+`otp_disabled`. **That is a clear failure rather than a confusing one**, which is
+why it was left rather than reached across the repo boundary. It has to change
+with the mobile sign-in screen, in one pass.
+
+**7. Three endpoints where there used to be one.** Registration is now separate
+from sign-in, because a password forces it — "sign me in" needs the account to
+exist and "make me an account" needs a password chosen. The mobile app therefore
+needs **two** screens' worth of API calls where it had one, plus the reset. That
+is queued with the sign-in screen and the 16 held locale keys.

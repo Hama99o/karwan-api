@@ -25,12 +25,26 @@ class Api::V1::Auth::SessionsController < ApplicationController
   def create
     requested_role = params[:role].presence
 
-    user, token, session = Users::SignInService.new(
-      phone: params.require(:phone), code: params.require(:code),
-      name: params[:name], locale: params[:locale],
-      device_name: params[:device_name], platform: params[:platform],
-      requested_role: requested_role
-    ).call
+    user, token, session =
+      if params[:code].present?
+        # THE RETAINED PATH, refused unless somebody switches it back on. It is
+        # reached only by a client that sends a code, and no current client
+        # does — see `Setting::DEFINITIONS["otp_sign_in_enabled"]`.
+        Users::SignInService.new(
+          phone: params.require(:phone), code: params[:code],
+          name: params[:name], locale: params[:locale],
+          device_name: params[:device_name], platform: params[:platform],
+          requested_role: requested_role
+        ).call
+      else
+        # ONE FIELD, EITHER IDENTIFIER, ONE PASSWORD.
+        Users::PasswordSignInService.new(
+          identifier: params[:identifier].presence || params[:phone] || params[:email],
+          password: params[:password],
+          device_name: params[:device_name], platform: params[:platform],
+          requested_role: requested_role
+        ).call
+      end
 
     body = {
       token: token,
@@ -58,6 +72,21 @@ class Api::V1::Auth::SessionsController < ApplicationController
     end
 
     render json: body, status: :created
+  # ── ONE FAILURE FOR EVERY WRONG CREDENTIAL ────────────────────────────────
+  #
+  # No such account, a deleted account, an account with no password yet and a
+  # wrong password all answer the same way. Told apart, this endpoint is an
+  # account-existence oracle — type an address, learn whether that person uses
+  # Karwan — and in one neighbourhood where everyone knows everyone that is a
+  # real privacy leak.
+  rescue Users::PasswordSignInService::InvalidCredentials => e
+    render_unprocessable_entity(e.message, code: "invalid_credentials")
+  # SUSPENSION IS TOLD APART, because the password was right and "try again"
+  # would be a lie: that person needs to ring support.
+  rescue Users::PasswordSignInService::AccountUnavailable => e
+    render json: { error: e.message, code: "account_unavailable" }, status: :forbidden
+  rescue Users::SignInService::Disabled => e
+    render_unprocessable_entity(e.message, code: "otp_disabled")
   rescue Users::SignInService::NoCodeIssued => e
     render_unprocessable_entity(e.message, code: "otp_not_issued")
   rescue Users::SignInService::CodeNoLongerValid => e

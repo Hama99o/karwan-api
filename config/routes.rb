@@ -96,8 +96,18 @@ Rails.application.routes.draw do
       # yet — and throttled because SMS costs real money.
       namespace :auth do
         post "otp", to: "otp#create"
+        # SIGN-UP IS ITS OWN ENDPOINT NOW. Under OTP it was the same action as
+        # signing in, because holding the phone was the proof. With a password
+        # it cannot be: one needs the account to exist and the other needs it
+        # not to.
+        post "registration", to: "registrations#create"
         post "session", to: "sessions#create"
         delete "session", to: "sessions#destroy"
+        # FORGOTTEN PASSWORD, in two steps. `post` asks for a code and `put`
+        # spends it — one resource, not two endpoints called "request" and
+        # "confirm". Singular because it is one person's one reset.
+        post "password_reset", to: "password_resets#create"
+        put "password_reset", to: "password_resets#update"
       end
 
       # Guest-browsable. Deliberately not under a role namespace, because it

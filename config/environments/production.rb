@@ -50,21 +50,48 @@ Rails.application.configure do
   config.active_job.queue_adapter = :solid_queue
   config.solid_queue.connects_to = { database: { writing: :queue } }
 
-  # Ignore bad email addresses and do not raise email delivery errors.
-  # Set this to true and configure the email server for immediate delivery to raise delivery errors.
-  # config.action_mailer.raise_delivery_errors = false
+  # ── OUTGOING MAIL: SMTP, EVERY VALUE FROM A VARIABLE ─────────────────────
+  #
+  # Hamma9901 asked which provider. The answer is DELIBERATELY NONE: plain
+  # SMTP, with the host, port, user and password all from the environment, so
+  # picking a provider later is four env vars rather than a gem, a deploy and a
+  # keyed API. `hatiwal-api/config/environments/production.rb` does the same
+  # thing (read, per correction 15) with its credentials store; the only change
+  # here is ENV rather than credentials, because Hamma9900's standing
+  # instruction is that every host and credential comes from a variable so the
+  # server that does not exist yet is five minutes of work.
+  #
+  # It also keeps correction 14 intact. A transactional-email SDK would be a
+  # third keyed dependency with a bill; SMTP is a protocol, and the same config
+  # points at a Postfix on his own VPS if he would rather not have one at all.
+  #
+  # WHAT MAIL IS ACTUALLY FOR HERE, so nobody over-invests: the ops console's
+  # Devise reset, and the user password-reset CODE for the minority of accounts
+  # that have an email at all. Phone is the guaranteed identifier
+  # (docs/IDENTITY_AND_ROLES.md §1), so SMS — not email — is the channel that
+  # has to work, and that is still waiting on the gateway Hamma9900 has to
+  # choose.
+  config.action_mailer.raise_delivery_errors = true
+  config.action_mailer.delivery_method = :smtp
+  config.action_mailer.smtp_settings = {
+    address: ENV.fetch("SMTP_ADDRESS", "localhost"),
+    port: ENV.fetch("SMTP_PORT", 587).to_i,
+    user_name: ENV["SMTP_USER_NAME"],
+    password: ENV["SMTP_PASSWORD"],
+    domain: ENV.fetch("SMTP_DOMAIN", "karwan.af"),
+    authentication: :plain,
+    enable_starttls_auto: true
+  }.compact
 
   # Set host to be used by links generated in mailer templates.
-  config.action_mailer.default_url_options = { host: "example.com" }
-
-  # Specify outgoing SMTP server. Remember to add smtp/* credentials via bin/rails credentials:edit.
-  # config.action_mailer.smtp_settings = {
-  #   user_name: Rails.application.credentials.dig(:smtp, :user_name),
-  #   password: Rails.application.credentials.dig(:smtp, :password),
-  #   address: "smtp.example.com",
-  #   port: 587,
-  #   authentication: :plain
-  # }
+  #
+  # Present for the ops console's own Devise mail, which DOES link. The user
+  # password reset deliberately does not: correction 16 means there is no web
+  # page for a link to open, so that email carries a code the person types into
+  # the app (Users::PasswordResetService).
+  config.action_mailer.default_url_options = {
+    host: ENV.fetch("APP_DOMAIN", "api.karwan.af"), protocol: "https"
+  }
 
   # Enable locale fallbacks for I18n (makes lookups for any locale fall back to
   # the I18n.default_locale when a translation cannot be found).

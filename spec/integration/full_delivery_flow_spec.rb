@@ -15,10 +15,20 @@ RSpec.describe "A delivery, end to end", type: :request do
     JSON.parse(response.body)
   end
 
+  # ── THE WAY IN THAT A REAL PERSON WALKS, WHICH CHANGED SHAPE ───────────────
+  #
+  # This used to type a phone, read the code out of `POST /auth/otp` and type it
+  # back. Hamma9900 replaced that with a password, and the endpoint no longer
+  # even sends a code — so this helper had to change or the most valuable spec
+  # in the suite would be walking a road nobody drives.
+  #
+  # It REGISTERS, because under a password sign-up and sign-in are two actions:
+  # the customer in this flow is a brand-new person who has just installed the
+  # app, and registering is what they do. That is the honest end-to-end path and
+  # it exercises the endpoint that did not exist a day ago.
   def sign_in(phone, name: nil)
-    post "/api/v1/auth/otp", params: { phone: phone }
-    code = JSON.parse(response.body).fetch("development_code")
-    post "/api/v1/auth/session", params: { phone: phone, code: code, name: name }
+    post "/api/v1/auth/registration",
+         params: { phone: phone, password: "a-long-enough-password", name: name }
     { "Authorization" => "Bearer #{JSON.parse(response.body).fetch('token')}" }
   end
 

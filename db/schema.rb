@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_16_142008) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_16_161228) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -574,15 +574,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_16_142008) do
   create_table "users", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.datetime "deleted_at"
+    t.string "email"
+    t.string "encrypted_password", default: "", null: false
     t.integer "last_active_role", default: 0, null: false
     t.string "locale", default: "fa", null: false
     t.string "name"
     t.string "phone", null: false
     t.datetime "phone_verified_at"
+    t.datetime "reset_password_sent_at"
+    t.string "reset_password_token"
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
     t.index ["deleted_at"], name: "index_users_on_kept", where: "(deleted_at IS NULL)"
+    t.index ["email"], name: "index_users_on_email", unique: true, where: "(email IS NOT NULL)"
     t.index ["phone"], name: "index_users_on_phone", unique: true
+    t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
     t.index ["status"], name: "index_users_on_status"
   end
 

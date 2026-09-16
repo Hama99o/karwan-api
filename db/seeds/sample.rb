@@ -8,9 +8,25 @@
 
 KABUL = { lat: 34.5553, lng: 69.2075 }.freeze
 
+# One obvious password across the demo world, for the same reason the ops
+# console has one: this tree is refused in production by `db/seeds.rb`, and a
+# human clicking around has to be able to sign in as anybody.
+#
+# Without it NOBODY IN THE DEMO WORLD COULD LOG IN. Identity used to be a phone
+# plus a code, so a seeded account needed no secret — `POST /auth/otp` minted
+# one on demand. With a password, an account seeded without one is an account
+# that cannot be reached, and `PasswordSignInService` deliberately refuses it
+# with the same message as a wrong password, so it would have presented as
+# "the login is broken" rather than "the seed is incomplete".
+SAMPLE_PASSWORD ||= "karwan-dev-password"
+
 def find_user!(phone, name:, role:, locale: "fa")
   user = User.find_or_initialize_by(phone: phone)
-  user.update!(name: name, locale: locale, last_active_role: role, phone_verified_at: Time.current)
+  user.password = SAMPLE_PASSWORD
+  # Not `phone_verified_at` — see the note in db/seeds/e2e.rb. Nothing in the
+  # app can set it any more, so seeding it would make the demo world show a
+  # state no real user reaches.
+  user.update!(name: name, locale: locale, last_active_role: role)
   user.user_roles.find_or_create_by!(role: role)
   user
 end

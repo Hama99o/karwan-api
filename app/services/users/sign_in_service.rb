@@ -12,6 +12,10 @@ module Users
   # number is new we create the account, if it is known we sign them in.
   class SignInService
     Error = Class.new(StandardError)
+    # OFF BY DEFAULT. Hamma9900 replaced this whole flow with a password, and
+    # said "for now" — so it is disabled rather than deleted, behind
+    # `otp_sign_in_enabled`. See `Setting::DEFINITIONS`.
+    Disabled = Class.new(Error)
     InvalidCode = Class.new(Error)
     NoCodeIssued = Class.new(Error)
     CodeNoLongerValid = Class.new(Error)
@@ -32,6 +36,10 @@ module Users
     # Returns [user, plaintext_token, session]. The session is returned because
     # the mode the app opens in is a fact about it, not about the user.
     def call
+      unless self.class.enabled?
+        raise Disabled, "signing in with a code is switched off — use your password"
+      end
+
       # The newest code for this number, live or not, so the three cases can be
       # told apart. Collapsing them was misleading: someone replaying a
       # consumed code was told "no code has been sent to this number", which is
@@ -53,6 +61,10 @@ module Users
         )
         [ user, token, session ]
       end
+    end
+
+    def self.enabled?
+      Setting.fetch("otp_sign_in_enabled")
     end
 
     private

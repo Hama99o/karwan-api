@@ -451,3 +451,74 @@ bugs that 965 green examples had not: the merchant board could not leave
 `accepted` (no `preparing` route), the board card carried no money, and
 `OrderPolicy#track?` was written, correct, and called by nothing. Recorded in
 `docs/NOTES.md` — the client is a test the specs cannot write.
+
+---
+
+## 16 Sept 2026 — the login, struck and replaced
+
+> *"We will not use OTP. We will have login simple with email and password or
+> phone number and password."*
+
+And, asked why a code was needed at all:
+
+> *"we don't need this."*
+
+On whether it is permanent:
+
+> *"for now"*
+
+On verification:
+
+> *"For now no authentication."*
+
+Said after seeing the OTP code screen on a device. **This strikes `CLAUDE.md`
+correction 2**, which argued phone + OTP from the fact that many Afghan users
+have no email — and strikes the mechanism half of correction 10, though not its
+requirement.
+
+### Why he is right, including the part he did not say
+
+The reasoning that settles it is not a UX preference. **Google Play requires an
+email address to publish an app at all**, and so does the App Store. He cannot
+ship Karwan to a single phone without holding a Google account, so email was
+never avoidable for this platform — only for its users. Correction 2 took a true
+fact about users ("many have no email") and turned it into a conclusion about
+the system ("the system must not have email"), which does not follow.
+
+The second half points the same way. **An SMS code is not the simplest login;
+it is the slowest one** — a message that has to arrive on a weak network, six
+digits read off a lock screen and retyped inside five minutes, and a real
+per-message cost on the one recurring bill in v0. A password in one field needs
+none of it. Correction 10 asks for the simplest thing in the app; that is the
+requirement, and OTP was one reading of it.
+
+### What was built
+
+- **One field on the login screen**, resolved by shape: an `@` is an email, and
+  anything else is normalised as a phone number. Not two fields, not a toggle —
+  that is a decision the user has to make and a screen they can get wrong.
+- **Both identifiers unique.** `phone` NOT NULL; `email` nullable with a
+  partial unique index. The phone is normalised *before* the uniqueness check,
+  or `0700000801` and `+93700000801` become two accounts with two wallets.
+- **Email accepted, never required** — a deliberate deviation from "both
+  required", because requiring it locks out a sideloaded APK whose owner has no
+  Google account and a shared handset whose Gmail is somebody's brother's.
+- **No verification step**, as instructed. What it costs is recorded in
+  `docs/IDENTITY_AND_ROLES.md` §1 rather than glossed: a mistyped number
+  reaches a courier who then cannot ring the customer.
+- **One error for every wrong credential**, because a login form that tells an
+  unknown address apart from a wrong password is an account-existence oracle —
+  type an email, learn whether that person uses Karwan. In one neighbourhood
+  where everyone knows everyone, that is a real privacy leak.
+- **OTP retained and switched off** behind a `Setting`, as he asked — and it
+  found a second job as the password-**reset** channel, which is what a
+  one-time code is actually good for.
+- **Forgotten password is a CODE, not a link**, because correction 16 means
+  there is no web page for a link to open.
+
+### The one thing this does not fix
+
+**The SMS gateway is still his to choose.** But the gap is narrower than it
+was: an Afghan phone used to need an SMS to **log in at all**, and now needs
+one only to **recover** an account. Email reset works the day SMTP has its four
+environment variables.

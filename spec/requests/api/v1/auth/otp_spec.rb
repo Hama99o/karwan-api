@@ -1,10 +1,26 @@
 require "rails_helper"
 
+# ── A RETAINED FLOW, SWITCHED OFF ───────────────────────────────────────────
+#
+# Hamma9900 replaced the code with a password — *"we don't need this"* — and
+# said "for now", so the flow is disabled behind `otp_sign_in_enabled` rather
+# than deleted. These examples turn it on, because a retained flow nothing
+# exercises has quietly rotted by the time somebody switches it back on.
+#
+# The one example that asserts it is OFF is at the bottom, and it is the one
+# that matters today: an SMS is the only real per-unit cost in this system, and
+# a disabled flow that still sends one would be spending Hamma9900's money on
+# a login nobody uses.
 RSpec.describe "POST /api/v1/auth/otp", type: :request do
   let(:phone) { "+93700000123" }
 
   def json
     JSON.parse(response.body)
+  end
+
+  before do
+    Setting.find_or_initialize_by(key: "otp_sign_in_enabled")
+           .update!(value: "true", value_type: :boolean)
   end
 
   describe "the happy path" do
@@ -143,6 +159,29 @@ RSpec.describe "POST /api/v1/auth/otp", type: :request do
       # Still 200: the code WAS issued and a retry may land, and telling a
       # caller which numbers fail is not information worth giving away.
       expect(response).to have_http_status(:ok)
+    end
+  end
+
+  describe "when it is switched off, which is the default" do
+    before do
+      Setting.find_by!(key: "otp_sign_in_enabled").update!(value: "false")
+    end
+
+    # NO SMS IS SENT. That is the whole point of the switch rather than a
+    # feature flag on the screen: the message costs real money.
+    it "refuses without spending an SMS" do
+      allow(Notifications::SmsClient).to receive(:deliver)
+
+      post "/api/v1/auth/otp", params: { phone: phone }
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(json["code"]).to eq("otp_disabled")
+      expect(Notifications::SmsClient).not_to have_received(:deliver)
+    end
+
+    it "issues no code at all" do
+      expect { post "/api/v1/auth/otp", params: { phone: phone } }
+        .not_to change(OtpVerification, :count)
     end
   end
 end

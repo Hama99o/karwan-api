@@ -43,6 +43,55 @@ RSpec.describe "db/seeds/e2e.rb" do
     expect(courier).to be_present
   end
 
+  # ── CAN THE RIG ACTUALLY GET IN? ─────────────────────────────────────────
+  #
+  # Asked of the SIGN-IN SERVICE rather than of the column, because "a hash is
+  # present" is not the claim — the claim is that typing these values into the
+  # two fields on the login screen produces a session.
+  #
+  # This exists because the switch from a code to a password made every seeded
+  # account unreachable in one commit. `POST /auth/otp` used to mint a secret on
+  # demand, so a seeded user needed none; with a password, an account seeded
+  # without one is refused with THE SAME MESSAGE AS A WRONG PASSWORD — by
+  # design, so the existence oracle stays shut — and a device run would have
+  # reported "the login is broken" with the login working perfectly.
+  describe "signing in the way the rig does" do
+    def sign_in(identifier)
+      Users::PasswordSignInService.new(identifier: identifier, password: "karwan-qa-password").call
+    end
+
+    it "signs each account in with its PHONE and the seeded password" do
+      [ customer, owner, courier ].each do |user|
+        _signed_in, token, _session = sign_in(user.phone)
+        expect(token).to be_present
+      end
+    end
+
+    # The email branch, which a rig typing only phone numbers would never
+    # exercise — and it is the branch a Play-Store reviewer with a Google
+    # account will use first.
+    it "signs each account in with its EMAIL too" do
+      [ customer, owner, courier ].each do |user|
+        expect(user.email).to be_present
+        _signed_in, token, _session = sign_in(user.email)
+        expect(token).to be_present
+      end
+    end
+
+    # The form a person types on a phone keypad. Normalised on the way in, so
+    # it resolves to the same account.
+    it "signs in with the LOCAL form of the number" do
+      _signed_in, token, _session = sign_in(customer.phone.sub("+93", "0"))
+
+      expect(token).to be_present
+    end
+
+    it "refuses the wrong password, so the fixture is not a back door" do
+      expect { Users::PasswordSignInService.new(identifier: customer.phone, password: "not it").call }
+        .to raise_error(Users::PasswordSignInService::InvalidCredentials)
+    end
+  end
+
   # F-18: there is no way back from merchant or courier to customer. A flow
   # cannot even reach that problem without one account holding all three roles.
   it "gives the customer all three roles, so the role switch has somewhere to go" do

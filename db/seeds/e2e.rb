@@ -18,13 +18,20 @@
 # this is loaded the same way.
 #
 # ── The rig signs in like a person does ───────────────────────────────────
-# There is no back door and no injected token. Identity is a phone plus an OTP
-# (correction 2), and outside production `POST /auth/otp` returns the code in
-# its own response — so a flow types the phone, reads the code and types it,
-# which is exactly the path a real user walks. That is what keeps correction 17
-# true: no mocks in the app, including for the rig.
+# There is no back door and no injected token: a flow types an identifier and a
+# password into the same two fields a real user does. That is what keeps
+# correction 17 true — no mocks in the app, including for the rig.
 #
-# THE PHONES ARE THE CONTRACT. `qa/lib/common.sh` holds the same numbers.
+# It used to read the OTP out of the `POST /auth/otp` response, because identity
+# was a phone plus a code. Hamma9900 replaced that with a password
+# (`docs/IDENTITY_AND_ROLES.md` §1), so THE RIG'S SIGN-IN STEP CHANGED SHAPE:
+# two fields typed, no response to read in between. The code path is retained
+# and switched off behind `otp_sign_in_enabled`, so a flow still driving it gets
+# `otp_disabled` rather than a code — which is a clear failure rather than a
+# confusing one.
+#
+# THE PHONES AND THE PASSWORD ARE THE CONTRACT. `qa/lib/common.sh` in
+# karwan-mobile holds the same values and has to be changed with this file.
 
 # `||=` rather than a bare assignment: this file is re-loadable by design (the
 # rig re-seeds between runs, and a spec loads it twice to prove it is
@@ -35,15 +42,41 @@ E2E ||= {
   courier: "+93700000803"
 }.freeze
 
-def e2e_user!(phone, name:, role:, locale: "ps")
+# ONE PASSWORD FOR EVERY FIXTURE ACCOUNT, and deliberately an obvious one: it
+# is typed by hand during a device run and it must never exist anywhere real.
+# `db/seeds.rb` refuses this whole tree in production, which is what makes a
+# shared known password safe here and nowhere else.
+E2E_PASSWORD ||= "karwan-qa-password"
+
+# Every fixture account is also given an EMAIL, because the sign-in field takes
+# either and a rig that only ever types a phone number would leave the email
+# branch unexercised on a device — the branch most likely to be wrong, since it
+# is the one a Play-Store reviewer with a Google account will use.
+def e2e_user!(phone, name:, role:, locale: "ps", email: nil)
   user = User.find_or_initialize_by(phone: phone)
-  user.update!(name: name, locale: locale, last_active_role: role, phone_verified_at: Time.current)
+  user.email = email if email.present?
+  user.password = E2E_PASSWORD
+  # ── `phone_verified_at` IS DELIBERATELY NOT SET ANY MORE ─────────────────
+  #
+  # It used to be stamped here, and after the switch to passwords that became a
+  # state THE APP CANNOT PRODUCE: the only thing that ever set it was the OTP
+  # sign-in, which is switched off, and `Users::RegistrationService` leaves it
+  # nil because there is no verification step. A fixture describing an
+  # impossible world is the exact failure `docs/TESTING.md` records — and it
+  # had already been found once in this very file, on `merchant_owner`.
+  #
+  # Nothing branches on it (checked: one serializer field and one console
+  # column, no policy and no client), so the only visible effect is that the
+  # ops console shows QA fixtures the same way it shows real users. Which is
+  # the point.
+  user.update!(name: name, locale: locale, last_active_role: role)
   user.user_roles.find_or_create_by!(role: role)
   user
 end
 
 seed_section "e2e accounts" do
-  customer = e2e_user!(E2E[:customer], name: "QA Customer", role: :customer)
+  customer = e2e_user!(E2E[:customer], name: "QA Customer", role: :customer,
+                       email: "qa.customer@karwan.af")
   # THE BUSINESS CONTACT, and a plain customer.
   #
   # It used to be seeded with `merchant_owner` — while owning nothing, because
@@ -56,8 +89,10 @@ seed_section "e2e accounts" do
   # It is the recipient of the courier's live job below, which is the other
   # thing it is for: a courier must not be delivering to himself while somebody
   # measures that screen.
-  owner = e2e_user!(E2E[:merchant_owner], name: "QA Merchant", role: :customer)
-  courier = e2e_user!(E2E[:courier], name: "QA Courier", role: :courier)
+  owner = e2e_user!(E2E[:merchant_owner], name: "QA Merchant", role: :customer,
+                    email: "qa.merchant@karwan.af")
+  courier = e2e_user!(E2E[:courier], name: "QA Courier", role: :courier,
+                      email: "qa.courier@karwan.af")
 
   # The customer also HOLDS the other two roles, so the role switch has
   # somewhere to go on one account. F-18 found there is no way back from
