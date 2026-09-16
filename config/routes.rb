@@ -105,6 +105,10 @@ Rails.application.routes.draw do
           get :catalog, on: :member
         end
         resources :merchant_categories, only: :index
+        # Needed by the SHOP APPLICATION form, which is reached by somebody who
+        # holds no merchant role — that is what they are applying for. A
+        # taxonomy anybody can see by browsing is not sensitive.
+        resources :merchant_kinds, only: :index
 
         # The settings a CLIENT may know, before anyone logs in. Singular: it
         # is one small object, not a collection to page through.
