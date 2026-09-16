@@ -18,8 +18,15 @@ class Api::V1::Public::MerchantsController < Api::V1::PublicController
     merchants = merchants.where(is_open: true) if truthy?(params[:open_now])
     merchants = order_for(merchants)
 
-    paginate_blue(Customers::MerchantSerializer, merchants,
-                  extra: { view: :list, locale: locale, from: origin })
+    # ROAD DISTANCES FOR THE PAGE, in one request. `Geo::Distance.km` was
+    # called per row here and in the serializer while the FARE went through
+    # `DistanceResolver`, so the card said one distance and the fare was
+    # computed from another — see `Routing::DistanceTable`.
+    paginate_blue(
+      Customers::MerchantSerializer, merchants,
+      extra: { view: :list, locale: locale, from: origin },
+      extra_for: ->(page) { { distances: road_distances(page) } }
+    )
   end
 
   def show
@@ -42,6 +49,19 @@ class Api::V1::Public::MerchantsController < Api::V1::PublicController
   end
 
   private
+
+  # ROAD DISTANCES FOR THE PAGE, in one request.
+  #
+  # Nil when there is no origin — a guest who has not shared a location gets a
+  # list with no distances, which is the honest answer and is already rendered.
+  def road_distances(page)
+    return nil if origin.blank?
+
+    Routing::DistanceTable.new(
+      origin_lat: origin[0], origin_lng: origin[1],
+      destinations: page.map { |m| { key: m.id, latitude: m.latitude, longitude: m.longitude } }
+    ).call
+  end
 
   # Nearest first when we know where the customer is, otherwise alphabetical.
   # Never a random order: a list that reshuffles between loads looks broken.

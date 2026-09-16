@@ -43,24 +43,38 @@ module Customers
         merchant.effective_prep_time_minutes
       end
 
-      # Straight-line distance and a minute figure, both computed server-side.
-      # Never assembled on the client: a client that computes its own distance
-      # will disagree with the fee the server charged.
+      # ── THE DISTANCE THE CUSTOMER READS ────────────────────────────────────
+      #
+      # From `options[:distances]`, a single OSRM `/table` request for the whole
+      # page, and NOT measured here. It used to call `Geo::Distance.km`
+      # directly while the fare went through `DistanceResolver`, so **the card
+      # said 3.6 km and the fare was computed from 4.6 km** — a number the
+      # customer was shown that was not true.
+      #
+      # Falls back to straight line for the WHOLE list when the router is
+      # unreachable, never per row: a mixture would have the customer sorting
+      # road distances against crow-flight ones without being told.
+      #
+      # Computed server-side either way. A client that measures its own
+      # distance will disagree with the fee the server charged.
       field :distance_km do |merchant, options|
-        next nil if options[:from].blank?
+        Customers::MerchantSerializer.distance_for(merchant, options)
+      end
 
-        Geo::Distance.km(from_lat: options[:from][0], from_lng: options[:from][1],
-                         to_lat: merchant.latitude, to_lng: merchant.longitude)
+      # WHICH METHOD PRODUCED IT, on every distance we show — not only on a
+      # quote. A number a customer saw has to be explainable later, and after
+      # the switch to roads "why was that one cheaper" is the first question.
+      field :distance_source do |_merchant, options|
+        options[:distances]&.source
       end
 
       field :eta_minutes do |merchant, options|
-        next nil if options[:from].blank?
-
-        km = Geo::Distance.km(from_lat: options[:from][0], from_lng: options[:from][1],
-                              to_lat: merchant.latitude, to_lng: merchant.longitude)
+        km = Customers::MerchantSerializer.distance_for(merchant, options)
         travel = Geo::Distance.travel_minutes(km)
         next nil if travel.nil?
 
+        # The kitchen, plus the ride. A customer waiting for food does not care
+        # which half of the wait is cooking.
         travel + (merchant.effective_prep_time_minutes || 0)
       end
 
@@ -86,6 +100,23 @@ module Customers
             closes_at: hours.closes_at.strftime("%H:%M") }
         end
       end
+    end
+
+    # ONE PLACE, because two fields need the same number and a second
+    # measurement is how two figures on one card disagree.
+    #
+    # A caller that passes no table — the detail screen, which is one merchant
+    # rather than a list — measures the straight line. That is a single
+    # `/route` call away from being routed too, and is recorded in
+    # docs/NOTES.md rather than half-done here.
+    def self.distance_for(merchant, options)
+      return nil if options[:from].blank?
+
+      table = options[:distances]
+      return table.km(merchant.id) if table
+
+      Geo::Distance.km(from_lat: options[:from][0], from_lng: options[:from][1],
+                       to_lat: merchant.latitude, to_lng: merchant.longitude)
     end
   end
 end

@@ -50,7 +50,58 @@ module Routing
       parse(body)
     end
 
+    # ── MANY DESTINATIONS, ONE REQUEST ─────────────────────────────────────────
+    #
+    # The distance matrix, which is precisely what OSRM's `/table` exists for.
+    # The customer's Home screen shows N merchants with a distance each; asking
+    # `/route` N times would be N round trips for one screen, on a connection
+    # where every request costs the user money.
+    #
+    # Returns metres from the ORIGIN to each destination, in the order given,
+    # with `nil` where OSRM could not route. Never raises for one unroutable
+    # destination: a single walled compound must not blank the whole list.
+    def table(origin_lat:, origin_lng:, destinations:)
+      raise Unavailable, "no OSRM base url configured" if @base_url.blank?
+      return [] if destinations.empty?
+
+      body = get(table_path_for(origin_lat: origin_lat, origin_lng: origin_lng,
+                                destinations: destinations))
+      parse_table(body, destinations.size)
+    end
+
     private
+
+    def table_path_for(origin_lat:, origin_lng:, destinations:)
+      # `lng,lat`, which is OSRM's order and the reverse of everything else in
+      # this codebase — the class comment says why that is worth shouting
+      # about: swapping them does not error, it silently routes off the coast.
+      points = [ [ origin_lng, origin_lat ] ]
+                 .concat(destinations.map { |d| [ d[:longitude], d[:latitude] ] })
+                 .map { |lng, lat| "#{lng},#{lat}" }.join(";")
+
+      # `sources=0` — one row, from the customer. Asking for the full N×N
+      # matrix would be quadratic work for a column we never read.
+      #
+      # `annotations=distance`, not duration: the duration is OURS, from
+      # `eta_average_speed_kmh`, because OSRM's `car.lua` is free-flow and
+      # implies 43–69 km/h across Kabul.
+      query = URI.encode_www_form(sources: 0, annotations: "distance")
+
+      "/table/v1/#{PROFILE}/#{points}?#{query}"
+    end
+
+    # The first row of the matrix, minus its own zero-distance self.
+    def parse_table(body, expected)
+      payload = JSON.parse(body)
+      return nil unless payload["code"] == "Ok"
+
+      row = payload.dig("distances", 0)
+      return nil unless row.is_a?(Array) && row.size == expected + 1
+
+      row.drop(1).map { |metres| metres.is_a?(Numeric) ? metres : nil }
+    rescue JSON::ParserError
+      nil
+    end
 
     # THE FLIP, in one place.
     def path_for(from_lat:, from_lng:, to_lat:, to_lng:)
@@ -74,9 +125,35 @@ module Routing
       raise Unavailable, "OSRM returned HTTP #{response.code}" unless response.is_a?(Net::HTTPSuccess)
 
       response.body
+    # ── A NAMED LIST FIRST, THEN A CATCH-ALL, and the catch-all is deliberate ──
+    #
+    # The named errors are what an unreachable router actually raises and are
+    # worth naming so the log says which. But the CONTRACT of this client is
+    # that a quote never fails because of it: `DistanceResolver` falls back to
+    # a straight line and records that it did.
+    #
+    # So anything else — a DNS resolver returning something odd, an SSL error,
+    # a library raising a class nobody predicted — must degrade too. A
+    # customer's cart 500ing at the confirm button because a routing container
+    # hiccuped is a lost order, and routing is an IMPROVEMENT to a fare rather
+    # than a requirement of one.
+    #
+    # It surfaced in the suite the moment routed distance became the default:
+    # WebMock raises its own error class for an unstubbed request, which no
+    # named list would ever have contained.
     rescue Net::OpenTimeout, Net::ReadTimeout, SocketError, Errno::ECONNREFUSED,
            Errno::EHOSTUNREACH, IOError => e
       raise Unavailable, "OSRM unreachable: #{e.class}"
+    rescue Error
+      # OUR OWN ERRORS PASS THROUGH UNTOUCHED, and this clause is here because
+      # the catch-all below swallowed them: the SSRF guard raises `Unavailable`
+      # with a message naming what was wrong with the address, and wrapping it
+      # turned "the base url must be http or https" into "OSRM call failed",
+      # which is the difference between a deploy typo somebody can fix and a
+      # mystery. Its own specs caught it.
+      raise
+    rescue StandardError => e
+      raise Unavailable, "OSRM call failed: #{e.class}"
     end
 
     # Checked rather than trusted, even though the value now comes from the

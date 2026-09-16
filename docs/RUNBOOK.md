@@ -154,6 +154,21 @@ distance ratio rather than a fee change: the fixed base dilutes it, and on a
 short hop the minimum fee absorbs it entirely. That is the number Hamma9900
 should be making his pricing decision against.
 
+### And on a LIST, measured over 20 seeded merchants from Shar-e-Naw
+
+Four hand-picked pairs understated it. Across a real page the road/straight
+ratio runs **1.20× to 2.35×**, and the worst case matters more than the
+average: one merchant 4.91 km away in a straight line is **10.30 km by road**.
+Priced on crow flight, that customer was quoted less than half the distance
+the courier rides — which is the "unfair" Hamma9900 named, from the courier's
+side as well as ours.
+
+**THE ORDER OF THE LIST CHANGES.** "Nearest first" is not the same list by the
+two methods: over those 20, the pharmacy drops from 8th to 12th and
+کباب شهر نو rises from 10th to 7th. So this is a product change and not only
+a pricing one — the first screen a customer sees is now ordered by how far
+they would actually travel. He should see that rather than discover it.
+
 **The duration is still ours.** OSRM returned 7.7 minutes for the 5.53 km pair
 — 43 km/h, because `car.lua` is free-flow and Afghan maxspeed tags are sparse —
 and we quote 19 minutes from `eta_average_speed_kmh`. That survives the switch

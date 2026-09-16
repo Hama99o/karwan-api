@@ -101,6 +101,37 @@ RSpec.describe "frozen amounts" do
     end
   end
 
+  # ── THE DISTANCE SHOWN AT BROWSE TIME IS NOT THE DISTANCE THE FARE FROZE ──
+  #
+  # Both go through OSRM now, so they will usually agree — and "usually agree"
+  # is exactly the condition under which a test cannot tell which one was used.
+  # So the list is made to answer something the quote cannot: the order must
+  # carry the QUOTE's distance, measured merchant→customer, not the browse
+  # distance, measured customer→merchant over a page of cards.
+  describe "the distance the order freezes" do
+    it "is the quote's own measurement, not the one the list showed" do
+      Setting.find_by!(key: "routing_distance_source").update!(value: "osrm")
+      # The list says 9.1 km to every merchant; the quote says 4 km for this
+      # route. A number from the list appearing on the order would be visible.
+      stub_request(:get, %r{/table/v1/}).to_return do |request|
+        asked = request.uri.path.split("/").last.split(";").size - 1
+        { body: { code: "Ok", distances: [ [ 0.0, *Array.new(asked, 9_100.0) ] ] }.to_json }
+      end
+      stub_osrm(distance_m: 4_000.0)
+
+      # Browse first, so the list's figure exists and could be picked up.
+      Routing::DistanceTable.new(
+        origin_lat: 34.5600, origin_lng: 69.2100,
+        destinations: [ { key: merchant.id, latitude: merchant.latitude, longitude: merchant.longitude } ]
+      ).call
+
+      order = place
+
+      expect(order.distance_km).to eq(4.0)
+      expect(order.distance_source).to eq("osrm")
+    end
+  end
+
   describe "when the delivery tariff changes" do
     it "does not move a placed order's fee" do
       order = place

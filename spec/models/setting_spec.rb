@@ -122,6 +122,22 @@ RSpec.describe Setting, type: :model do
       expect(tariff_keys).to be_empty
     end
 
+    # ── THE DECISION, ASSERTED WHERE IT IS DECLARED ──────────────────────────
+    #
+    # Hamma9900: distances are not measured by roads, and straight-line is
+    # unfair. The ROW was flipped hours after he said so and the DEFAULT was
+    # not, which means the next fresh database would have silently priced on
+    # crow flight again — the same failure a second time.
+    #
+    # The suite overrides the effective value per example
+    # (spec/support/routing_default.rb) so that hundreds of tests are not
+    # exercising the router's failure path while appearing to test the happy
+    # one. This asserts the declaration rather than the behaviour.
+    it "prices on roads by default, because that is the decision" do
+      expect(described_class::DEFINITIONS.dig("routing_distance_source", :default))
+        .to eq(Routing::Route::OSRM)
+    end
+
     # The commission rate STAYS here, and that is the distinction: it is the
     # same share for every class, so it is a scalar.
     it "keeps the ride commission, which does not vary by vehicle" do

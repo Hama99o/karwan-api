@@ -292,4 +292,86 @@ RSpec.describe "Api::V1::Public::Merchants", type: :request do
       expect(json["merchant_categories"].map { |c| c["slug"] }).not_to include("retired")
     end
   end
+
+  # ── THE DISTANCE ON THE CARD IS THE ONE THE FARE USES ──────────────────────
+  #
+  # Hamma9900 saw straight-line distances and called them unfair. The deeper
+  # problem was that the CARD and the FARE used different methods: the quote
+  # went through `DistanceResolver` and the list called `Geo::Distance.km`
+  # directly. A customer reading 3.6 km and charged against 4.6 km has been
+  # shown a number that was not true.
+  describe "the distances on the list" do
+    let!(:near) { create(:merchant, name: "Near", latitude: 34.5420, longitude: 69.1770) }
+    let!(:far) { create(:merchant, name: "Far", latitude: 34.5658, longitude: 69.2123) }
+
+    def browse
+      get "/api/v1/public/merchants", params: { latitude: 34.5400, longitude: 69.1750 }
+      JSON.parse(response.body).fetch("merchants")
+    end
+
+    # ANSWERS WITH AS MANY DISTANCES AS WERE ASKED FOR, read off the request.
+    #
+    # A fixed-length matrix is what my first version used, and it failed for the
+    # right reason: this file seeds other merchants too, so the page was wider
+    # than the stub and `DistanceTable` correctly refused a payload of the
+    # wrong shape. Hard-coding a width would have made the test depend on how
+    # many merchants the file happens to create.
+    def stub_road_distances(metres)
+      stub_request(:get, %r{/table/v1/}).to_return do |request|
+        asked = request.uri.path.split("/").last.split(";").size - 1
+        { body: { code: "Ok", distances: [ [ 0.0, *Array.new(asked, metres) ] ] }.to_json }
+      end
+    end
+
+    it "measures by road when the router answers, and says so" do
+      Setting.find_by!(key: "routing_distance_source").update!(value: "osrm")
+      # A number no straight line between these pins could produce, which is
+      # what makes this test able to tell the two sources apart at all.
+      stub_road_distances(9_100.0)
+
+      cards = browse
+
+      expect(cards.map { |c| c["distance_source"] }.uniq).to eq([ "osrm" ])
+      expect(cards.map { |c| c["distance_km"].to_f }).to all(be > 9)
+    end
+
+    # ONE REQUEST FOR THE PAGE, not one per card. N round trips for one screen
+    # is N times the data cost, on a connection where data costs the user money.
+    it "asks the router once for the whole page" do
+      Setting.find_by!(key: "routing_distance_source").update!(value: "osrm")
+      stub_road_distances(9_100.0)
+
+      browse
+
+      expect(a_request(:get, %r{/table/v1/})).to have_been_made.once
+    end
+
+    it "falls back to straight line for the whole list, and says which it used" do
+      Setting.find_by!(key: "routing_distance_source").update!(value: "osrm")
+      stub_request(:get, %r{/table/v1/}).to_raise(Errno::ECONNREFUSED)
+
+      cards = browse
+
+      expect(cards.map { |c| c["distance_source"] }.uniq).to eq([ "straight_line" ])
+      expect(cards.map { |c| c["distance_km"] }).to all(be_present)
+    end
+
+    # The ETA is derived from the same number, so the two figures on one card
+    # cannot disagree — they were measured twice before.
+    it "derives the eta from the same distance" do
+      Setting.find_by!(key: "routing_distance_source").update!(value: "osrm")
+      stub_road_distances(9_100.0)
+
+      card = browse.first
+
+      expect(card["eta_minutes"]).to be >= Geo::Distance.travel_minutes(9.1)
+    end
+
+    it "shows no distance at all to a guest who shared no location" do
+      get "/api/v1/public/merchants"
+
+      cards = JSON.parse(response.body).fetch("merchants")
+      expect(cards.map { |c| c["distance_km"] }).to all(be_nil)
+    end
+  end
 end

@@ -75,9 +75,22 @@ class Setting < ApplicationRecord
     # the path an order takes.
     "routing_open_timeout_seconds" => { type: :integer, default: "1", description: "Connect timeout for a routing call" },
     "routing_read_timeout_seconds" => { type: :integer, default: "2", description: "Read timeout for a routing call, after which we fall back to a straight line" },
-    # DEFAULTS TO straight_line. Switching to `osrm` raises fares ~29% and is
-    # Hamma9900's decision; a setting means he says yes once with no deploy.
-    "routing_distance_source" => { type: :string, default: "straight_line", description: "Where a fare's distance comes from: straight_line or osrm" },
+    # DEFAULTS TO `osrm`, because Hamma9900 has decided: *"distances are not
+    # measured by roads"* and straight-line is unfair. Measured on four Kabul
+    # pairs, road distance is 1.24–1.47× the straight line, which moves the
+    # delivery fee +15% to +20% on ordinary runs and by nothing on a short hop
+    # where the minimum fee absorbs it.
+    #
+    # THE DEFAULT MATTERS AS MUCH AS THE ROW. It was `straight_line`, and the
+    # row was never flipped — so every fare in the system was still priced on
+    # crow-flight distance hours after the decision. A default that contradicts
+    # the decision means the next fresh database silently reverts it, which is
+    # the same failure a second time.
+    #
+    # Still a setting rather than a constant: if OSRM is unreachable the
+    # resolver falls back to a straight line and SAYS SO on the row, and
+    # switching back is one word in the console rather than a deploy.
+    "routing_distance_source" => { type: :string, default: "osrm", description: "Where a fare's distance comes from: osrm (roads) or straight_line. Falls back to straight_line automatically when the router is unreachable, and records which was used." },
     # Above this the pin is not on the road network — Kabul is full of walled
     # compounds. Recorded, not corrected: the landmark note and the phone
     # number do the real work.

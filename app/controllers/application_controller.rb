@@ -59,12 +59,20 @@ class ApplicationController < ActionController::API
     options
   end
 
-  def paginate_blue(serializer, collection, extra: {})
+  # `extra_for` receives THE PAGE, and returns more serializer options.
+  #
+  # It exists because one thing a list needs cannot be computed per row: road
+  # distances come from a single OSRM `/table` request for the whole page, and
+  # the page is only known after pagination. Computing it per row would be N
+  # round trips for one screen; computing it before pagination would ask about
+  # merchants nobody is going to see.
+  def paginate_blue(serializer, collection, extra: {}, extra_for: nil)
     pagy, records = pagy(collection, **pagy_page_options)
+    options = extra.merge(extra_for ? extra_for.call(records) : {})
 
     render json: {
       serializer.model_name.plural => serializer.render_as_hash(
-        records, view: extra[:view] || :default, **extra.except(:view)
+        records, view: options[:view] || :default, **options.except(:view)
       ),
       meta: { pagination: pagination_meta(pagy) }
     }
