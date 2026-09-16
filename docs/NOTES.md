@@ -550,6 +550,80 @@ to all three locales or parity checks lie. For RTL use **logical** spacing
 utilities, and mirror directional icons — a correct `dir` with a left-pointing
 "next" arrow is still wrong. Pashto and Dari strings run longer than English.
 
+### NOTHING GRANTED THE MERCHANT ROLE — CLOSED, and it would have hit the first restaurant
+`merchants.owner_id` is set through the console's generic form, and setting it
+granted nothing. `:merchant_owner` existed in `db/seeds/sample.rb` and
+`db/seeds/e2e.rb` and **nowhere in `app/`**. So the launch-day sequence was:
+Hamma9900 sits with a restaurant owner, onboards them, sets the owner to their
+phone — and that person signs in and cannot reach the merchant tab.
+
+Worse than a clean failure, because `OrderPolicy::MerchantScope` keys on
+`merchants.owner_id` and resolves without the role, while the role-gated
+endpoints refuse. Half the surface works, so the symptom points at the app
+rather than at a missing `user_roles` row.
+
+**The same bug courier approval had** — status set, wallet created, role never
+granted — on the path he uses FIRST, because merchants are admin-onboarded and
+couriers self-apply. That pattern is now explicit enough to check for directly:
+*when a record makes someone a partner, does anything create the role row?*
+
+Closed with `after_save :sync_owner_role` on `Merchant`. **On the model, not in
+the controller**, because the owner can be set from the Administrate form, a
+seed, a console or any admin path added later, and a callback is the only place
+that catches all of them. It also handles the reverse, which is the same bug
+backwards: a former owner keeping merchant access to a restaurant that is no
+longer theirs. Revocation is skipped while they still own another kept
+merchant, because one person holding two shops is not hypothetical on a launch
+where shops are signed one at a time.
+
+### Partner → customer is automatic; customer → partner never is
+Hamma9900's rule: *"the client account open if we have restaurant or rider or
+driver account automatic, because it's not a big thing"*, and *"when we create
+client, we can't give access to create account as rider etc."*
+
+The first half held only by accident of the path — `SignInService` creates
+every account with `:customer`, so anyone who arrived through the app had it,
+while a courier created by a seed or by the console did not. It is a rule now:
+`User#grant_role!` always grants `:customer` alongside, and `revoke_role!`
+never takes it away. A courier who cannot order food breaks the premise the
+shared pool rests on — the same human delivers a meal at 13:00 and buys one at
+20:00.
+
+The second half was already true and stays that way: `switch_role!` refuses a
+role the user does not hold, and the role is derived from `user_roles`, never
+from the client.
+
+### A GUARD WITH NO CALLER IS NOT TESTED BY ITS NEIGHBOURS
+`revoke_role!` refuses to remove `customer`. Deleting that guard left all
+25 merchant-ownership examples green, because nothing in the app revokes
+`customer` — the neighbouring tests pass for a different reason than the one
+their comments claimed. The guard needed a direct example in
+`spec/models/user_spec.rb` calling `revoke_role!(:customer)`.
+
+Sharpens the standing rule: **planting the bug has to make the specific test
+red, not merely some test.** A plant that changes nothing anywhere means either
+the code is dead or the test is about something else — and the second is worse,
+because the comment then misdescribes what is being protected.
+
+### `admin` was offered as a role on the phone
+The role switcher reads `user.roles`, which was every `user_roles` row — so a
+user holding `:admin` was offered an admin tab that does not exist (correction
+16: there is no admin surface in the mobile app, and nothing that can credit a
+wallet belongs on a device that gets shared or lost). `Roles::MOBILE` now
+excludes it, the serializer intersects against it, and both `switch_role!` and
+the sign-in role request refuse it even for a genuine admin.
+
+### The role is chosen at the door
+`POST /api/v1/auth/session` takes an optional `role`. Absent means customer,
+which is never asked — "sign in as partner" is the quieter second action that
+sends one. A refused role does **not** fail the request: the code has already
+been consumed, and failing would cost a second SMS (the only real per-unit cost
+in v0) and strand exactly the person we most want — someone signing in as a
+courier who has not applied yet. The refusal rides along as
+`role_request: { requested, granted: false, code }`, with two distinct codes
+because they need two different screens: `role_not_held` leads to an
+application, `not_a_mobile_role` has nothing to apply for.
+
 ### One account had one mode everywhere — CLOSED by moving it to the session
 `users.active_role` decided which tab the app opens in, which made it a fact
 about a PERSON. It is a fact about a DEVICE: a merchant keeps a tablet on the

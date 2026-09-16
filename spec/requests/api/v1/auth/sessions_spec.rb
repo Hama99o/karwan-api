@@ -30,6 +30,103 @@ RSpec.describe "Api::V1::Auth::Sessions", type: :request do
         expect(json.dig("user", "roles")).to eq([ "customer" ])
       end
 
+    # ── WHICH DOOR THEY CAME IN BY ───────────────────────────────────────────
+    #
+    # The role is chosen AT SIGN-IN, not discovered afterwards. Customer is the
+    # default and is never asked; "sign in as partner" is a quieter second
+    # action that sends a role.
+    describe "the role asked for at the door" do
+      it "opens in the customer tab when nothing is asked" do
+        code = request_code
+
+        post "/api/v1/auth/session", params: { phone: phone, code: code }
+
+        expect(json.dig("user", "active_role")).to eq("customer")
+        # Nothing was refused, so there is nothing to say about it.
+        expect(json).not_to have_key("role_request")
+      end
+
+      it "opens in the courier tab for a courier who asked for it" do
+        courier = create(:user, :courier, phone: phone)
+        code = request_code
+
+        post "/api/v1/auth/session", params: { phone: phone, code: code, role: "courier" }
+
+        expect(json.dig("user", "active_role")).to eq("courier")
+        expect(courier.user_sessions.last.active_role).to eq("courier")
+        expect(json).not_to have_key("role_request")
+      end
+
+      it "opens in the merchant tab for a merchant owner who asked for it" do
+        create(:user, :merchant_owner, phone: phone)
+        code = request_code
+
+        post "/api/v1/auth/session", params: { phone: phone, code: code, role: "merchant_owner" }
+
+        expect(json.dig("user", "active_role")).to eq("merchant_owner")
+      end
+
+      # THE FRONT DOOR TO ONBOARDING. Somebody who taps "sign in as a rider"
+      # before applying is the person we most want to reach, and until now the
+      # app had no entrance to courier registration at all. So sign-in must
+      # still SUCCEED — the code has already been consumed, and failing here
+      # would cost them a second SMS, which is real money in this business —
+      # and the refusal rides along beside the token.
+      it "signs a would-be courier in as a customer and says why" do
+        create(:user, phone: phone)
+        code = request_code
+
+        post "/api/v1/auth/session", params: { phone: phone, code: code, role: "courier" }
+
+        expect(response).to have_http_status(:created)
+        expect(json["token"]).to be_present
+        expect(json.dig("user", "active_role")).to eq("customer")
+        expect(json["role_request"]).to eq(
+          "requested" => "courier", "granted" => false, "code" => "role_not_held"
+        )
+      end
+
+      # A DIFFERENT REFUSAL, because it needs a different screen: there is
+      # nothing to apply for. Correction 16 — no admin role in the mobile app,
+      # because nothing that can credit a wallet belongs on a shared phone.
+      it "refuses the admin role even to a real admin, and says it is not a phone role" do
+        admin = create(:user, :admin, phone: phone)
+        code = request_code
+
+        post "/api/v1/auth/session", params: { phone: phone, code: code, role: "admin" }
+
+        expect(response).to have_http_status(:created)
+        expect(json.dig("user", "active_role")).to eq("customer")
+        expect(json.dig("role_request", "code")).to eq("not_a_mobile_role")
+        # And the app is never even offered admin as a role it could switch to.
+        expect(json.dig("user", "roles")).not_to include("admin")
+        expect(admin.user_sessions.last.active_role).to eq("customer")
+      end
+
+      it "treats a role that does not exist the same way" do
+        create(:user, phone: phone)
+        code = request_code
+
+        post "/api/v1/auth/session", params: { phone: phone, code: code, role: "wizard" }
+
+        expect(json.dig("user", "active_role")).to eq("customer")
+        expect(json.dig("role_request", "code")).to eq("not_a_mobile_role")
+      end
+
+      # One phone, one role. Three phones can hold three roles at once, which
+      # is the whole reason the role moved onto the session.
+      it "leaves a second device signed in as whatever it chose" do
+        user = create(:user, :courier, phone: phone)
+        partner_session, = UserSession.issue!(user, requested_role: "courier")
+        code = request_code
+
+        post "/api/v1/auth/session", params: { phone: phone, code: code }
+
+        expect(json.dig("user", "active_role")).to eq("courier"), "the preference seeds a new device"
+        expect(partner_session.reload.active_role).to eq("courier")
+      end
+    end
+
       it "signs in an existing number without creating a second account" do
         create(:user, phone: phone, name: "Existing")
         code = request_code

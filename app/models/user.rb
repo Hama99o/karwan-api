@@ -44,6 +44,35 @@ class User < ApplicationRecord
     user_roles.exists?(role: UserRole.roles[role.to_s])
   end
 
+  # GRANTING A PARTNER ROLE ALSO GRANTS CUSTOMER, ALWAYS.
+  #
+  # Hamma9900's rule, and the asymmetry is the right way round: a courier or a
+  # restaurant owner is a customer for free — "it's not a big thing", there is
+  # nothing to verify, a customer is just a phone — while the reverse is never
+  # automatic and must stay that way.
+  #
+  # It held only by accident of the path before: `SignInService` creates every
+  # account with `:customer`, so anyone who arrived through the app had it. A
+  # courier created by a seed, by the console, or by any future admin path did
+  # not, and a courier who cannot order food breaks the premise the shared pool
+  # rests on — the same human delivers a meal at 13:00 and buys one at 20:00.
+  #
+  # Idempotent, so it is safe to call on every save.
+  def grant_role!(role)
+    transaction do
+      user_roles.find_or_create_by!(role: role)
+      user_roles.find_or_create_by!(role: :customer)
+    end
+  end
+
+  # Takes a role away, and NEVER the customer role: losing the ability to order
+  # food is not a consequence anyone intends when they reassign a restaurant.
+  def revoke_role!(role)
+    return if role.to_s == "customer"
+
+    user_roles.where(role: UserRole.roles[role.to_s]).destroy_all
+  end
+
   def phone_verified?
     phone_verified_at.present?
   end

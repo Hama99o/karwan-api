@@ -16,13 +16,17 @@ module Users
     NoCodeIssued = Class.new(Error)
     CodeNoLongerValid = Class.new(Error)
 
-    def initialize(phone:, code:, name: nil, locale: nil, device_name: nil, platform: nil)
+    def initialize(phone:, code:, name: nil, locale: nil, device_name: nil, platform: nil,
+                   requested_role: nil)
       @phone = phone.to_s.strip
       @code = code.to_s.strip
       @name = name
       @locale = locale
       @device_name = device_name
       @platform = platform
+      # WHICH DOOR THEY CAME IN BY. Customer is the default and is never asked;
+      # "sign in as partner" is the quieter second action that sets this.
+      @requested_role = requested_role
     end
 
     # Returns [user, plaintext_token, session]. The session is returned because
@@ -43,7 +47,10 @@ module Users
 
       ActiveRecord::Base.transaction do
         user = find_or_create_user
-        session, token = UserSession.issue!(user, device_name: @device_name, platform: @platform)
+        session, token = UserSession.issue!(
+          user, device_name: @device_name, platform: @platform,
+          requested_role: @requested_role
+        )
         [ user, token, session ]
       end
     end

@@ -134,7 +134,7 @@ class CourierProfile < ApplicationRecord
     transaction do
       update!({ verification_status: :approved, verified_at: Time.current,
                 rejection_reason: nil }.merge(approver))
-      user.user_roles.find_or_create_by!(role: :courier)
+      user.grant_role!(:courier)
       CourierWallet.create!(user: user, balance: 0,
                             credit_line: Setting.fetch("default_credit_line")) if user.courier_wallet.nil?
     end

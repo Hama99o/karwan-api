@@ -20,8 +20,11 @@ module Shared
       session.active_role
     end
 
+    # ONLY THE ROLES A PHONE MAY BE IN. An admin holds a fourth role and the app
+    # has no admin surface at all (correction 16), so leaving it in put an
+    # "admin" entry in the role switcher that leads to an empty tab.
     field :roles do |user|
-      user.user_roles.map(&:role)
+      user.user_roles.map(&:role) & Roles::MOBILE
     end
 
     view :detailed do
@@ -33,7 +36,7 @@ module Shared
       # switch to. One account, several roles, and the switch must be obvious
       # and fast.
       field :can_switch_roles do |user|
-        user.user_roles.size > 1
+        (user.user_roles.map(&:role) & Roles::MOBILE).size > 1
       end
     end
   end

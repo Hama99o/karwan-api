@@ -8,17 +8,36 @@ class Api::V1::Auth::SessionsController < ApplicationController
   # This bounds a script working through many phone numbers from one address.
   throttle to: 120, within: 1.hour, by: :ip, only: :create
 
+  # THE ROLE IS CHOSEN AT THE DOOR, and `role` is optional because customer is
+  # the default and is never asked — asking "what are you?" of somebody who
+  # wants a kebab is a question that loses the user. "Sign in as partner" is a
+  # quieter second action that sends one.
   def create
+    requested_role = params[:role].presence
+
     user, token, session = Users::SignInService.new(
       phone: params.require(:phone), code: params.require(:code),
       name: params[:name], locale: params[:locale],
-      device_name: params[:device_name], platform: params[:platform]
+      device_name: params[:device_name], platform: params[:platform],
+      requested_role: requested_role
     ).call
 
-    render json: {
+    body = {
       token: token,
       user: Shared::UserSerializer.render_as_hash(user, view: :detailed, session: session)
-    }, status: :created
+    }
+
+    # SIGNING IN STILL SUCCEEDS when the role is refused, and the refusal rides
+    # along beside the token. Failing the whole request would consume the code
+    # and hand back nothing, costing a second SMS — and it would strand exactly
+    # the person we most want to reach: someone signing in as a courier who has
+    # not applied yet. `role_not_held` is the front door to onboarding, so the
+    # app can offer the application path instead of showing an error.
+    if (refusal = UserSession.role_refusal(user, requested_role))
+      body[:role_request] = { requested: requested_role, granted: false, code: refusal.to_s }
+    end
+
+    render json: body, status: :created
   rescue Users::SignInService::NoCodeIssued => e
     render_unprocessable_entity(e.message, code: "otp_not_issued")
   rescue Users::SignInService::CodeNoLongerValid => e

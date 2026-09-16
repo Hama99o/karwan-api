@@ -21,18 +21,48 @@ class UserSession < ApplicationRecord
   scope :live, -> { where(revoked_at: nil).where(expires_at: [ nil, Time.current.. ]) }
 
   # Returns [record, plaintext_token]. The plaintext is returned exactly once.
-  def self.issue!(user, device_name: nil, platform: nil)
+  #
+  # `requested_role` is what the sign-in screen asked for. It is a REQUEST, not
+  # an instruction: a role the person does not hold, or one that has no place on
+  # a phone, falls back rather than failing, because the OTP has already been
+  # consumed by the time we get here and stranding someone with no token would
+  # cost them a second SMS — which is money, and the only per-order cost in v0.
+  def self.issue!(user, device_name: nil, platform: nil, requested_role: nil)
     token = SecureRandom.urlsafe_base64(32)
     record = create!(
       user: user,
       token_digest: digest(token),
       device_name: device_name,
       platform: platform,
-      active_role: seeded_role_for(user),
+      active_role: resolve_role(user, requested_role),
       expires_at: TTL.from_now,
       last_used_at: Time.current
     )
     [ record, token ]
+  end
+
+  # WHY A REQUESTED ROLE WAS NOT GRANTED, or nil when there is nothing to say.
+  #
+  # Two different refusals, because they need two different screens: a role
+  # this person could apply for, and a role that does not exist on a phone at
+  # all. "Told plainly and offered the application path" is the requirement,
+  # and it cannot be honoured by one flat error.
+  def self.role_refusal(user, requested)
+    return nil if requested.blank?
+
+    requested = requested.to_s
+    return :not_a_mobile_role unless Roles::MOBILE.include?(requested)
+    return :role_not_held unless user.role?(requested)
+
+    nil
+  end
+
+  # What a new session actually opens in: the requested role when it was
+  # granted, otherwise where this person left off.
+  def self.resolve_role(user, requested)
+    return requested.to_s if requested.present? && role_refusal(user, requested).nil?
+
+    seeded_role_for(user)
   end
 
   # A NEW device starts where the person left off — a reinstall must not drop a
@@ -44,7 +74,9 @@ class UserSession < ApplicationRecord
   # it and no way to explain why.
   def self.seeded_role_for(user)
     preferred = user.last_active_role
-    user.role?(preferred) ? preferred : :customer
+    return "customer" unless Roles::MOBILE.include?(preferred)
+
+    user.role?(preferred) ? preferred : "customer"
   end
 
   def self.digest(token)
@@ -67,16 +99,18 @@ class UserSession < ApplicationRecord
 
   # ONE ACCOUNT, SEVERAL ROLES — and the switch belongs to THIS device.
   #
-  # Returns false for one reason only: the user does not hold that role. A
-  # stale client asking for a role it lost must get a clean refusal rather than
-  # a 500, but a write that actually fails must raise — `update` returning
+  # Returns false when the role is refused — the user does not hold it, or it
+  # is `admin`, which has no place on a phone. A stale client asking for a role
+  # it lost must get a clean refusal rather than a 500, but a write that
+  # actually fails must raise — `update` returning
   # false made those two cases indistinguishable, so a failed save read as "you
   # do not hold that role", which is a lie the client then shows the user.
   #
   # The preference is written through, so the NEXT device and the next
   # reinstall open in the same mode.
   def switch_role!(role)
-    return false unless user.role?(role)
+    return false if role.blank?
+    return false unless self.class.role_refusal(user, role).nil?
 
     transaction do
       update!(active_role: role)

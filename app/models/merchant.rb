@@ -36,6 +36,25 @@ class Merchant < ApplicationRecord
   # paid by every user, not just a large file on our disk.
   validates_attached :logo, :storefront_photo, :license_photo
 
+  # ASSIGNING AN OWNER IS WHAT GRANTS THE MERCHANT ROLE.
+  #
+  # It granted nothing. `owner_id` is set through the console's generic form, so
+  # the launch-day sequence was: Hamma9900 sits with a restaurant owner,
+  # onboards them, sets the owner to their phone — and that person signs in and
+  # cannot reach the merchant tab. Worse than a clean failure, because
+  # `OrderPolicy::MerchantScope` keys on `merchants.owner_id` and would resolve
+  # while the role-gated endpoints refused, so the symptom points at the app
+  # rather than at a missing `user_roles` row.
+  #
+  # This is the same bug courier approval had — status set, wallet made, role
+  # never granted — on the path Hamma9900 uses FIRST, because merchants are
+  # admin-onboarded and couriers self-apply.
+  #
+  # ON THE MODEL, NOT IN THE CONTROLLER, because the owner can be set from the
+  # Administrate form, a seed, a console, or any admin path added later. A
+  # callback is the only place that catches all of them.
+  after_save :sync_owner_role, if: :saved_change_to_owner_id?
+
   validates :name, presence: true
   validates :phone, presence: true
   # Nullable: a book has no preparation time. Validated only when given, so a
@@ -128,5 +147,24 @@ class Merchant < ApplicationRecord
     now = Time.current
     catalog_items.kept.update_all(deleted_at: now)
     catalog_categories.kept.update_all(deleted_at: now)
+  end
+  private
+
+  # Grants the role to the new owner and takes it from the old one — but only
+  # when that person owns nothing else, because one person can hold two
+  # restaurants and reassigning one must not lock them out of the other.
+  #
+  # The customer role rides along with the grant (`User#grant_role!`) and is
+  # never taken away by the revoke: a former owner still buys kebabs.
+  def sync_owner_role
+    previous_owner_id, new_owner_id = saved_change_to_owner_id
+
+    User.find_by(id: new_owner_id)&.grant_role!(:merchant_owner)
+
+    previous_owner = User.find_by(id: previous_owner_id)
+    return if previous_owner.nil?
+    return if previous_owner.owned_merchants.kept.exists?
+
+    previous_owner.revoke_role!(:merchant_owner)
   end
 end

@@ -86,6 +86,62 @@ RSpec.describe User, type: :model do
     end
   end
 
+  # ── WHO THIS PERSON IS ALLOWED TO BE ────────────────────────────────────────
+  #
+  # Hamma9900's asymmetry: partner → customer is automatic, customer → partner
+  # never is.
+  describe "#grant_role!" do
+    let(:user) { create(:user) }
+
+    it "grants the role asked for" do
+      expect { user.grant_role!(:courier) }
+        .to change { user.reload.role?(:courier) }.from(false).to(true)
+    end
+
+    # "The client account opens if we have restaurant or rider or driver
+    # account automatic, because it's not a big thing." A courier who cannot
+    # order food breaks the premise the shared pool rests on.
+    it "grants the customer role alongside any partner role" do
+      user.grant_role!(:courier)
+
+      expect(user.reload.role?(:customer)).to be true
+    end
+
+    it "is idempotent, so it is safe on every save" do
+      user.grant_role!(:courier)
+
+      expect { user.grant_role!(:courier) }.not_to change { user.reload.user_roles.count }
+    end
+  end
+
+  describe "#revoke_role!" do
+    let(:user) { create(:user) }
+
+    it "takes a partner role away" do
+      user.grant_role!(:merchant_owner)
+
+      expect { user.revoke_role!(:merchant_owner) }
+        .to change { user.reload.role?(:merchant_owner) }.from(true).to(false)
+    end
+
+    # THE GUARD, TESTED DIRECTLY. Nothing in the app revokes `customer` today,
+    # so the merchant-ownership specs pass whether this guard exists or not —
+    # which makes them no test of it at all. Losing the ability to buy food is
+    # not a consequence anyone intends, and the next caller should not have to
+    # rediscover that.
+    it "refuses to take the customer role away" do
+      user.grant_role!(:courier)
+
+      user.revoke_role!(:customer)
+
+      expect(user.reload.role?(:customer)).to be true
+    end
+
+    it "does nothing for a role the person never held" do
+      expect { user.revoke_role!(:courier) }.not_to raise_error
+    end
+  end
+
   # Switching moved to `UserSession`, because which mode the app is in is a
   # fact about a DEVICE. What is left here is the preference that seeds the
   # next new session — see spec/models/user_session_spec.rb.
