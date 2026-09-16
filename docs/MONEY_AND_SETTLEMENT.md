@@ -15,38 +15,90 @@ That is what makes launching possible with no payment provider, no merchant acco
 banking integration. It is also what makes the wallet and the settlement discipline
 load-bearing: **the commission is the entire revenue, and it arrives days later.**
 
-## 2. The normal delivery, in Hamma9900's own example
+## 2. THE CASH FLOW — the most important thing in this document
+
+Hamma9900 called this the most important part of the platform, and this section is the answer.
+Worked in his own numbers: a **300 AFN** meal, a **100 AFN** delivery, a **50 AFN** restaurant
+commission, and a **15 AFN** platform margin on the delivery.
 
 ```
-  order = 1,000 AFN of food      customer pays 1,100 AFN
-        ↓                                ↑
-  COURIER must already hold 1,000 AFN in his wallet
-        ↓ pays the restaurant in cash
-  RESTAURANT hands over the food
-        ↓ courier delivers
-  COURIER keeps the delivery fee, and now OWES us commission
-        ↓ end of week
-  COURIER goes to a bank and deposits what he owes
+CUSTOMER  ──── pays 400 in cash ────►  COURIER
+                (300 food + 100 delivery)      │
+                                               │ earlier paid 315 in cash
+                                               ▼
+                                          RESTAURANT
+                                          keeps 250
+                                          owes the platform 65
+                                               │
+                                               │ walks to a bank, weekly
+                                               ▼
+                                            PLATFORM
 ```
 
-**The courier must have the money before he can take the job.** A 1,000 AFN order is only
-offered to a courier whose wallet covers 1,000 AFN. This is `CourierWallet#can_fund?` and it is
-**intended, not incidental** — the wallet is the security against a courier taking the food and
-disappearing. Hamma9900 has confirmed this directly.
+| Party | Pays | Receives | Ends with | Owes the platform |
+|---|---|---|---|---|
+| **Customer** | 400 | the food | — | **never anything** |
+| **Courier** | 315 to the restaurant | 400 from the customer | **85, his fee** | **NOTHING** |
+| **Restaurant** | 315 received, 250 kept | | 250 | **65** |
+| **Platform** | — | 65, in one deposit | **65** | — |
 
-## 3. Who pays us, and who never does
+### The three things that make this shape right
 
-| | Pays us |
-|---|---|
-| **Customer** | **never.** They pay the courier, once, for everything |
-| **Courier / driver** | yes — commission on each job |
-| **Restaurant / store** | yes — commission on each order |
+**1. ONLY TWO PARTIES EVER DEPOSIT MONEY: restaurants and taxi drivers.**
 
-*"We will cut from restaurant also, we will cut from rider and driver also, but we will not cut
-from customer."*
+A **food courier never pays the platform anything.** No wallet debt, no settlement, no walk to a
+bank, no chasing two hundred small debtors who each owe a few Afghani and can vanish on a
+motorbike. That was Hamma9900's instinct and it is the single biggest simplification in the
+model.
 
-The customer sees one number and pays it in cash. Both the merchant's commission and the
-courier's commission are invisible to them.
+**2. The platform's cut from the courier arrives THROUGH the restaurant.**
+
+The courier pays the restaurant **315 for a 300 meal** — the food plus the platform's 15. The
+restaurant collects it and adds it to what it deposits. So the restaurant is the **single
+collection point for all food revenue, from both sides**, in one weekly payment.
+
+This is the part that needed solving: in a pure cash model the courier physically holds the
+money, so the platform cannot take a share of his fee without turning it into a debt. Routing it
+through the restaurant keeps the courier debt-free while the platform still earns on both sides.
+
+**3. The customer pays the courier, and never the platform.**
+
+Food plus delivery, one number, one payment, in cash at the door. Both commissions are invisible
+to them. *"We will not cut from the customer"* — Hamma9900.
+
+### What each screen must show
+
+- **The courier's step says "pay 315".** One number, one action. He does not need to know what is
+  inside it, and the fee he keeps is simply 85 — introduced as the fee rather than as a
+  deduction, because *"you owe us 15"* and *"the fee is 85"* feel like different jobs.
+- **The restaurant's board says "collect 315 — 300 food, 15 platform"**, so they know why it is
+  more than the menu price. Transparency with restaurants is a stated requirement and this is
+  where it matters most: an unexplained 15 looks like a mistake or a skim.
+- **The customer sees 400**, itemised as food and delivery. Nothing about commission.
+
+### Timing, which is a judgement rather than a rule
+
+The courier's fee starting at 85 instead of 100 is **a config change, not a build** —
+`orders.delivery_fee` (what the customer pays) and `orders.courier_fee` (what the courier earns)
+are already separate columns, and `pricing_rates` already splits rates by `audience`.
+
+**But do not take that margin while begging for couriers.** Removing the courier's debt bought
+three things: no deposit barrier, nobody to chase, and cheap recruiting. Widening the gap is one
+number and can be done the day riders are queuing for work — not while each one is recruited in
+a conversation somebody travelled for.
+
+## 3. Who pays the platform, and who never does
+
+| | Pays the platform | How |
+|---|---|---|
+| **Customer** | **never** | pays the courier once, in cash, for everything |
+| **Food courier** | **never directly** | the platform's share reaches it via the restaurant |
+| **Restaurant / store** | **yes** | its own commission **plus** the courier-side margin, by bank deposit |
+| **Taxi driver** | **yes** | commission on each fare, by bank deposit |
+
+**The taxi driver is the one party who genuinely owes money**, and it cannot be avoided: he
+collects the whole fare and there is no third party to route a share through. So rides keep the
+wallet, the balance and the deposit — which is why that machinery is not deleted.
 
 ## 4. Settlement: they come to us, by bank deposit
 
