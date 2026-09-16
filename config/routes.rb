@@ -172,6 +172,9 @@ Rails.application.routes.draw do
         # tables — one screen does not mean one table.
         post "jobs/:kind/:id/advance", to: "jobs#advance", as: :advance_job
         post "jobs/:kind/:id/problem", to: "jobs#problem", as: :problem_job
+        # "I am at the gate" — its own action rather than a step, because it
+        # moves nothing: what changes is that the customer is told.
+        post "jobs/:kind/:id/arrived", to: "jobs#arrived", as: :arrived_job
       end
 
       namespace :merchants, path: "merchant" do

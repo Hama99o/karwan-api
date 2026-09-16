@@ -2,7 +2,7 @@
 class Api::V1::Couriers::JobsController < Api::V1::Couriers::BaseController
   KINDS = { "delivery" => Order, "ride" => Trip }.freeze
 
-  before_action :set_job, only: %i[advance problem]
+  before_action :set_job, only: %i[advance problem arrived]
 
   # The single job in front of them. Not a list — a courier carries one job at a
   # time in v0, and returning an object rather than a collection keeps it that
@@ -39,6 +39,27 @@ class Api::V1::Couriers::JobsController < Api::V1::Couriers::BaseController
     render_unprocessable_entity(e.message, code: "wrong_step")
   rescue Couriers::AdvanceJobService::Error => e
     render_unprocessable_entity(e.message, code: "cannot_advance")
+  end
+
+  # "I AM AT THE GATE." The arrival moment Hamma9900 asked about.
+  #
+  # Its own action rather than a step, because it moves nothing: a delivery is
+  # `picked_up` before and after, and what changes is that the CUSTOMER is
+  # told. A step with no transition would have to be invented for it, and
+  # `AdvanceJobService` deliberately skips those.
+  #
+  # Idempotent — a second tap is a silent success, because a courier taps
+  # one-handed in sunlight and must not be able to ring somebody twice.
+  def arrived
+    authorize @job, :show?
+
+    announced = Couriers::AnnounceArrivalService.new(job: @job, courier: current_user).call
+
+    render_ok({ announced: announced })
+  rescue Couriers::AnnounceArrivalService::NotYourJob => e
+    render json: { error: e.message, code: "not_your_job" }, status: :forbidden
+  rescue Couriers::AnnounceArrivalService::TooEarly => e
+    render_unprocessable_entity(e.message, code: "too_early_to_arrive")
   end
 
   # The problem buttons: customer not answering, customer refused, unsafe.

@@ -42,6 +42,15 @@ module Customers
       end
     end
 
+    # HE IS AT THE GATE. The same fact the notification carries, on the screen
+    # the app already polls — because push is ONE of three channels and never
+    # the channel: a notification can be refused, delayed by OEM power
+    # management, or arrive on a phone somebody else is holding.
+    #
+    # A timestamp rather than a boolean, so the app can say "for four minutes"
+    # if it ever wants to, and so the fact survives being read twice.
+    field :courier_arrived_at
+
     view :detailed do
       include_view :list
 
