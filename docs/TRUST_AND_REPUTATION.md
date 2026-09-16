@@ -149,13 +149,57 @@ figure per basket. **Set these honestly and a 10-minute ETA is something custome
 Set one lazy number per restaurant and the advantage is thrown away**, promising 20 minutes on
 food already in the pot. Worth saying to every merchant at onboarding.
 
-**D. The customer cancels AFTER pickup. UNRESOLVED, and the hardest.** The courier has paid the
-restaurant with his own cash and is holding food. `MONEY_AND_SETTLEMENT.md` §5 gives him the
-right to return it and be refunded — but that is written for a *refusal at the door*, not a
-cancellation while he is riding. The cases may want different answers.
+**D. The customer cancels AFTER pickup. DECIDED.** Hamma9900's design, in his numbers: food
+300, restaurant keeps 250, courier 20, platform 30.
 
-**E. A ride cancelled mid-journey. DEFERRED by Hamma9900**, and he has called it critical. The
-shape will mirror §5 — a proportion paid, a strike recorded — and it is not v0.
+| | |
+|---|---|
+| Courier returns the food; **restaurant pays him his 20 in full** | restaurant −20 |
+| **Platform pays the restaurant 50** — their 20 back, plus the 30 commission forfeited | restaurant +50 |
+| **Restaurant ends** | **+30, and keeps a resellable meal** |
+| **Courier ends** | **+20 — paid for the work he did** |
+| **Platform ends** | **−50** |
+
+**The principle, which is what makes it explainable: no commission on a cancelled job, for
+anybody — and the platform reimburses whatever the restaurant paid out.** Once the courier has
+marked picked up he is owed, however far he got. Before pickup, nothing happens.
+
+**For a restaurant contract, one sentence:** *"If an order is cancelled after pickup, you pay the
+courier, I refund you that plus my commission, and you keep the food."*
+
+**THE PLATFORM NEVER BUYS THE FOOD, and that is what caps the exposure.** The meal goes back and
+is resellable because Afghan restaurants pre-cook (§C-bis). So on a 3,000 AFN order the platform
+does not lose 3,000 — it loses its commission on it and nothing more. Commission and courier fee
+scale together, so **the worst case is "I earned nothing on this order", never "I lost the price
+of the meal."** On a cheap order with a long ride the fee can exceed the commission; that is rare,
+a few tens of Afghani, and not worth a rule.
+
+**E. A ride cancelled after it started. DECIDED, and differently — the platform pays NOTHING.**
+
+Collect-at-start was considered and **rejected on cultural grounds**: in Afghanistan a fare is
+paid at the end, and Hamma9900's judgement is that paying up front "human to human will not
+happen". Culture beats design.
+
+So:
+
+1. **Driver and passenger settle the distance between themselves**, in cash — which is what a
+   Kabul taxi driver and passenger would do anyway if a journey ended early.
+2. **The platform takes no commission** on that trip.
+3. **The passenger gets a strike.**
+4. **The platform pays nothing.**
+
+**THE REASON IT DIFFERS FROM FOOD IS FRAUD, and Hamma9900 identified it:** *"maybe they cancel
+it, they tell the customer to cancel, to keep the commission."* **Any compensation the platform
+pays on a cancellation is money two people standing next to each other can agree to extract** —
+and a ride has **no third party watching**. Food is safer because the restaurant is a witness and
+the courier must ride back to be paid, so a faked cancellation costs him a wasted round trip.
+
+**The leak that remains cannot be fixed by rules:** a driver saying *"cancel in the app and pay
+me directly, we both save."* Two defences, and only one is buildable. **Detection** — an
+unusually high cancellation rate for one driver, or the same driver-passenger pair cancelling
+repeatedly, both visible in data already collected. And the real one: **be worth more than the
+commission.** A driver receiving ten rides a day will not risk that flow to save 12.5% on one
+fare. **Off-app leakage is a symptom of too little work being sent, not of poor discipline.**
 
 **What must be true whichever way these land:** every cancellation records **who** cancelled,
 **when**, and **why**, from a fixed list rather than free text, and lands in the audit trail.
