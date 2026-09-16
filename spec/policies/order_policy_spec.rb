@@ -66,8 +66,9 @@ RSpec.describe OrderPolicy do
     #
     # The premise the shared pool rests on is that these are ONE HUMAN with
     # several capabilities: the same person delivers a meal at 13:00 and buys
-    # one at 20:00. A policy that refused him would have made the platform's
-    # own couriers its only customers who cannot order.
+    # one at 20:00. The old behaviour is absurd stated plainly, which is why it
+    # is stated here — THE PLATFORM'S OWN COURIERS WOULD HAVE BEEN THE ONLY
+    # PEOPLE IN KABUL UNABLE TO ORDER FROM IT. Do not "fix" this back.
     it "allows a courier and a merchant owner, because they are customers too" do
       expect(courier.role?(:customer)).to be true
       expect(described_class.new(courier, Order).create?).to be true

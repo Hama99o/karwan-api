@@ -597,10 +597,31 @@ clothes:
 | i18n boot | the language switch survives a restart | only the across-restart scope, so a half-mirrored app shipped |
 | `current_role` | the role never comes from the client | an outcome produced by other code entirely; the method had no callers |
 
-Two questions catch all three. **Can the check go red?** — plant the bug.
-**Is the code under test reachable at all?** — if a plant changes nothing
-anywhere, either the code is dead or the test is about something else, and the
-second is worse, because the comment then misdescribes what is protected.
+And a fourth, which is a different failure from the three above — not a check
+that cannot go red, but a **fixture describing a world the rules forbid**:
+
+| | The fixture claimed | What the rules allow |
+|---|---|---|
+| user factory | a courier holding `courier` and not `customer` | impossible: `grant_role!` always grants both |
+
+**A suite built on impossible data does not only miss bugs — it manufactures
+them.** This one presented as a bug in correct code: the session-issuing logic
+was right, the test failed, and the failure pointed at the code rather than at
+its fixture. Somebody spends that debugging time, and it is whoever is unlucky.
+
+**Fixtures must go through the same code that creates production records.**
+`grant_role!` is the invariant's home, so a factory writing `user_roles` rows
+directly is asserting against a different system.
+
+Four questions, then, and each catches a different one:
+
+- **Can the check go red?** — plant the bug.
+- **Is the code under test reachable at all?** — if a plant changes nothing
+  anywhere, either the code is dead or the test is about something else, and the
+  second is worse, because the comment then misdescribes what is protected.
+- **Does the test observe the state it is asserting about?** — the i18n boot
+  test modelled one scope of two.
+- **Could the database state this test sets up ever occur through the app?**
 
 ### A FACTORY CAN BUILD A USER THE APP CAN NO LONGER PRODUCE
 The `:courier`, `:merchant_owner` and `:admin` traits wrote `user_roles` rows
