@@ -80,6 +80,17 @@ module Couriers
     end
 
     view :active do
+      # HAS HE ALREADY TOLD THEM? Without this the courier's own screen cannot
+      # know, so the "I am at the gate" button would stay on screen doing
+      # nothing on a second tap — the server is idempotent, but a button that
+      # visibly does nothing is worse than no button.
+      #
+      # A ride uses its own state for this, so both demand types answer the
+      # same question through one field and the app never learns the difference.
+      field :arrived_at do |job|
+        job.is_a?(Trip) ? job.arrived_at : job.courier_arrived_at
+      end
+
       # THE step list. One screen, one action at a time, both demand types.
       field :steps do |job|
         Couriers::JobSteps.new(job).call
