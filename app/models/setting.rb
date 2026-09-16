@@ -52,6 +52,21 @@ class Setting < ApplicationRecord
     "eta_average_speed_kmh"  => { type: :decimal, default: "18.0", description: "Straight-line distance / this = ETA. Calibrate from real deliveries." },
     "dispatch_offer_ttl_sec" => { type: :integer, default: "60", description: "How long a rider has to answer an offer before it moves on" },
     "dispatch_max_offers"    => { type: :integer, default: "5", description: "Riders tried before the order is surfaced to admin" },
+    # ── HOW FAR IS TOO FAR TO ASK ────────────────────────────────────────────
+    #
+    # 8 IS A GUESS AND SHOULD BE TREATED AS ONE. Nothing in one Kabul
+    # neighbourhood tests it: every courier and every merchant are inside it, so
+    # this setting does nothing today and is impossible to calibrate from live
+    # data. It exists because the day a SECOND city is added, dispatch would
+    # otherwise offer a Kabul order to a Jalalabad courier — nearest eligible,
+    # with no ceiling — and he would accept it in good faith and then ride 150km
+    # or cancel.
+    #
+    # Straight-line, not road, because that is what `Geo::Distance` gives and a
+    # ceiling does not need to be exact — it needs to exclude the absurd.
+    # Generous rather than tight on purpose: a courier wrongly excluded is an
+    # order nobody carries, which is worse than one offered slightly too far.
+    "dispatch_max_offer_radius_km" => { type: :decimal, default: "8.0", description: "Furthest a courier may be from the pickup to be offered a job. A GUESS — nothing in one neighbourhood tests it." },
     # OTP SEND limits. These are a BILL, not only a security control: SMS is one
     # of exactly two recurring costs in v0, and an unthrottled request endpoint
     # is someone else spending the owner's money. They are settings rather than

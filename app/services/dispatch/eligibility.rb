@@ -17,6 +17,7 @@ module Dispatch
       wrong_vehicle_class: "passenger asked for a different kind of vehicle",
       already_on_a_job: "courier is already carrying a job",
       stale_location: "courier's last known position is too old to dispatch on",
+      too_far: "courier is further from the pickup than dispatch will reach",
       no_wallet: "courier has no wallet",
       wallet_blocked: "courier's wallet is at or below its credit floor",
       insufficient_credit: "courier's wallet cannot cover this job",
@@ -90,6 +91,31 @@ module Dispatch
       # cannot make. Better to skip this courier than to send the nearest
       # courier-shaped memory.
       return :stale_location unless profile.location_fresh?
+      # ── AND A CEILING ON HOW FAR WE WILL ASK ───────────────────────────────
+      #
+      # `OfferService` picks the NEAREST eligible courier, which silently means
+      # "however far away he is". In one neighbourhood that is harmless and this
+      # check never fires. The day a second city exists it stops being harmless:
+      # a Kabul order would be offered to a Jalalabad courier, who accepts in
+      # good faith and then rides 150km or cancels — and the only party who
+      # could have known is us.
+      #
+      # ORDERED AFTER `stale_location` DELIBERATELY. A distance computed from a
+      # position we do not trust is worse than no distance at all, so freshness
+      # has to be established first; reversing these two would reject couriers
+      # on the strength of where they were an hour ago.
+      #
+      # ── THE TRADE-OFF, because this runs at ACCEPT too ─────────────────────
+      #
+      # `Eligibility` is re-checked when a courier taps accept, so in principle
+      # someone offered a job at 7.9km who drifts to 8.1km is refused a job we
+      # already decided to give him — us changing our mind. Accepted, for two
+      # reasons: nobody crosses that distance inside a 60-second offer TTL, and
+      # if he genuinely IS too far then riding there is the outcome this exists
+      # to prevent. The alternative — checking only when offering — would put
+      # this rule outside the one class that can name why a courier was skipped,
+      # which is the scattering this file's own header warns about.
+      return :too_far if too_far?
       return :no_wallet if wallet.nil?
       return :wallet_blocked if wallet.blocked?
       return :insufficient_credit unless wallet.can_fund?(@job)
@@ -103,6 +129,29 @@ module Dispatch
     end
 
     private
+
+    # Straight-line, because that is what a ceiling needs: it excludes the
+    # absurd rather than ranking the plausible, and `OfferService` already
+    # orders candidates by the same measure.
+    #
+    # FAILS OPEN on a missing coordinate, and that is the safe direction here.
+    # A job with no pickup point cannot be dispatched at all — `OfferService`
+    # returns early on exactly that — so answering "too far" would put a
+    # misleading reason on the admin board for a job whose real problem is a
+    # missing address.
+    def too_far?
+      pickup = @job.pickup_coordinates
+      here = profile.coordinates
+      return false if pickup.nil? || here.nil?
+
+      distance = Geo::Distance.km(
+        from_lat: here[0], from_lng: here[1],
+        to_lat: pickup[0], to_lng: pickup[1]
+      )
+      return false if distance.nil?
+
+      distance > Setting.fetch("dispatch_max_offer_radius_km")
+    end
 
     def profile
       @profile ||= @courier.courier_profile

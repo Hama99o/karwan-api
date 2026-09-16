@@ -55,6 +55,90 @@ RSpec.describe Dispatch::Eligibility do
       expect(eligibility.reason).to eq(:stale_location)
     end
 
+    # ── HOW FAR IS TOO FAR TO ASK ───────────────────────────────────────────
+    #
+    # `OfferService` picks the NEAREST eligible courier, which with no ceiling
+    # silently means "however far away he is". In one Kabul neighbourhood that
+    # never bites; the day a second city exists, a Kabul order is offered to a
+    # Jalalabad courier who accepts in good faith and then rides 150km or
+    # cancels — and the only party who could have known is us.
+    #
+    # The courier in these examples is OTHERWISE PERFECTLY ELIGIBLE. That is
+    # the point: the distance has to be the only thing standing between him and
+    # the job, or the example proves nothing about the ceiling.
+    describe "the offer radius" do
+      # Shar-e-Naw. The merchant the order is created against sits here too, so
+      # the baseline distance is ~0 and every number below is deliberate.
+      let(:pickup) { [ 34.5553, 69.2075 ] }
+
+      def put_courier_km_away(km)
+        # ~0.009 degrees of latitude is a kilometre. North, so longitude
+        # scaling by latitude does not come into it.
+        courier.courier_profile.update!(
+          last_latitude: pickup[0] + (km * 0.009), last_longitude: pickup[1],
+          location_updated_at: Time.current
+        )
+      end
+
+      before do
+        order.merchant.update!(latitude: pickup[0], longitude: pickup[1])
+      end
+
+      it "asks a courier who is comfortably inside it" do
+        put_courier_km_away(3)
+
+        expect(eligibility.reason).to be_nil
+      end
+
+      it "REFUSES one who is otherwise perfect but too far" do
+        put_courier_km_away(20)
+
+        expect(eligibility.reason).to eq(:too_far)
+      end
+
+      # The failure this exists to prevent, at the distance that makes it
+      # concrete rather than theoretical.
+      it "refuses a courier in another city" do
+        # Jalalabad is ~120km east of Kabul.
+        courier.courier_profile.update!(last_latitude: 34.4415, last_longitude: 70.4515,
+                                        location_updated_at: Time.current)
+
+        expect(eligibility.reason).to eq(:too_far)
+      end
+
+      it "follows the Setting rather than a constant, so Hamma9900 can retune it" do
+        put_courier_km_away(20)
+        Setting.find_or_initialize_by(key: "dispatch_max_offer_radius_km")
+               .update!(value: "50", value_type: :decimal)
+
+        expect(eligibility.reason).to be_nil
+      end
+
+      # ── ORDERED AFTER FRESHNESS, AND THAT ORDER IS LOAD-BEARING ───────────
+      #
+      # A distance computed from a position we do not trust is worse than no
+      # distance: it would reject a courier on the strength of where he was an
+      # hour ago, and report the wrong reason for it.
+      it "says the position is STALE, not that he is far, when both are true" do
+        courier.courier_profile.update!(last_latitude: 34.4415, last_longitude: 70.4515,
+                                        location_updated_at: 1.hour.ago)
+
+        expect(eligibility.reason).to eq(:stale_location)
+      end
+
+      # ── FAILS OPEN ON A MISSING PICKUP ───────────────────────────────────
+      #
+      # A job with no pickup point cannot be dispatched at all — `OfferService`
+      # returns early on exactly that — so answering "too far" here would put a
+      # misleading reason on the admin board for a job whose real problem is a
+      # missing address.
+      it "does not blame the distance when the job has no pickup point" do
+        order.merchant.update!(latitude: nil, longitude: nil)
+
+        expect(eligibility.reason).not_to eq(:too_far)
+      end
+    end
+
     it "names a blocked wallet" do
       courier.courier_wallet.update!(balance: -500, credit_line: 500)
 
