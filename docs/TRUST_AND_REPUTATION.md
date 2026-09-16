@@ -152,6 +152,13 @@ food already in the pot. Worth saying to every merchant at onboarding.
 **D. The customer cancels AFTER pickup. DECIDED.** Hamma9900's design, in his numbers: food
 300, restaurant keeps 250, courier 20, platform 30.
 
+> **THE MONEY LIVES IN `MONEY_AND_SETTLEMENT.md` §5, which is the same rule as
+> this one.** A refusal at the door and a cancellation after pickup were written
+> up separately and are identical from the money's point of view: the food
+> exists, nobody wants it, the courier has already paid. The table below is kept
+> here because the *strikes and the copy* are this document's job — but if the
+> two ever disagree, **§5 is the money and this is not.**
+
 | | |
 |---|---|
 | Courier returns the food; **restaurant pays him his 20 in full** | restaurant −20 |
@@ -175,6 +182,10 @@ of the meal."** On a cheap order with a long ride the fee can exceed the commiss
 a few tens of Afghani, and not worth a rule.
 
 **E. A ride cancelled after it started. DECIDED, and differently — the platform pays NOTHING.**
+
+> Settled in money terms in `MONEY_AND_SETTLEMENT.md` §7, which was rewritten to
+> match this: it used to say the driver collects the fare *before* the ride
+> starts, which is the thing rejected below.
 
 Collect-at-start was considered and **rejected on cultural grounds**: in Afghanistan a fare is
 paid at the end, and Hamma9900's judgement is that paying up front "human to human will not

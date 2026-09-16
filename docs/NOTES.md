@@ -1085,3 +1085,112 @@ from sign-in, because a password forces it — "sign me in" needs the account to
 exist and "make me an account" needs a password chosen. The mobile app therefore
 needs **two** screens' worth of API calls where it had one, plus the reset. That
 is queued with the sign-in screen and the 16 held locale keys.
+
+---
+
+## There is no concept of a CITY anywhere, and that is the first thing a second one needs
+
+**Verified 2026-09-16, not assumed:** `grep -n "city" db/schema.rb` returns
+nothing. No `cities` table, no `city_id`, no zones, no service areas. A merchant
+is a latitude and a longitude; a customer finds one by **distance alone**; a
+courier is dispatched by **distance alone**.
+
+**That is correct for one Kabul neighbourhood** and should not be changed now.
+Everything within a few kilometres of everything else makes a city column pure
+overhead — a field every form must set, every seed must fill and every query
+must remember, protecting against nothing.
+
+### What breaks on the day a second city opens, in the order it breaks
+
+1. **The customer's merchant list.** `/public/merchants` sorts by distance with
+   no floor, so a Jalalabad customer sees Kabul restaurants — far down the list,
+   but present, and orderable. **This is the one that reaches a real user
+   first.**
+2. **Dispatch.** Partly guarded now: `dispatch_max_offer_radius_km` puts a
+   ceiling on how far a courier may be from the pickup
+   (`Dispatch::Eligibility#too_far?`). That stops the 150km offer, but it is a
+   *radius*, not a *boundary* — two cities 10km apart would still bleed into
+   each other.
+3. **Pricing.** One set of `pricing_rates` for everywhere. A per-km rate tuned
+   for Kabul is not a Jalalabad rate, and there is no axis to vary it on.
+4. **The admin console.** Every list is global. The first operator in a second
+   city sees, and can act on, the first city's orders and wallets.
+
+### It is NOT a one-way door, and that is why this is a note rather than work
+
+**Coordinates can imply a city later.** Every merchant, address, order and trip
+already stores a latitude and longitude, so a `cities` table with a bounding box
+or a centre-plus-radius can be backfilled by assignment — no data is missing and
+nothing has to be reconstructed. That is the test `CLAUDE.md`'s one-way-door
+section sets, and this passes it: what we are failing to record is nothing,
+because position is already recorded.
+
+**So the trigger is a business event, not a code smell.** The day Hamma9900
+says a second city, this becomes a real piece of work of perhaps two days —
+table, backfill, scope the four things above. Nobody should discover it while
+trying to launch.
+
+---
+
+## THE CODE AND `MONEY_AND_SETTLEMENT.md` §2 DISAGREE ABOUT WHO OWES THE COMMISSION
+
+**Found 2026-09-16 while reading §2 before touching `delivery_quote`, which is
+exactly what Hamma9901 said to do. Not fixed — it is a money-model change and
+needs Hamma9900's word, not my inference from a document I did not write.**
+
+### The disagreement, in his own 300 AFN numbers
+
+| | `MONEY_AND_SETTLEMENT.md` §2 and §3 | `Pricing::DeliveryQuote` today |
+|---|---|---|
+| Courier pays the restaurant | **300** (the food, plus the platform's delivery margin) | **250** (`items_total − commission`) |
+| Courier ends holding | his fee, and **nothing of ours** | his fee **plus our 50** |
+| Who owes the platform the 50 | **the restaurant**, in its weekly deposit | **the courier** |
+
+The doc is unambiguous — §3's table reads *"Food courier | **never directly** |
+the platform's share reaches it via the restaurant"*, and §2 calls a debt-free
+courier *"the single biggest simplification in the model."* The code implements
+the **superseded** Model A from `CLAUDE.md`'s own money section: *"Rider pays the
+restaurant 350 (400 food − 50 our commission) … Rider is left holding our 50."*
+
+### Where it lives, exactly
+
+`app/services/pricing/delivery_quote.rb:51`
+
+```ruby
+merchant_payout: (@items_total - commission).round(2),
+```
+
+Under §2 that becomes `items_total + platform_delivery_margin`. And the courier's
+commission `wallet_entries` on the food side stop being written at all.
+
+### What is NOT in disagreement, checked rather than assumed
+
+- **The platform's margin on the delivery fee is already expressible and is
+  deliberately zero today.** `delivery_fee = base_delivery_fee × tier_multiplier`
+  while `courier_fee = base_delivery_fee`, so on a normal tier they are equal and
+  the platform takes nothing from the courier's side. §2 says exactly that, and
+  says not to widen it *"while begging for couriers."* Code and doc agree.
+- **The premium uplift is already the platform's**, which is the same mechanism
+  at a different multiplier.
+- **Rides are unaffected.** §3: the taxi driver is the one party who genuinely
+  owes money, because he collects the whole fare and there is no third party to
+  route a share through — so the wallet, balance and deposit machinery stays.
+
+### The consequence nobody should be surprised by
+
+**Under §2 the courier advances MORE, not less** — the full food price instead of
+food-minus-commission. So `CourierWallet#can_fund?` becomes **stricter**, not
+looser: a wallet that can fund a 250 advance today might not fund a 300 one. The
+change removes the courier's *debt*, not his *float*. Anyone reading "couriers
+owe nothing" as "the wallet check can relax" would have it backwards.
+
+### Why this is recorded rather than done
+
+`MONEY_AND_SETTLEMENT.md` is binding and says one thing; the ledger does another;
+and the deleted §6 of that same document carries the rule for this situation —
+**"do not implement this by guessing."** The change is small to write and large to
+be wrong about: it moves who owes whom, it changes what the courier's step screen
+says ("pay 300", not "pay 250"), and it makes a whole category of
+`wallet_entries` obsolete on the food side while leaving it live on the ride side.
+
+**It needs one sentence from Hamma9900 and then it is an afternoon.**
