@@ -24,6 +24,12 @@ module Customers
       order.customer_total
     end
 
+    # And what to bring, from the SAME rule the quote uses — so the cart and
+    # the status screen cannot advise differently about one order.
+    field :suggested_notes do |order|
+      Monetary.change_advice(order.customer_total)
+    end
+
     view :list do
       fields :items_total, :delivery_fee, :customer_total, :placed_at
 

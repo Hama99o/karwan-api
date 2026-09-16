@@ -21,11 +21,37 @@ module Customers
       quote.amounts[:customer_total]
     end
 
-    # So the app can warn "you will need change" rather than the courier
-    # discovering it on a doorstep. Couriers carry a float, but a 5,000 note
-    # for a 500 order is still a problem.
+    # WHAT TO BRING. This returned the total unchanged, which made it useless —
+    # so the mobile app computed its own advice, which put a money rule on the
+    # device and let the cart and the status screen disagree. `Monetary` owns it
+    # now: nil when nothing needs saying, otherwise the next 500.
     field :suggested_notes do |quote|
-      quote.amounts[:customer_total]
+      Monetary.change_advice(quote.amounts[:customer_total])
+    end
+
+    # WHY the total is what it is, line by line, every figure computed by the
+    # server. `CartResolver` produced these all along and `QuoteService`
+    # discarded them, which left the app summing catalog prices itself —
+    # exactly the failure CLAUDE.md forbids and edu-safi shipped three times.
+    #
+    # The option NAMES ride along too, so the cart can show "Large · +100"
+    # without re-deriving which values were chosen.
+    field :lines do |quote|
+      quote.lines.map do |line|
+        {
+          catalog_item_id: line[:item].id,
+          name: line[:item].name,
+          quantity: line[:quantity],
+          unit_price: line[:item].price,
+          options_total: line[:options_total],
+          line_total: line[:line_total],
+          currency: line[:item].currency,
+          notes: line[:notes],
+          options: line[:values].map do |value|
+            { id: value.id, name: value.name, price_delta: value.price_delta }
+          end
+        }
+      end
     end
 
     # How the distance was measured. Exposed rather than hidden because the

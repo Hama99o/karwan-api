@@ -13,6 +13,34 @@ module Monetary
   DEFAULT_CURRENCY = "AFN"
   SUPPORTED_CURRENCIES = [ DEFAULT_CURRENCY ].freeze
 
+  # Afghan banknotes. Used only to advise what to BRING, never to compute a
+  # charge.
+  #
+  # DESIGN.md's walkthrough asks for "have change for 500" under the cash
+  # amount when the total is awkward, and AFGHAN_UX.md §6 gives the reason:
+  # "people carry particular notes". A courier carries a change float; a
+  # customer holding a 1,000 note for a 450 order is a doorstep argument.
+  #
+  # THE RULE LIVES HERE, NOT ON THE DEVICE. It was computed in the mobile app
+  # for a while, which meant two things: the quote's own `suggested_notes`
+  # field returned the total unchanged and was therefore useless, and a money
+  # rule lived somewhere Hamma9900 could not change. Both serializers read this
+  # now, so the cart and the status screen cannot disagree either.
+  CHANGE_STEP = 500
+
+  # What to bring, or nil when nothing needs saying.
+  #
+  # Quiet on a round hundred, because a courier's float covers hundreds.
+  # Otherwise the next multiple of 500 — the note people actually carry — which
+  # is 500 for a 450 total, exactly as the walkthrough says, and 1,500 for
+  # 1,250, which a flat "have change for 500" got wrong.
+  def self.change_advice(total)
+    amount = total.to_d
+    return nil if amount <= 0 || (amount % 100).zero?
+
+    (amount / CHANGE_STEP).ceil * CHANGE_STEP
+  end
+
   # How far the parts may miss the whole before a record is rejected: one minor
   # unit.
   #

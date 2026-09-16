@@ -9,7 +9,15 @@ module Pricing
   # behind a second endpoint: the fare is frozen server-side from this exact
   # route, and the mobile app draws this exact geometry. Two calls could
   # disagree.
-  Quote = Data.define(:distance_km, :duration_minutes, :currency, :amounts, :route) do
+  # `lines` is the priced basket — WHY the total is what it is. It defaults to
+  # empty because a RIDE has no lines, and it is here rather than behind a
+  # second endpoint for the same reason `route` is: the customer must see the
+  # figures the order will be frozen with, and two calls could disagree.
+  Quote = Data.define(:distance_km, :duration_minutes, :currency, :amounts, :route, :lines) do
+    def initialize(lines: [], **rest)
+      super(lines: lines, **rest)
+    end
+
     def to_attributes
       amounts.merge(
         currency: currency,

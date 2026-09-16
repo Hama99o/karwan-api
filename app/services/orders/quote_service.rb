@@ -16,12 +16,21 @@ module Orders
     def call
       raise PlaceService::MerchantUnavailable, "#{@merchant.name} is not accepting orders" unless @merchant.accepting_orders?
 
-      items_total = CartResolver.new(merchant: @merchant, lines: @lines).items_total
+      resolver = CartResolver.new(merchant: @merchant, lines: @lines)
+      # Resolved ONCE and carried, rather than resolved for the total and
+      # thrown away. The per-line figures were computed here all along and
+      # discarded, so the app had nothing server-computed to show per line —
+      # which left it summing catalog prices on the device. CLAUDE.md is
+      # explicit that a total is never computed on the client, and edu-safi
+      # shipped that failure three times.
+      resolved = resolver.resolve
 
-      Pricing::DeliveryQuote.new(
-        merchant: @merchant, items_total: items_total,
+      quote = Pricing::DeliveryQuote.new(
+        merchant: @merchant, items_total: resolver.items_total(resolved),
         delivery_latitude: @delivery_latitude, delivery_longitude: @delivery_longitude
       ).call
+
+      quote.with(lines: resolved)
     end
   end
 end

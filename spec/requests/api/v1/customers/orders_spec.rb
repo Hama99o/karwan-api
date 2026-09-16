@@ -474,4 +474,101 @@ RSpec.describe "Api::V1::Customers::Orders", type: :request do
       end
     end
   end
+  describe "the quote ITEMISES, so the app never sums anything" do
+    # `CartResolver` computed every per-line figure and `QuoteService`
+    # discarded them, so the app had nothing server-computed per line and was
+    # summing catalog prices on the device. CLAUDE.md forbids a client-computed
+    # total and edu-safi shipped that failure three times.
+    it "returns a priced line per cart line, with the options named" do
+      large = kabab.options.create!(name: "Size", selection_type: :single, required: true,
+                                    min_selections: 1, max_selections: 1)
+      big = large.values.create!(name: "Large", price_delta: 100, currency: "AFN")
+
+      post "/api/v1/customer/orders/quote", params: {
+        order: cart[:order].merge(
+          lines: [ { catalog_item_id: kabab.id, quantity: 2, option_value_ids: [ big.id ], notes: "no salt" } ]
+        )
+      }, headers: auth
+
+      expect(response).to have_http_status(:ok)
+      line = json.dig("quote", "lines").first
+      expect(line["name"]).to eq("Chicken Kabab")
+      expect(line["quantity"]).to eq(2)
+      expect(line["unit_price"].to_f).to eq(400)
+      expect(line["options_total"].to_f).to eq(100)
+      # (400 + 100) × 2. The whole line multiplied, options included — not the
+      # base price alone, which would show 900 and charge 1000.
+      expect(line["line_total"].to_f).to eq(1000)
+      expect(line["notes"]).to eq("no salt")
+      expect(line.dig("options", 0, "name")).to eq("Large")
+      expect(line.dig("options", 0, "price_delta").to_f).to eq(100)
+    end
+
+    it "keeps the line totals consistent with the items total it charges" do
+      post "/api/v1/customer/orders/quote", params: {
+        order: cart[:order].merge(
+          lines: [ { catalog_item_id: kabab.id, quantity: 3 } ]
+        )
+      }, headers: auth
+
+      lines_sum = json.dig("quote", "lines").sum { |line| line["line_total"].to_f }
+      expect(lines_sum).to eq(json.dig("quote", "items_total").to_f)
+    end
+
+    # WHAT TO BRING. This field returned the total unchanged, which made it
+    # useless, so the app computed its own advice — a money rule on the device.
+    describe "suggested_notes" do
+      # The fee is DISTANCE-based, so neither of these can be left to the
+      # default settings — a first version assumed 400 + 100 and got 518.56,
+      # which is the pricing working correctly and the test assuming.
+      def fix_delivery_fee(amount)
+        { "delivery_base_fee" => amount, "delivery_fee_per_km" => "0.0",
+          "delivery_minimum_fee" => "0.0" }.each do |key, value|
+          Setting.find_or_initialize_by(key: key).update!(value: value, value_type: :decimal)
+        end
+      end
+
+      it "advises the next 500 when the total is awkward" do
+        fix_delivery_fee("55.0")
+
+        post "/api/v1/customer/orders/quote", params: cart, headers: auth
+
+        # 400 + 55 = 455, so bring 500 — the note people carry.
+        expect(json.dig("quote", "amount_to_pay_in_cash").to_f).to eq(455)
+        expect(json.dig("quote", "suggested_notes").to_f).to eq(500)
+      end
+
+      it "advises 1,500 rather than 500 on a bigger total" do
+        # The bug a flat "have change for 500" had: it is wrong advice above
+        # 500, and the customer arrives with the wrong note.
+        fix_delivery_fee("50.0")
+
+        post "/api/v1/customer/orders/quote", params: {
+          order: cart[:order].merge(lines: [ { catalog_item_id: kabab.id, quantity: 3 } ])
+        }, headers: auth
+
+        expect(json.dig("quote", "amount_to_pay_in_cash").to_f).to eq(1250)
+        expect(json.dig("quote", "suggested_notes").to_f).to eq(1500)
+      end
+
+      it "says nothing when the total is a round hundred — a float covers it" do
+        fix_delivery_fee("100.0")
+
+        post "/api/v1/customer/orders/quote", params: cart, headers: auth
+
+        expect(json.dig("quote", "amount_to_pay_in_cash").to_f).to eq(500)
+        expect(json.dig("quote", "suggested_notes")).to be_nil
+      end
+    end
+  end
+
+  # The cart and the status screen must not advise differently about one order.
+  it "puts the same change advice on a placed order" do
+    post "/api/v1/customer/orders", params: cart, headers: auth
+    order = Order.find(json.dig("order", "id"))
+
+    get "/api/v1/customer/orders/#{order.id}", headers: auth
+
+    expect(json["order"]).to have_key("suggested_notes")
+  end
 end
