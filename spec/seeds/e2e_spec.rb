@@ -58,10 +58,19 @@ RSpec.describe "db/seeds/e2e.rb" do
     expect(courier.courier_wallet.balance).to be > 0
   end
 
-  it "gives the merchant owner an active, open merchant with something to sell" do
+  it "has an active, open merchant with something to sell" do
     merchant = Merchant.find_by(phone: "+93700000804")
 
-    expect(merchant.owner).to eq(owner)
+    # OWNED BY THE ACCOUNT THE RIG USES, which changed deliberately: the board
+    # resolves from `owner_id`, and owned by a different account it 403'd
+    # `no_merchant` for three runs while the role was right all along. See "the
+    # account the rig signs in as" below.
+    expect(merchant.owner).to eq(customer)
+    # `+93700000802` stays the business CONTACT, which is what these columns
+    # are for — and stops holding `merchant_owner`, correctly, since it owns
+    # nothing.
+    expect(merchant.owner_phone).to eq(owner.phone)
+    expect(owner.role?(:merchant_owner)).to be false
     expect(merchant).to be_status_active
     expect(merchant.is_open).to be true
     expect(merchant.catalog_items.kept).to be_present
@@ -111,6 +120,69 @@ RSpec.describe "db/seeds/e2e.rb" do
     load Rails.root.join("db/seeds/e2e.rb")
 
     expect([ User.count, Order.count, Merchant.count, CourierProfile.count ]).to eq(before_counts)
+  end
+
+  # ── ONE ACCOUNT, THREE WORKING ROLES ───────────────────────────────────────
+  #
+  # Every flow signs in as `+93700000801` and switches role from Profile. So
+  # holding the roles is not enough — the merchant board resolves from
+  # `merchants.owner_id` and the courier screens from an approved profile and a
+  # wallet. Three runs were spent discovering that in two different ways:
+  #
+  #   · the board 403'd `no_merchant`, because QA Kabab House was owned by a
+  #     DIFFERENT account. The role was right and the ownership did not match.
+  #   · `/courier/job` returned `{"job":null}`, so `job-primary-action` never
+  #     rendered and the courier's 64dp is STILL unmeasured on a device.
+  #
+  # Both are one seed line each, and both cost a whole run.
+  describe "the account the rig signs in as" do
+    it "holds all three roles" do
+      expect(customer.user_roles.map(&:role).sort).to eq(%w[courier customer merchant_owner])
+    end
+
+    it "OWNS the merchant, so the board resolves rather than 403ing" do
+      expect(Merchant.kept.find_by(owner_id: customer.id)&.name).to eq("QA Kabab House")
+    end
+
+    it "is an approved courier with a funded wallet, so the courier screens open" do
+      expect(customer.courier_profile).to be_verification_approved
+      expect(customer.courier_profile.is_available).to be true
+      expect(customer.courier_wallet.balance).to be_positive
+    end
+
+    # THE THING THREE RUNS COULD NOT MEASURE.
+    it "is carrying a live job, so the courier's primary action renders" do
+      job = Order.live.for_courier(customer).first
+
+      expect(job).to be_present
+      expect(job.status).to eq("picked_up")
+    end
+
+    # `picked_up` is chosen so the step list has a completed step behind it and
+    # a money step in front — and so "I am here" is on screen, since the
+    # current step is the one at the customer's gate.
+    it "is on the step where both the primary action and 'I am here' show" do
+      job = Order.live.for_courier(customer).first
+      steps = Couriers::JobSteps.new(job).call
+
+      expect(steps.find { |step| step[:current] }[:key]).to eq("go_to_customer")
+      expect(steps.find { |step| step[:status_after].present? && !step[:completed] }[:key])
+        .to eq("collect_and_deliver")
+    end
+
+    # A courier delivering to himself is a state the app permits and nobody
+    # should be looking at while measuring a screen.
+    it "is not delivering to itself" do
+      job = Order.live.for_courier(customer).first
+
+      expect(job.customer_id).not_to eq(customer.id)
+    end
+
+    # One live job per courier is enforced by `Dispatch::Eligibility`; a seed
+    # that created two would be seeding a state the app refuses.
+    it "carries exactly one" do
+      expect(Order.live.for_courier(customer).count).to eq(1)
+    end
   end
 
   # ── THE PHOTOS, BECAUSE AN EMPTY CARD IS A DIFFERENT SCREEN ────────────────

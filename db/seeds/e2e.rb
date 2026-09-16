@@ -44,7 +44,19 @@ end
 
 seed_section "e2e accounts" do
   customer = e2e_user!(E2E[:customer], name: "QA Customer", role: :customer)
-  owner = e2e_user!(E2E[:merchant_owner], name: "QA Merchant", role: :merchant_owner)
+  # THE BUSINESS CONTACT, and a plain customer.
+  #
+  # It used to be seeded with `merchant_owner` — while owning nothing, because
+  # the merchant now belongs to the account the rig signs in as. That is a
+  # state the APP CANNOT PRODUCE: nothing grants `merchant_owner` except
+  # `Merchant#sync_owner_role`, which grants it to an owner. A fixture
+  # describing an impossible world is the failure mode `docs/TESTING.md`
+  # records, and it was in the seed the QA rig trusts.
+  #
+  # It is the recipient of the courier's live job below, which is the other
+  # thing it is for: a courier must not be delivering to himself while somebody
+  # measures that screen.
+  owner = e2e_user!(E2E[:merchant_owner], name: "QA Merchant", role: :customer)
   courier = e2e_user!(E2E[:courier], name: "QA Courier", role: :courier)
 
   # The customer also HOLDS the other two roles, so the role switch has
@@ -54,9 +66,27 @@ seed_section "e2e accounts" do
   %i[merchant_owner courier].each { |role| customer.user_roles.find_or_create_by!(role: role) }
 
   # A merchant the flows name by value.
+  #
+  # ── OWNED BY THE CUSTOMER ACCOUNT, and that is not a mistake ─────────────
+  #
+  # Every flow signs in as `+93700000801` and switches role from Profile —
+  # that is why this account holds all three roles. But the board resolves
+  # from `merchants.owner_id`, so with the merchant owned by
+  # `+93700000802` the rig switched to merchant mode and got a **403
+  # `no_merchant`**: the role was right and the ownership did not match.
+  #
+  # Three runs of the merchant board were spent on that. The role and the
+  # ownership have to agree on ONE account, because that is the account the rig
+  # uses.
+  #
+  # `+93700000802` stays as the business CONTACT (`owner_name`/`owner_phone`
+  # below), which is what those columns are for, and stops holding
+  # `merchant_owner` — `Merchant#sync_owner_role` revokes it, correctly: it
+  # owns nothing.
   merchant = Merchant.find_or_initialize_by(phone: "+93700000804")
   merchant.assign_attributes(
-    name: "QA Kabab House", owner: owner, merchant_kind: MerchantKind.first,
+    name: "QA Kabab House", owner: customer, merchant_kind: MerchantKind.first,
+    owner_name: "QA Merchant", owner_phone: E2E[:merchant_owner],
     status: :active, is_open: true, prep_time_minutes: 20,
     latitude: 34.5553, longitude: 69.2075,
     landmark_note: "QA fixture — blue gate", commission_rate: 0.125
@@ -79,21 +109,33 @@ seed_section "e2e accounts" do
   # The COURIER must be approvable and approved, or `Couriers::BaseController`
   # refuses every request with `not_approved` and the courier screens are as
   # empty as they were with no account at all.
-  profile = courier.courier_profile || CourierProfile.new(user: courier)
-  profile.assign_attributes(
-    full_name: "QA Courier", national_id_number: "1400-QA-0001",
-    guarantor_name: "QA Guarantor", guarantor_phone: "+93700000805",
-    vehicle_type: :motorbike, accepted_job_kinds: %w[delivery ride],
-    verification_status: :pending, is_available: false
-  )
-  profile.save!
-  %i[id_document selfie].each do |document|
-    next if profile.public_send(document).attached?
-
-    profile.public_send(document).attach(
-      io: Rails.root.join("spec/fixtures/files/photo.png").open,
-      filename: "#{document}.png", content_type: "image/png"
+  #
+  # TWO PROFILES, and for the same reason the merchant is owned by the
+  # customer: the rig signs in as ONE account and switches roles, so that
+  # account needs a working courier profile of its own. The dedicated courier
+  # account keeps one too, for API-level checks that do not go through the app.
+  [ courier, customer ].each do |person|
+    profile = person.courier_profile || CourierProfile.new(user: person)
+    profile.assign_attributes(
+      full_name: person == courier ? "QA Courier" : "QA Customer-Courier",
+      national_id_number: "1400-QA-000#{person == courier ? 1 : 2}",
+      guarantor_name: "QA Guarantor", guarantor_phone: "+93700000805",
+      vehicle_type: :motorbike, accepted_job_kinds: %w[delivery ride],
+      verification_status: profile.verification_status || :pending,
+      # ON SHIFT, because an offline courier sees the availability toggle and
+      # nothing else — and the job screen is what three runs have failed to
+      # measure.
+      is_available: true
     )
+    profile.save!
+    %i[id_document selfie].each do |document|
+      next if profile.public_send(document).attached?
+
+      profile.public_send(document).attach(
+        io: Rails.root.join("spec/fixtures/files/photo.png").open,
+        filename: "#{document}.png", content_type: "image/png"
+      )
+    end
   end
   # `approve!` grants the status, the role AND the wallet in one transaction —
   # a courier approved with two of the three cannot work and cannot be told why.
@@ -108,8 +150,10 @@ seed_section "e2e accounts" do
     admin.password = "karwan-dev-password"
     admin.password_confirmation = "karwan-dev-password"
   end
-  profile.approve!(by: approver) unless profile.verification_approved?
-  courier.courier_wallet&.update!(balance: 5_000, credit_line: 500)
+  [ courier, customer ].each do |person|
+    person.courier_profile.approve!(by: approver) unless person.courier_profile.verification_approved?
+    person.reload.courier_wallet&.update!(balance: 5_000, credit_line: 500)
+  end
 end
 
 seed_section "e2e live order" do
@@ -148,6 +192,63 @@ seed_section "e2e live order" do
 
     order.transitions.create!(from_status: from, to_status: to, actor: nil,
                               created_at: (18 - (index * 3)).minutes.ago)
+  end
+end
+
+# ── A LIVE JOB, so the courier's screen has something on it ─────────────────
+#
+# `/courier/job` returned `{"job":null}` for three runs, so
+# `job-primary-action` never rendered and **the courier's 64dp primary action
+# is still unmeasured on a device** — the single most-repeated open question in
+# `qa/UI_FINDINGS.md`. The shift, the wallet and the approval were all seeded;
+# the job was not, and without one the courier screen is the availability
+# toggle and nothing else.
+#
+# `picked_up` is chosen deliberately: it is the state where the step list has
+# a completed step behind it and a money step in front, the map has both
+# points, and "I am here" is on screen. A `ready` job would show the first step
+# only.
+seed_section "e2e courier job" do
+  customer = User.find_by!(phone: E2E[:customer])
+  merchant = Merchant.find_by!(phone: "+93700000804")
+  item = merchant.catalog_items.first
+  # The RIG'S account carries the job, because the rig signs in as it and
+  # switches role. One live job per courier is enforced by
+  # `Dispatch::Eligibility`, so there is exactly one.
+  courier = customer
+
+  order = Order.find_or_initialize_by(code: "KQA00002")
+  order.assign_attributes(
+    # A DIFFERENT CUSTOMER from the courier: a courier delivering to himself is
+    # a state the app permits and nobody should be looking at while measuring a
+    # screen.
+    customer: User.find_by!(phone: E2E[:merchant_owner]),
+    merchant: merchant, courier: courier, status: :picked_up,
+    items_total: 400, delivery_fee: 100, commission: 50, courier_fee: 100,
+    merchant_payout: 350, customer_total: 500, currency: "AFN",
+    payment_method: :cash, payment_status: :pending,
+    delivery_latitude: 34.5400, delivery_longitude: 69.1750,
+    delivery_landmark_note: "QA fixture — green door beside the pharmacy",
+    customer_phone: E2E[:merchant_owner],
+    distance_km: 3.2, duration_minutes: 22, distance_source: "straight_line",
+    placed_at: 40.minutes.ago, accepted_at: 38.minutes.ago,
+    preparing_at: 35.minutes.ago, ready_at: 25.minutes.ago, picked_up_at: 8.minutes.ago
+  )
+  order.save!
+
+  if order.order_items.empty?
+    order.order_items.create!(catalog_item: item, name: item.name, unit_price: 400,
+                              quantity: 1, options_total: 0, line_total: 400, currency: "AFN")
+  end
+
+  # The history the courier's step rail reads. Without it every step renders
+  # pending on a job that is half done.
+  [ %w[placed accepted], %w[accepted preparing], %w[preparing ready], %w[ready picked_up] ]
+    .each_with_index do |(from, to), index|
+    next if order.transitions.exists?(to_status: to)
+
+    order.transitions.create!(from_status: from, to_status: to, actor: nil,
+                              created_at: (38 - (index * 8)).minutes.ago)
   end
 end
 

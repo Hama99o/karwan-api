@@ -222,6 +222,19 @@ seed_section "stress merchants and catalogs" do
 
   merchant_ids = Merchant.where("phone LIKE '+9379%'").order(:id).pluck(:id)
 
+  # ── A FEW PHOTOS, SO THE FIRST SCREEN LOOKS LIKE A FOOD APP ────────────────
+  #
+  # Not all of them: this seed exists for VOLUME, and attaching thousands of
+  # blobs would defeat its purpose and fill the disk. But the browse screen is
+  # the first thing anybody looks at — Hamma9900 saw a page of empty grey boxes
+  # taking 60% of every card — and a load-test database is still the database
+  # somebody demos from. The first dozen is enough to fill one screen.
+  Merchant.where(id: merchant_ids.first(12)).each_with_index do |merchant, index|
+    set = %w[kabab bakery store][index % 3]
+    Attachments::SeedPhoto.attach!(merchant, :storefront_photo, "storefront_#{set}.jpg")
+    Attachments::SeedPhoto.attach!(merchant, :logo, "logo_#{set}.jpg")
+  end
+
   # Browse categories, so filtering by cuisine has something to filter.
   category_ids = MerchantCategory.order(:position).pluck(:id)
   bulk(MerchantCategoryAssignment, merchant_ids.each_with_index.flat_map do |mid, i|
