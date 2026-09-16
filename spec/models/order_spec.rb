@@ -207,4 +207,50 @@ RSpec.describe Order, type: :model do
       end
     end
   end
+
+  # ── WHAT THE COURIER HANDS OVER AT THE COUNTER ──────────────────────────────
+  #
+  # Model A, in Hamma9900's own worked example: food 400, our commission 50, so
+  # the courier pays the merchant 350 out of his own pocket. This identity was
+  # not validated, and it is arithmetic rather than policy — if it drifts, a
+  # merchant is paid the wrong amount in cash, by hand, and nobody finds out
+  # until they count.
+  #
+  # Checked before making `courier_fee` vary by vehicle, because that is the
+  # change that makes the money columns move independently for the first time.
+  describe "the merchant payout identity" do
+    it "accepts the food less our commission" do
+      order = build(:order, items_total: 400, commission: 50, merchant_payout: 350,
+                            delivery_fee: 100, customer_total: 500)
+
+      expect(order).to be_valid
+    end
+
+    it "refuses a payout that does not match" do
+      order = build(:order, items_total: 400, commission: 50, merchant_payout: 400,
+                            delivery_fee: 100, customer_total: 500)
+
+      expect(order).not_to be_valid
+      expect(order.errors[:merchant_payout].join).to include("items_total minus commission")
+    end
+
+    it "tolerates a rounding difference of a minor unit" do
+      order = build(:order, items_total: 400, commission: 50.004, merchant_payout: 350,
+                            delivery_fee: 100, customer_total: 500)
+
+      expect(order).to be_valid
+    end
+
+    # THE COURIER'S FEE IS NOT CHECKED AGAINST THE DELIVERY FEE, deliberately.
+    # Paying a zarang more than the customer paid, to win a segment, is a
+    # decision Hamma9900 is entitled to make — a validation refusing it would
+    # look prudent and would block a legitimate subsidy. It has to be VISIBLE
+    # instead: that is what "margin so far" in the admin copy is for.
+    it "allows a courier fee above the delivery fee, because that is a policy" do
+      order = build(:order, items_total: 400, commission: 50, merchant_payout: 350,
+                            delivery_fee: 100, courier_fee: 150, customer_total: 500)
+
+      expect(order).to be_valid
+    end
+  end
 end

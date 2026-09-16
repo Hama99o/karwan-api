@@ -91,6 +91,7 @@ class Order < ApplicationRecord
   validates :items_total, :delivery_fee, :commission, :courier_fee, :merchant_payout,
             :customer_total, numericality: { greater_than_or_equal_to: 0 }
   validate  :totals_add_up
+  validate  :merchant_is_paid_the_food_less_our_cut
 
   before_validation :assign_code, on: :create
 
@@ -143,6 +144,36 @@ class Order < ApplicationRecord
       candidate = "K#{Time.current.strftime('%y%m%d')}#{SecureRandom.random_number(10_000).to_s.rjust(4, '0')}"
       break candidate unless self.class.exists?(code: candidate)
     end
+  end
+
+  # WHAT THE COURIER HANDS OVER AT THE COUNTER. Model A: the food, less our
+  # commission — 400 less 50 is 350 in Hamma9900's own worked example.
+  #
+  # This was NOT validated, and it is arithmetic rather than policy: if it
+  # drifts the merchant is paid the wrong amount in cash, by hand, and nobody
+  # finds out until they count. Checked here for the same reason
+  # `totals_add_up` is — the parts must sum to the whole, or the row does not
+  # save.
+  #
+  # ── WHAT IS DELIBERATELY *NOT* CHECKED: courier_fee against delivery_fee ──
+  #
+  # The platform's delivery margin is `delivery_fee - courier_fee`, and in v0
+  # the courier keeps the whole fee, so it is zero by design. A validation
+  # refusing `courier_fee > delivery_fee` would look prudent and would be
+  # wrong: paying a zarang more than the customer paid, to win a segment, is a
+  # decision Hamma9900 is entitled to make. It is a POLICY, not an identity.
+  #
+  # So it must be VISIBLE instead of forbidden — a rate that quietly costs
+  # money on every order is the real danger. That is what "margin so far"
+  # belongs in the admin copy for, and why the console should flag a courier
+  # rate above the customer fee rather than the model refusing it.
+  def merchant_is_paid_the_food_less_our_cut
+    return if [ items_total, commission, merchant_payout ].any?(&:blank?)
+
+    expected = items_total - commission
+    return if (merchant_payout - expected).abs <= Monetary::ROUNDING_TOLERANCE
+
+    errors.add(:merchant_payout, "must equal items_total minus commission (#{expected})")
   end
 
   # The parts must sum to the whole. This is the check that stops a discount, a

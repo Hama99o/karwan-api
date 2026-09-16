@@ -111,6 +111,34 @@ RSpec.describe "how big a delivery is" do
       expect(reason_for(courier_with(:bicycle), food_order)).to be_nil
     end
 
+    # ── THE EXAMPLE THAT DISTINGUISHES THE TWO IMPLEMENTATIONS ──────────────
+    #
+    # Rewriting this check to read the LIVE catalog instead of the frozen
+    # requirement broke nothing: every other fixture had the two agreeing, so
+    # both implementations gave the same answer. `docs/TESTING.md` states the
+    # rule this is an instance of — a test that a value is STORED correctly is
+    # not a test that anything READS it. So: freeze the copy, mutate the
+    # source, and assert the CONSUMER's behaviour.
+    it "keeps refusing the bicycle after the merchant re-classifies the item" do
+      bed = item(:bulky)
+      order = place(bed)
+      bicycle = courier_with(:bicycle)
+
+      bed.update!(size_class: :small)
+
+      expect(reason_for(bicycle, order.reload)).to eq(:vehicle_too_small)
+    end
+
+    # And the mirror, so the test cannot pass by refusing everybody: a zarang
+    # is still offered the same order.
+    it "keeps offering the zarang the same order" do
+      bed = item(:bulky)
+      order = place(bed)
+      bed.update!(size_class: :small)
+
+      expect(reason_for(courier_with(:zarang), order.reload)).to be_nil
+    end
+
     it "explains itself, so an ops console can say why work went unassigned" do
       eligibility = Dispatch::Eligibility.new(courier: courier_with(:bicycle), job: bulky_order)
 
