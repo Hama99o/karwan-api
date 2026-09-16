@@ -41,6 +41,7 @@ anything earlier that conflicts.
 | **`CLAUDE.md`** (this file) | What Karwan is, the money model, the data model, the OUT list, the one-way doors. **The corrections at the end override anything earlier.** |
 | **`docs/AFGHAN_UX.md`** | **Read this second.** How to design for Afghan users — literacy, the Shamsi calendar, voice notes, numerals, cheap phones, shared phones. It outranks generic mobile best practice wherever they conflict. |
 | **`docs/MONEY_AND_SETTLEMENT.md`** | **Model A in full — the most important document.** Cash flow, refusals and strikes, settlement by bank deposit, warn/grace/stop, and the reassignment fork on `merchant_paid_at`. |
+| **`docs/TRUST_AND_REPUTATION.md`** | Ratings (two thumbs, not stars), why the customer is counted rather than rated, gamification for couriers only, and the OPEN cancellation cases. |
 | **`docs/SERVICE_TIERS_AND_BATCHING.md`** | Premium vs normal, and why the tier IS the consent for batching. |
 | **`docs/DESIGN.md`** | How the mobile app looks: one component library in three modes, RTL-first, colour, type, density per role. |
 | **`docs/ARCHITECTURE.md`** | How to structure four roles and two demand types without it rotting. Naming that must be right before there is data. |
