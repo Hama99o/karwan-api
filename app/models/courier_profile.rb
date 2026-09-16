@@ -56,6 +56,28 @@ class CourierProfile < ApplicationRecord
   # cannot carry it. Neither is built yet; see docs/NOTES.md.
   enum :vehicle_type, { motorbike: 0, bicycle: 1, car: 2, on_foot: 3, rishka: 4, zarang: 5 },
        prefix: :by
+  # ── WHAT EACH VEHICLE CAN CARRY ─────────────────────────────────────────────
+  #
+  # PROVISIONAL. This is my guess, not a researched fact, and Hamma9900 has not
+  # confirmed the ordering. **The least certain pair is car versus rishka** —
+  # both are `large` here, and a rishka may well carry bulkier goods than a car
+  # does even though a car carries more people. He knows what a zarang actually
+  # takes and I do not; correcting this is ONE LINE, which is exactly why it is
+  # a constant and not a column. A column would be this same value copied onto
+  # every courier's row plus a migration to change it.
+  #
+  # The ordering is NOT a size ladder from bicycle to car: a zarang beats a car
+  # for furniture. That is why capacity is looked up per vehicle rather than
+  # derived from the enum's integers.
+  CARRIES = {
+    on_foot: :small,
+    bicycle: :small,
+    motorbike: :medium,
+    car: :large,
+    rishka: :large,
+    zarang: :bulky
+  }.freeze
+
   enum :verification_status, { pending: 0, approved: 1, rejected: 2, suspended: 3 },
        prefix: :verification
 
@@ -101,6 +123,25 @@ class CourierProfile < ApplicationRecord
 
   # What the applicant still owes, as field names the app can translate. Never
   # an English sentence: the courier reads Pashto.
+  # Can this courier's vehicle take an order of this size?
+  #
+  # Unknown vehicle types answer NO. A vehicle added to the enum without a
+  # capacity is a vehicle nobody should be offered a bulky job on — failing
+  # closed here means a missing entry costs a dispatch, while failing open
+  # would cost a courier a wasted journey and a customer their delivery.
+  def carries?(size_class)
+    capacity = CARRIES[vehicle_type&.to_sym]
+    return false if capacity.nil?
+
+    SizeClasses.covers?(capacity, size_class)
+  end
+
+  # The vehicle types that could take a job of this size, for asking the
+  # question of a whole fleet in one query instead of per courier.
+  def self.vehicle_types_carrying(size_class)
+    CARRIES.select { |_type, capacity| SizeClasses.covers?(capacity, size_class) }.keys.map(&:to_s)
+  end
+
   def missing_for_approval
     missing = REQUIRED_FOR_APPROVAL.select { |field| public_send(field).blank? }
     missing += REQUIRED_DOCUMENTS.reject { |doc| public_send(doc).attached? }

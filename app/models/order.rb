@@ -78,6 +78,12 @@ class Order < ApplicationRecord
 
   has_many :order_items, dependent: :destroy
 
+  # WHAT THIS ORDER NEEDS TO BE CARRIED IN, frozen at placement as the maximum
+  # over its items. A snapshot for the same reason the prices are (one-way door
+  # #1): a merchant re-classifying an item next month must not change what last
+  # month's order needed, or a completed delivery becomes unexplainable.
+  enum :required_size_class, SizeClasses::ALL, prefix: :requires
+
   validates :code, presence: true, uniqueness: true
   validates :customer_phone, presence: true
   validates :delivery_latitude,  presence: true, numericality: { greater_than_or_equal_to: -90,  less_than_or_equal_to: 90 }

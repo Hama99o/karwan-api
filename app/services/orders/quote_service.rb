@@ -30,7 +30,25 @@ module Orders
         delivery_latitude: @delivery_latitude, delivery_longitude: @delivery_longitude
       ).call
 
-      quote.with(lines: resolved)
+      quote.with(lines: resolved, dispatch_warning: dispatch_warning(resolved))
+    end
+
+    private
+
+    # Asked at QUOTE time, not at placement, because this is a decision the
+    # customer makes and they can only make it before they commit. Recomputed
+    # on every quote rather than frozen: a zarang coming online five minutes
+    # later should make the warning disappear, and it will.
+    #
+    # Costs no query for food, which is every order today — everything carries
+    # `small`.
+    def dispatch_warning(resolved)
+      required = resolved.map { |line| line[:item].size_class }
+                         .max_by { |size| SizeClasses.rank(size) } || "small"
+
+      return nil if Dispatch::FleetCapability.new(required).any_available?
+
+      "no_vehicle_online"
     end
   end
 end

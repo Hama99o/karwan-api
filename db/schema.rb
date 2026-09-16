@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_16_110432) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_16_121645) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -155,6 +155,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_16_110432) do
     t.integer "prep_time_minutes"
     t.decimal "price", precision: 12, scale: 2, null: false
     t.text "search_text"
+    t.integer "size_class", default: 0, null: false
     t.datetime "updated_at", null: false
     t.index ["catalog_category_id", "position"], name: "index_catalog_items_on_catalog_category_id_and_position"
     t.index ["catalog_category_id"], name: "index_catalog_items_on_catalog_category_id"
@@ -394,6 +395,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_16_110432) do
     t.datetime "ready_at"
     t.datetime "rejected_at"
     t.integer "rejection_reason"
+    t.integer "required_size_class", default: 0, null: false
     t.jsonb "route_geometry"
     t.datetime "settled_at"
     t.integer "status", default: 0, null: false
@@ -407,6 +409,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_16_110432) do
     t.index ["merchant_id", "status"], name: "index_orders_on_merchant_id_and_status"
     t.index ["merchant_id"], name: "index_orders_on_merchant_id"
     t.index ["payment_status"], name: "index_orders_on_payment_status"
+    t.index ["required_size_class", "status"], name: "index_orders_on_required_size_class_and_status"
     t.index ["status", "created_at"], name: "index_orders_on_status_and_created_at"
     t.index ["status"], name: "index_orders_on_status"
   end

@@ -18,6 +18,13 @@ class CatalogItem < ApplicationRecord
   has_one_attached :photo
   # Same reasoning as the merchant's storefront: this image is fetched by every
   # customer who opens the menu.
+  # HOW BIG IT IS, and the merchant is the only one who knows. A restaurant
+  # never touches this — food is always `small`, which is the default — and a
+  # furniture shop sets `bulky` on beds once. It decides which vehicles can be
+  # offered the order (`CourierProfile::CARRIES`), so getting it wrong sends a
+  # bicycle to collect a bed.
+  enum :size_class, SizeClasses::ALL, prefix: :size
+
   validates_attached :photo
 
   validates :name, presence: true

@@ -19,6 +19,18 @@ module Orders
     ItemUnavailable = Class.new(Error)
     InvalidOptions = Class.new(Error)
     EmptyCart = Class.new(Error)
+    # NOBODY ON THE PLATFORM OWNS A VEHICLE THAT COULD CARRY THIS. A permanent
+    # fact, so refusing here is honest: the alternative is an order that sits
+    # undispatched until it times out, and a customer who waited twenty minutes
+    # to be told no. "No vehicle available for this item" BEFORE they commit is
+    # the kinder answer.
+    #
+    # Deliberately NOT raised when a suitable vehicle merely happens to be
+    # offline — that is a five-minute problem, and refusing it would turn a
+    # delivery we could have had into a customer who leaves. See
+    # `Dispatch::FleetCapability` for the two questions and why only one of them
+    # is a refusal.
+    NoVehicleForOrder = Class.new(Error)
 
     # `lines` is an array of:
     #   { catalog_item_id:, quantity:, option_value_ids: [], notes: }
@@ -42,10 +54,16 @@ module Orders
       resolver = CartResolver.new(merchant: @merchant, lines: @lines)
       resolved = resolver.resolve
       items_total = resolver.items_total(resolved)
+      required_size = required_size_class(resolved)
+
+      unless Dispatch::FleetCapability.new(required_size).any_vehicle?
+        raise NoVehicleForOrder, "nothing in the fleet can carry this order"
+      end
+
       quote = price(items_total)
 
       Order.transaction do
-        order = build_order(quote)
+        order = build_order(quote, required_size)
         resolved.each { |line| persist_line(order, line) }
         # Re-read the total from what was actually written, rather than trusting
         # the figure computed a moment ago. If the two ever disagree, the
@@ -70,9 +88,19 @@ module Orders
       ).call
     end
 
-    def build_order(quote)
+    # THE SNAPSHOT: the largest thing in the basket decides the vehicle, resolved
+    # here and frozen on the row. A merchant re-classifying an item next month
+    # must not change what last month's order needed (one-way door #1) — and
+    # dispatch must not have to re-derive it from a live catalog on every offer.
+    def required_size_class(resolved)
+      resolved.map { |line| line[:item].size_class }
+              .max_by { |size| SizeClasses.rank(size) } || "small"
+    end
+
+    def build_order(quote, required_size)
       Order.new(
         quote.to_attributes.merge(
+          required_size_class: required_size,
           customer: @customer,
           merchant: @merchant,
           payment_method: :cash,

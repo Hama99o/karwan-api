@@ -54,6 +54,13 @@ module Customers
       end
     end
 
+    # WHETHER TO WAIT OR TO ORDER SOMETHING ELSE. A key, never prose: the
+    # server cannot write Pashto, so the app renders its own copy. Nil for
+    # every food order, which is every order today.
+    field :dispatch_warning do |quote|
+      quote.dispatch_warning
+    end
+
     # How the distance was measured. Exposed rather than hidden because the
     # fare has to be explainable — and because during the switch from
     # straight-line to routed, "which did this one use" is the first question.

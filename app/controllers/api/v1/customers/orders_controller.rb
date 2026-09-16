@@ -149,6 +149,10 @@ class Api::V1::Customers::OrdersController < Api::V1::BaseController
     when Orders::PlaceService::ItemUnavailable then "item_unavailable"
     when Orders::PlaceService::InvalidOptions then "invalid_options"
     when Orders::PlaceService::EmptyCart then "empty_cart"
+    # Its own code, because the app must say something completely different:
+    # not "try again" but "we cannot carry this — order something else". The
+    # customer has done nothing wrong and retrying will never work.
+    when Orders::PlaceService::NoVehicleForOrder then "no_vehicle_for_this_order"
     else "cannot_price_order"
     end
   end

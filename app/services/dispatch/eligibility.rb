@@ -12,6 +12,7 @@ module Dispatch
       not_approved: "courier is not approved",
       off_shift: "courier is not available",
       wrong_job_kind: "courier does not accept this kind of job",
+      vehicle_too_small: "courier's vehicle cannot carry this order",
       already_on_a_job: "courier is already carrying a job",
       stale_location: "courier's last known position is too old to dispatch on",
       no_wallet: "courier has no wallet",
@@ -35,6 +36,19 @@ module Dispatch
       return :not_approved unless profile.verification_approved?
       return :off_shift unless profile.is_available?
       return :wrong_job_kind unless profile.accepts?(@job.class.job_kind)
+      # A BED AND A BOOK ARE NOT THE SAME DELIVERY.
+      #
+      # Without this a bulky order could be offered to a courier on a bicycle,
+      # who would accept in good faith, ride there and find he cannot carry it
+      # — a failure that costs the customer, the merchant and the courier at
+      # once, and the only one of them who could have known is us.
+      #
+      # Costs NO QUERY: the requirement is snapshotted on the order row and the
+      # capacity is a constant. Placed here, above the wallet, for the same
+      # reason as the rest — cheapest first, and this is free.
+      #
+      # A ride has no size, so this only ever asks an Order.
+      return :vehicle_too_small unless vehicle_big_enough?
       # ONE LIVE JOB PER COURIER, ACROSS BOTH DEMAND TYPES.
       #
       # This check did not exist, and its absence meant a courier riding to a
@@ -77,6 +91,13 @@ module Dispatch
 
     def profile
       @profile ||= @courier.courier_profile
+    end
+
+    # Rides are people, not goods, so there is nothing to fit.
+    def vehicle_big_enough?
+      return true unless @job.respond_to?(:required_size_class)
+
+      profile.carries?(@job.required_size_class)
     end
 
     # Any live job assigned to this courier, other than the one being offered.

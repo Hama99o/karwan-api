@@ -13,9 +13,18 @@ module Pricing
   # empty because a RIDE has no lines, and it is here rather than behind a
   # second endpoint for the same reason `route` is: the customer must see the
   # figures the order will be frozen with, and two calls could disagree.
-  Quote = Data.define(:distance_km, :duration_minutes, :currency, :amounts, :route, :lines) do
-    def initialize(lines: [], **rest)
-      super(lines: lines, **rest)
+  # `dispatch_warning` is the honest half of the vehicle question: nil when
+  # there is nothing to say, otherwise a machine-readable key the app renders
+  # in Pashto. It exists because "no suitable vehicle is online right now" must
+  # NOT refuse the order — that is a five-minute problem and refusing it turns
+  # a delivery we could have had into a customer who leaves — but the customer
+  # deserves to know before they commit, so they can decide to wait or to order
+  # something else. A permanent inability to carry the thing is a refusal
+  # instead, raised by `Orders::PlaceService`.
+  Quote = Data.define(:distance_km, :duration_minutes, :currency, :amounts, :route, :lines,
+                      :dispatch_warning) do
+    def initialize(lines: [], dispatch_warning: nil, **rest)
+      super(lines: lines, dispatch_warning: dispatch_warning, **rest)
     end
 
     def to_attributes
