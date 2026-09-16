@@ -78,6 +78,59 @@ So, whenever you add a gate:
 A suite that reports 0 examples, 0 failures is a **failure**, not a pass. Check
 the example count, not just the colour.
 
+### And the harder version: CAN THE INSTRUMENT STILL SEE IT?
+
+The four steps above test the **gate**. They say nothing about the **instrument**
+the gate reads — and when the instrument is blind, a fix looks verified and is
+not.
+
+**Earned on F-21, 2026-09-16.** The claim to check was "the layout overflows the
+right edge after a window narrows", measured at 2274 px by a previous session. I
+measured it with `uiautomator dump`, applied the candidate fix, got **0 px**, and
+was one step from reporting the bug fixed. Then I reverted the fix and measured
+again — still **0 px**. The instrument reported 0 px in *every* condition,
+including ones that are obviously broken to the eye, because **`uiautomator`
+bounds are clipped to the window**. The fix was in fact useless; the screenshots
+proved it broken with and without.
+
+So for anything measured rather than asserted — a layout, a timing, a memory
+figure, a rendered pixel:
+
+1. **Put the bug back and check the instrument still reports it.** Not the gate:
+   the *measurement*. If the number does not move, the number is not about the
+   bug.
+2. **Do that before trusting a green reading, not after.** A measurement taken
+   only in the fixed state cannot be distinguished from a measurement of nothing.
+3. **Say which instrument produced a number**, so the next person can question it
+   rather than inherit it. F-21's original 2274 px is now of unknown provenance,
+   which makes a real diagnosis harder to build on than a missing one.
+
+**The general form:** "prove the gate can go red" protects you from a check that
+cannot fail. This protects you from a check that cannot *see*. A bug needs an
+instrument before it needs a hypothesis — and when three attempts at one bug have
+all been reasoned rather than measured, the missing instrument IS the bug to work
+on.
+
+---
+
+## When a comment and the code disagree, believe neither — run it
+
+A near-miss worth the same discipline, from the same session. A test asserted
+that a component sets no `textAlign`; planting `textAlign: "left"` left it
+**green**. Two explanations fit: the module was stale, or that key specifically
+was being dropped.
+
+Guessing would have picked one. What settled it was adding a **second, unrelated
+property** — `opacity: 0.42` — right beside the plant and re-running: the opacity
+appeared in the rendered output and the alignment did not. The module was fine;
+React Native lifts `textAlign` out of `style` into a top-level prop, so the
+assertion could never have failed.
+
+**The technique generalises:** when a plant does not land, add a change you are
+*certain* would show up next to it. It separates "my edit never arrived" from
+"this specific thing is invisible to my check" in one run, instead of a sequence
+of guesses.
+
 ---
 
 ## Layers, and what each one is honest about
