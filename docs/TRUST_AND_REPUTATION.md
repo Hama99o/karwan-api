@@ -101,9 +101,33 @@ restaurant that marks the qabuli palaw gone never takes the order. What is missi
 **cancellation reasons should be tracked per restaurant**, so a restaurant cancelling a fifth of
 its orders is visible before its customers leave.
 
-**C. Cancelled while the food is cooking. UNRESOLVED.** Who bears a cooked meal nobody ordered?
-The restaurant cooked in good faith. The customer may have a fair reason. Today nothing decides
-it.
+**C. A restaurant cancels, including while cooking. DECIDED — no consequence, and the message
+does the work.** Hamma9900: *"when restaurant cancel it, it's done, nothing will happen — but we
+will tell the customer that unfortunately this food is not available, and very very typical so he
+did not get angry."*
+
+So: **no financial consequence in v0.** No penalty on the restaurant, no compensation to the
+customer. With ten restaurants he knows personally that is the right trade — a penalty regime
+costs him relationships he needs more than it saves money he has not lost.
+
+**But the copy is the product, so five rules on it:**
+
+1. **Blame nobody.** "The restaurant cancelled your order" invites anger at the restaurant he
+   needs. **"Unfortunately this is not available right now"** is the same fact with no target.
+2. **Say the money is safe, first.** Cash-first means nothing was paid — so **"you have not paid
+   anything"** removes most of the anger before it forms. This is the single most important line
+   and it must not be buried under an apology.
+3. **Offer the next step, not just the news.** "Choose something else" or "see other restaurants
+   nearby". **A dead end is where a customer uninstalls**; a bad outcome with a way forward is
+   just a bad evening.
+4. **Keep it to two lines.** A paragraph reads as an excuse, and an excuse invites argument.
+5. **It must arrive as a PUSH notification, not only in the app.** A customer waiting for food is
+   not staring at the screen. The same plumbing already carries the merchant alert, the arrival
+   notice and the applicant's review outcome — this is its fourth use.
+
+**And still track it.** No penalty does not mean no visibility: cancellation reasons per
+restaurant, so a restaurant cancelling a fifth of its orders is something Hamma9900 can see and
+talk about. Visibility is not a penalty, and the data is already recorded.
 
 **D. The customer cancels AFTER pickup. UNRESOLVED, and the hardest.** The courier has paid the
 restaurant with his own cash and is holding food. `MONEY_AND_SETTLEMENT.md` §5 gives him the
