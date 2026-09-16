@@ -199,3 +199,47 @@ cash instead.**
 
 **Two numbers, not one.** The **float** is what dispatch reads and it moves all day. **Earnings**
 are cumulative and only go up — and that is the number the courier actually wants to see.
+
+---
+
+## 13. Menu prices: the restaurant decides, and we do not police it
+
+**Hamma9900's decision:** *"they should decide whatever price they put. All we have is our own
+calculation. We do not police anything."*
+
+So the restaurant sets its listed price. Our commission is a percentage of whatever that price
+is, and the restaurant nets the rest. A restaurant may list higher on Karwan than in its shop to
+absorb the commission — **that is their choice and we do not prevent it.**
+
+**Why not policing is right:** it is unenforceable (they can raise both prices), it makes the
+onboarding conversation adversarial, and the incentive is better handled with the commission
+rate than with a rule. **A restaurant giving up 5% will not bother inflating. One giving up 25%
+always will.** That is the lever, and Hamma9900 has already said the commission starts low.
+
+**What we do have is the pitch, and it is worth more than a rule:** *the same price as walking
+in, brought to your door.* For the first ten restaurants he types the menus in himself, so he
+will see any inflation immediately — which is better information than a policy.
+
+## 14. Paid placement — NOT v0, and a recorded revenue line for later
+
+Hamma9900 asked whether a restaurant should be able to pay to appear first. **No, not in v0**,
+and for a reason stronger than "too early":
+
+- **At ten restaurants the list fits on one screen.** Being first is worth nothing when the
+  customer can see all of them — nobody would pay, and anyone who did would feel cheated.
+- **At this scale it would damage the product.** The list is sorted by **nearest**, and nearest
+  is not cosmetic: it decides how fast the food arrives and whether the courier's day works.
+  Ranking a paying restaurant 8 km away above one 1 km away means slower food, worse courier
+  economics, and a customer who learns the order is bought. **That sells the thing that makes
+  the product good.**
+
+**The trigger to revisit: when the list no longer fits on one screen.**
+
+**And it is a genuinely good third revenue line when it comes** — after restaurant commission
+and the courier-side margin. It is the highest-margin of the three because it costs nothing to
+deliver, and **it needs no new payment path: a restaurant pays for visibility by adding it to
+what it already deposits.**
+
+**What is available now and makes the list better rather than worse:** the customer's own order
+history, which is already stored. *"You ordered qabuli palaw from here before"* earns a tap
+because it is true, not because somebody paid for it.
