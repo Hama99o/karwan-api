@@ -284,8 +284,23 @@ seed_section "e2e live order" do
   order = Order.find_or_initialize_by(code: "KQA00001")
   order.assign_attributes(
     customer: customer, merchant: merchant, status: :ready,
-    items_total: 400, delivery_fee: 100, commission: 50, courier_fee: 100,
-    merchant_payout: 350, customer_total: 500, currency: "AFN",
+    # ── AN AWKWARD TOTAL ON PURPOSE, SO THE CHANGE NOTE HAS SOMETHING TO SAY ─
+    #
+    # This was 400 + 100 = **500**, and `Monetary.change_advice` returns nil for
+    # any multiple of 100 — correctly, because exact notes exist for it. So the
+    # "bring change for X" line, which is a real AFGHAN_UX feature about a
+    # courier and a customer settling cash at a gate, **was unreachable on a
+    # device**: `customer_order_status.yaml` asserted it, could never pass, and
+    # the assertion had to be removed rather than fixed.
+    #
+    # 405 + 100 = **505**, which is not a multiple of 100, so `change_advice`
+    # returns `ceil(505 / 500) * 500 = 1000` and the note renders. One digit of
+    # fixture buys a feature its only device coverage.
+    #
+    # Model A stays consistent: the courier advances `items_total - commission`
+    # (405 − 50 = 355) and collects `customer_total` (505).
+    items_total: 405, delivery_fee: 100, commission: 50, courier_fee: 100,
+    merchant_payout: 355, customer_total: 505, currency: "AFN",
     payment_method: :cash, payment_status: :pending,
     delivery_latitude: 34.5400, delivery_longitude: 69.1750,
     delivery_landmark_note: "QA fixture — second floor, blue gate",

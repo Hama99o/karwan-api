@@ -144,6 +144,30 @@ RSpec.describe "db/seeds/e2e.rb" do
       expect(order.merchant.latitude).to be_present
     end
 
+    # ── THE TOTAL IS AWKWARD ON PURPOSE, AND THIS IS THE GATE ─────────────
+    #
+    # `Monetary.change_advice` returns nil for any multiple of 100, so a round
+    # total means the "bring change for X" line does not render — correctly.
+    # The fixture was exactly 500, which made that line **unreachable on a
+    # device**: `customer_order_status.yaml` asserted it, could never pass, and
+    # the assertion had to be deleted rather than corrected.
+    #
+    # So the fixture is 505 and this asserts WHY, because the next person to
+    # tidy it to a round number would silently remove a feature's only device
+    # coverage and nothing else would notice.
+    it "has a total the change note can act on, which a round number would not" do
+      expect(order.customer_total % 100).not_to eq(0)
+      expect(Monetary.change_advice(order.customer_total)).to eq(1000)
+    end
+
+    # Model A: the courier advances the items total minus our commission and
+    # collects the customer total. Asserted so the awkward number above cannot
+    # be changed into an inconsistent set.
+    it "keeps Model A's arithmetic consistent" do
+      expect(order.merchant_payout).to eq(order.items_total - order.commission)
+      expect(order.customer_total).to eq(order.items_total + order.delivery_fee)
+    end
+
     # Without the transition rows the customer's five steps render as five
     # pending ones for an order that is nearly there.
     it "carries the timeline the customer's steps are stamped from" do

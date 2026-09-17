@@ -36,7 +36,13 @@ module Admin
       return reject_amount(wallet, "An adjustment needs a reason.") if note.blank?
 
       entry = wallet.record_entry!(kind: :adjustment, amount: amount, note: note)
+      # BOTH SIDES. "What was his balance before somebody adjusted it" is the
+      # question this row exists to answer, and an `after` alone cannot answer
+      # it — one-way door 5 asks for actor, action, BEFORE and after. This is
+      # the most sensitive of the three movements: free-form, either
+      # direction, and the only one whose amount a human invents.
       log_intervention("wallet.adjusted", target: wallet,
+                                          before: { balance: (wallet.balance - amount).to_s },
                                           after: { balance: wallet.balance.to_s },
                                           details: { amount: amount.to_s, note: note, entry_id: entry.id })
       redirect_back fallback_location: admin_courier_wallet_path(wallet), notice: "Adjusted by #{amount}."
@@ -53,6 +59,7 @@ module Admin
 
       entry = wallet.record_entry!(kind: :reimbursement, amount: amount, note: params[:note])
       log_intervention("wallet.reimbursed", target: wallet,
+                                            before: { balance: (wallet.balance - amount).to_s },
                                             after: { balance: wallet.balance.to_s },
                                             details: { amount: amount.to_s, note: params[:note],
                                                        entry_id: entry.id })
