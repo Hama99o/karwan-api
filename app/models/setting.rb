@@ -47,6 +47,22 @@ class Setting < ApplicationRecord
     # The uplift is the platform's, because what premium buys is the CAPACITY
     # we hold empty for it.
     "premium_price_multiplier" => { type: :decimal, default: "1.3", description: "Premium costs this much more than normal (1.3 = +30%). Applies to the customer's fee or fare, never to the courier's pay." },
+    # ── THE MANUAL SHORTAGE SWITCH — a storm, or a night with no couriers ────
+    #
+    # UNLIKE premium, this one raises the COURIER'S PAY TOO, and that is what
+    # makes it legitimate rather than gouging: the customer pays more because
+    # the courier is paid more, not because we are. See
+    # Pricing::ShortageMultiplier for the order of operations, which is
+    # base → shortage → tier.
+    #
+    # Two rows rather than one so turning it OFF does not depend on anybody
+    # having remembered to put the number back to 1.0.
+    "shortage_multiplier_enabled" => { type: :boolean, default: "false", description: "Whether the shortage multiplier is applied at all. Off unless a human turned it on for a storm or an empty night." },
+    "shortage_multiplier"      => { type: :decimal, default: "1.0", description: "Raises the customer's delivery fee AND the courier's pay together, in a shortage. 1.0 changes nothing. Only read when shortage_multiplier_enabled is on." },
+    # THE GUARD RAIL. Not in anybody's requirements — the admin console has no
+    # second pair of eyes, and a mistyped 10 where 1.5 was meant must not be
+    # able to quote a real customer a 10x fare.
+    "max_total_multiplier"     => { type: :decimal, default: "2.0", description: "Hard ceiling on shortage x premium combined. A typo in the box above cannot get past this." },
     # How many jobs a courier may carry at once, counting the one he has. 1
     # means no batching at all, which is v0: the tier is RECORDED now because
     # consent cannot be retrofitted, and honoured by never batching until this

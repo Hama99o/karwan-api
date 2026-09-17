@@ -21,10 +21,26 @@ module Pricing
   # deserves to know before they commit, so they can decide to wait or to order
   # something else. A permanent inability to carry the thing is a refusal
   # instead, raised by `Orders::PlaceService`.
+  # `shortage_multiplier` and its `_requested` twin are NOT in `amounts`, on
+  # purpose: `amounts` is money and is checked as money — the parts must sum to
+  # the whole — and a multiplier is neither a part nor a total. They ride
+  # beside it, like `distance_km`, as an input the fee was computed FROM.
+  #
+  # THEY ARE ALSO NOT IN `to_attributes`, and that is not an oversight.
+  # `to_attributes` is consumed by BOTH `Orders::PlaceService` and the ride
+  # path building a `Trip`, and `trips` has no such column — a shortage applies
+  # to deliveries today and to rides only when somebody builds it. So the
+  # caller that knows which table it is filling merges these two, and adding
+  # them here would break a Trip with an `UnknownAttributeError`. Measured, not
+  # reasoned: it did.
   Quote = Data.define(:distance_km, :duration_minutes, :currency, :amounts, :route, :lines,
-                      :dispatch_warning) do
-    def initialize(lines: [], dispatch_warning: nil, **rest)
-      super(lines: lines, dispatch_warning: dispatch_warning, **rest)
+                      :dispatch_warning, :shortage_multiplier, :shortage_multiplier_requested) do
+    def initialize(lines: [], dispatch_warning: nil,
+                   shortage_multiplier: Pricing::ShortageMultiplier::NONE,
+                   shortage_multiplier_requested: Pricing::ShortageMultiplier::NONE, **rest)
+      super(lines: lines, dispatch_warning: dispatch_warning,
+            shortage_multiplier: shortage_multiplier,
+            shortage_multiplier_requested: shortage_multiplier_requested, **rest)
     end
 
     def to_attributes

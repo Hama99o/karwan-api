@@ -143,6 +143,60 @@ RSpec.describe "frozen amounts" do
     end
   end
 
+  # THE ONE MOST LIKELY TO BE ASKED ABOUT, because it is the only setting here
+  # that is MEANT to move within a day: it goes up in a storm and comes back
+  # down the same evening. "Why was my delivery 260 last Tuesday" is a question
+  # about a number that exists nowhere by Wednesday unless the row holds it.
+  describe "when the shortage multiplier is turned on and off" do
+    def storm(multiplier)
+      Setting.find_by!(key: "shortage_multiplier").update!(value: multiplier)
+      Setting.find_by!(key: "shortage_multiplier_enabled").update!(value: "true")
+    end
+
+    it "does not move an order placed during the storm once it passes" do
+      storm("1.6")
+      order = place
+      frozen = order.delivery_fee
+      courier_frozen = order.courier_fee
+
+      Setting.find_by!(key: "shortage_multiplier_enabled").update!(value: "false")
+
+      expect(order.reload.delivery_fee).to eq(frozen)
+      expect(order.courier_fee).to eq(courier_frozen)
+    end
+
+    it "keeps the multiplier itself on the row, so the fee can be explained" do
+      storm("1.6")
+      order = place
+
+      Setting.find_by!(key: "shortage_multiplier_enabled").update!(value: "false")
+
+      expect(order.reload.shortage_multiplier).to eq(BigDecimal("1.6"))
+    end
+
+    # The audit half: what the console ASKED for, beside what was applied, so a
+    # capped fare is distinguishable from an uncapped one long after the
+    # setting has been put back.
+    it "records a capped storm as the two different numbers it was" do
+      Setting.find_by!(key: "max_total_multiplier").update!(value: "2.0")
+      storm("9")
+      order = place
+
+      expect(order.shortage_multiplier).to eq(BigDecimal("2.0"))
+      expect(order.shortage_multiplier_requested).to eq(BigDecimal("9"))
+    end
+
+    it "leaves an order placed before the storm alone" do
+      order = place
+      frozen = order.delivery_fee
+
+      storm("1.6")
+
+      expect(order.reload.delivery_fee).to eq(frozen)
+      expect(order.shortage_multiplier).to eq(1)
+    end
+  end
+
   describe "when a ride's rate row changes" do
     def ride
       quote = Pricing::RideQuote.new(

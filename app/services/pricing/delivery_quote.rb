@@ -37,17 +37,28 @@ module Pricing
         distance_km: distance_km,
         duration_minutes: duration_minutes,
         route: route,
+        # Frozen onto the order, because this is the number most likely to
+        # have changed by the time somebody asks about it — that is its whole
+        # purpose. `requested` rides along so a CAPPED fare is distinguishable
+        # from an uncapped one, and an operator's mistyped 10 is findable.
+        shortage_multiplier: shortage_multiplier,
+        shortage_multiplier_requested: Pricing::ShortageMultiplier.requested,
         currency: Monetary::DEFAULT_CURRENCY,
         amounts: {
           items_total: @items_total,
           delivery_fee: delivery_fee,
           commission: commission,
-          # v0: the courier keeps the whole delivery fee. They are separate
-          # columns, and separate settings, so the platform can later take a cut
-          # of delivery without a migration — but taking one now would mean
-          # paying couriers less than the customer already believes they pay,
-          # and courier supply is the scarce side.
-          courier_fee: base_delivery_fee,
+          # v0: the courier keeps the whole delivery fee for the run itself.
+          # They are separate columns, and separate settings, so the platform
+          # can later take a cut of delivery without a migration — but taking
+          # one now would mean paying couriers less than the customer already
+          # believes they pay, and courier supply is the scarce side.
+          #
+          # THE TWO MULTIPLIERS LAND ON DIFFERENT SIDES, which is the whole of
+          # the difference between them: a SHORTAGE is paid to the person
+          # riding through it, while PREMIUM is the platform's (see
+          # `tier_multiplier`). So this carries the first and not the second.
+          courier_fee: courier_fee,
           merchant_payout: (@items_total - commission).round(2),
           customer_total: (@items_total + delivery_fee).round(2)
         }
@@ -84,8 +95,27 @@ module Pricing
       travel + (@merchant.effective_prep_time_minutes || 0)
     end
 
+    # ── base → shortage → tier ────────────────────────────────────────────
+    #
+    # The customer's fee carries both multipliers; the courier's carries only
+    # the shortage. Tier goes last so premium is always exactly +30% over the
+    # same run, storm or no storm — the property that makes an upfront fare
+    # explainable.
     def delivery_fee
-      @delivery_fee ||= (base_delivery_fee * tier_multiplier).round(2)
+      @delivery_fee ||= (courier_fee * tier_multiplier).round(2)
+    end
+
+    # What the courier is paid: the run, plus the shortage he rode through.
+    def courier_fee
+      @courier_fee ||= (base_delivery_fee * shortage_multiplier).round(2)
+    end
+
+    # Clamped so that shortage x tier cannot exceed `max_total_multiplier`.
+    # Clamping HERE rather than on the customer's total is deliberate: capping
+    # only the customer side would leave this uncapped, and the platform would
+    # fund the gap. See Pricing::ShortageMultiplier.
+    def shortage_multiplier
+      @shortage_multiplier ||= Pricing::ShortageMultiplier.effective(tier: tier_multiplier)
     end
 
     def base_delivery_fee

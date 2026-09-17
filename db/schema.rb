@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_16_161228) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_17_130559) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -403,6 +403,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_16_161228) do
     t.jsonb "route_geometry"
     t.integer "service_tier", default: 0, null: false
     t.datetime "settled_at"
+    t.decimal "shortage_multiplier", precision: 5, scale: 3, default: "1.0", null: false
+    t.decimal "shortage_multiplier_requested", precision: 5, scale: 3, default: "1.0", null: false
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
     t.index ["code"], name: "index_orders_on_code", unique: true

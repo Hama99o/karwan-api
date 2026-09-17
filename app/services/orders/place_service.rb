@@ -106,6 +106,11 @@ module Orders
     def build_order(quote, required_size)
       Order.new(
         quote.to_attributes.merge(
+          # Frozen onto the row, and merged HERE rather than inside
+          # `to_attributes` because that shape is shared with `Trip`, which has
+          # no such column. A shortage applies to deliveries today.
+          shortage_multiplier: quote.shortage_multiplier,
+          shortage_multiplier_requested: quote.shortage_multiplier_requested,
           required_size_class: required_size,
           service_tier: @service_tier,
           customer: @customer,
