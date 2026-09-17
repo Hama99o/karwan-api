@@ -180,6 +180,32 @@ RSpec.describe "db/seeds/e2e.rb" do
       expect(delivered.map(&:delivered_at)).to all(be_present)
     end
 
+    # ── THE LIVE ORDER MUST SORT FIRST, and it did not ─────────────────────
+    #
+    # `/customer/orders` sorts by `newest_first` = `created_at: :desc`, and the
+    # app takes `items[0]` as the order to show at the top. The delivered
+    # fixtures were inserted NOW with a past `placed_at`, so by `created_at`
+    # a nine-day-old delivered order was the newest thing the customer had —
+    # and on a device it appeared at the top of the Orders tab with "pay 500 in
+    # cash" above it. An order already paid and delivered, presented as live.
+    #
+    # Asserted on the SORT THE APP ACTUALLY USES rather than on `placed_at`,
+    # because that is the one that decides what the customer sees.
+    it "puts the LIVE order first in the sort the app reads" do
+      first = Order.where(customer: customer).order(created_at: :desc).first
+
+      expect(first.code).to eq("KQA00001")
+      expect(first.terminal?).to be(false)
+    end
+
+    it "keeps created_at consistent with placed_at, as a real order would" do
+      Order.where(customer: customer).each do |order|
+        # Within a day: a real order is created when it is placed, and a fixture
+        # that breaks that equivalence breaks the sort above.
+        expect((order.created_at - order.placed_at).abs).to be < 1.day
+      end
+    end
+
     # RE-ORDERABLE, which is the half a status test would miss. "Order this
     # again" resolves `catalog_item_id` against the live menu; a delivered
     # fixture without one is unre-orderable, and the rig's re-order step would

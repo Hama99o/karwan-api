@@ -211,7 +211,13 @@ seed_section "e2e live order" do
     delivery_landmark_note: "QA fixture — second floor, blue gate",
     customer_phone: customer.phone,
     placed_at: 20.minutes.ago, accepted_at: 18.minutes.ago,
-    preparing_at: 15.minutes.ago, ready_at: 2.minutes.ago
+    preparing_at: 15.minutes.ago, ready_at: 2.minutes.ago,
+    # SET EXPLICITLY, so the sort does not depend on when this row was first
+    # inserted. `find_or_initialize_by` keeps the original `created_at` across
+    # re-seeds, so this order's position in a `created_at: :desc` list drifted
+    # further back every day while the delivered fixtures below stayed a fixed
+    # number of days old — and the live order eventually sinks beneath them.
+    created_at: 20.minutes.ago
   )
   order.save!
 
@@ -261,7 +267,24 @@ seed_section "e2e live order" do
       customer_phone: customer.phone,
       placed_at: placed, accepted_at: placed + 2.minutes,
       preparing_at: placed + 5.minutes, ready_at: placed + 20.minutes,
-      picked_up_at: placed + 25.minutes, delivered_at: placed + 40.minutes
+      picked_up_at: placed + 25.minutes, delivered_at: placed + 40.minutes,
+      # ── `created_at` TOO, AND THAT IS NOT COSMETIC ────────────────────────
+      #
+      # `/customer/orders` sorts by `newest_first`, which `Dispatchable` defines
+      # as `created_at: :desc` — correct and cheap in production, where an order
+      # is created at the moment it is placed.
+      #
+      # A seed breaks that equivalence: these rows are inserted NOW with a
+      # `placed_at` in the past, so by `created_at` a nine-day-old delivered
+      # order was the NEWEST thing the customer had. On a device that put it at
+      # the top of the Orders tab with "pay 500 in cash" above it — an order
+      # already paid and delivered, presented as the live one.
+      #
+      # Fixed here rather than by changing the sort, because the sort is right:
+      # `created_at` is never null and is monotonic, and `placed_at` is neither.
+      # The fixture was describing a state the app cannot produce — the fifth
+      # instance of that pattern in this project, and the first one I wrote.
+      created_at: placed
     )
     past.save!
 
