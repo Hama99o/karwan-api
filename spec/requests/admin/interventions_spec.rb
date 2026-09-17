@@ -31,6 +31,47 @@ RSpec.describe "Admin interventions", type: :request do
         expect(order.reload.courier_id).to eq(courier.id)
       end
 
+      # ── A HAND-ASSIGNED COURIER IS PAID THE SAME AS AN ALGORITHM-ASSIGNED ONE
+      #
+      # The distance top-up used to be computed in `offers#accept`, which is
+      # NOT the only way a courier is assigned — this path sets `courier`
+      # directly. So a courier moved onto a thin far order by hand rode exactly
+      # the same dead leg and was silently paid less, and neither order looked
+      # wrong on its own.
+      #
+      # How the courier came to hold the job is not a dimension of the policy.
+      # The rule now lives on the assignment itself (`Order#freeze_courier_pay`),
+      # so every path gets it, including the ones that do not exist yet.
+      it "tops up a thin far order the same as dispatch would have" do
+        Setting.find_or_initialize_by(key: "courier_topup_enabled")
+               .update!(value: "true", value_type: :boolean)
+        Setting.find_or_initialize_by(key: "courier_min_earnings_per_km")
+               .update!(value: "20", value_type: :decimal)
+        order.update!(distance_km: 6)
+        courier = create(:user, :courier)
+        courier.courier_profile.update!(last_latitude: merchant.latitude + 0.036,
+                                        last_longitude: merchant.longitude,
+                                        location_updated_at: Time.current)
+
+        patch "/admin/orders/#{order.id}/reassign", params: { courier_id: courier.id }
+
+        expect(order.reload.commission_topup).to be > 0
+      end
+
+      # A reassignment must not leave the PREVIOUS courier's figure on the row:
+      # the new courier may be standing at the merchant's door.
+      it "clears a top-up the new courier does not qualify for" do
+        order.update!(distance_km: 6, commission_topup: 25)
+        courier = create(:user, :courier)
+        courier.courier_profile.update!(last_latitude: merchant.latitude,
+                                        last_longitude: merchant.longitude,
+                                        location_updated_at: Time.current)
+
+        patch "/admin/orders/#{order.id}/reassign", params: { courier_id: courier.id }
+
+        expect(order.reload.commission_topup).to eq(0)
+      end
+
       it "names the admin who did it, with the before and after" do
         courier = create(:user, :courier)
 

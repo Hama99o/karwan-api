@@ -191,11 +191,44 @@ class Order < ApplicationRecord
     vehicle = courier&.courier_profile&.vehicle_type
     rate = PricingRate.fetch(job_kind: self.class::JOB_KIND, audience: :courier,
                              vehicle_type: vehicle)
+    fee = rate.amount_for(distance_km: distance_km)
+
+    # IN MEMORY BEFORE THE TOP-UP IS ASKED FOR, because the top-up measures the
+    # shortfall against the fee this courier is actually paid — which is the
+    # one being computed on the line above, not the one the row was created
+    # with. Getting that order wrong is a silent 40% error and it is the reason
+    # this lives here rather than at a call site.
+    self.courier_fee = fee
 
     update_columns(
       courier_vehicle_type: vehicle.present? ? self.class.courier_vehicle_types[vehicle] : nil,
-      courier_fee: rate.amount_for(distance_km: distance_km)
+      courier_fee: fee,
+      commission_topup: distance_top_up
     )
+  end
+
+  # ── WHY THE TOP-UP IS FROZEN HERE AND NOT AT THE CALL SITE ────────────────
+  #
+  # It was in `offers#accept` first, which was wrong in a way that took a
+  # second pair of eyes: **`offers#accept` is not the only way a courier is
+  # assigned.** An admin reassigning a job by hand from the ops console sets
+  # `courier` directly, so a hand-assigned courier rode the same dead leg and
+  # was silently paid less than the algorithm would have paid him. Not a
+  # policy anybody chose — an inconsistency nobody would ever see, because both
+  # orders look correct on their own.
+  #
+  # How the courier came to hold the job is not a dimension of the policy. He
+  # rides the same distance either way. So the rule belongs where the fee is
+  # already frozen: **one place every assignment passes through, including the
+  # ones that do not exist yet.** A second call site is a third one waiting to
+  # be forgotten — the same shape as a check nobody runs and a guard nobody
+  # calls, both of which this repo has already paid for.
+  #
+  # Returns 0 rather than nil when nothing is owed, so a REASSIGNMENT to a
+  # courier who does not qualify clears the previous courier's top-up instead
+  # of leaving it on the row.
+  def distance_top_up
+    Pricing::CourierTopUp.for(courier: courier, jobs: [ self ])[self] || 0
   end
 
   # WHAT THE COURIER HANDS OVER AT THE COUNTER. Model A: the food, less our

@@ -69,27 +69,6 @@ class Api::V1::Couriers::OffersController < Api::V1::Couriers::BaseController
       @offer.respond!(:accepted)
       job.update!(courier: current_user)
 
-      # THE DEAD LEG IS PRICED HERE because this is the first moment it exists:
-      # the leg is courier→merchant and at quote time there was no courier.
-      # Frozen onto the row like every other amount (correction 13). It changes
-      # nothing the customer was quoted — it moves money from our commission to
-      # the courier — so no customer-facing figure moves.
-      #
-      # A SET, not this one job: batched, two jobs share one ride out, and paid
-      # per job we would fund a leg nobody rode twice (correction 19). One job
-      # today.
-      #
-      # AFTER `job.update!(courier:)` AND NOT BEFORE, which is load-bearing
-      # rather than incidental: assigning the courier is what sets
-      # `courier_fee` from HIS vehicle's rate — the second freeze point in
-      # docs/TESTING.md's frozen-amounts spec, because the vehicle is unknown
-      # until somebody accepts. Computed above that line, the top-up would
-      # measure the shortfall against a fee the courier is not being paid, and
-      # would be wrong in whichever direction his vehicle differs from the
-      # placeholder. An example asserts the ordering.
-      topups = Pricing::CourierTopUp.for(courier: current_user, jobs: [ job ])
-      job.update!(commission_topup: topups[job]) if topups[job]
-
       # ACCEPTING A DELIVERY CHANGES NO ORDER STATUS, and this was wrong at
       # first: it moved the order to `preparing`, which conflated "a courier
       # took the job" with "the kitchen started cooking". Those are different
