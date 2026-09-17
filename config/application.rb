@@ -28,7 +28,10 @@ module KarwanApi
     # Please, add to the `ignore` list any other `lib` subdirectories that do
     # not contain `.rb` files, or that should not be reloaded or eager loaded.
     # Common ones are `templates`, `generators`, or `middleware`, for example.
-    config.autoload_lib(ignore: %w[assets tasks])
+    # `middleware` is ignored because a Rack middleware must be a real constant
+    # while the stack is being BUILT, and autoloading during boot is not
+    # supported — `config/environments/development.rb` requires it explicitly.
+    config.autoload_lib(ignore: %w[assets tasks middleware])
 
     # Configuration for the application, engines, and railties goes here.
     #

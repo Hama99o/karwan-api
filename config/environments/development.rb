@@ -46,6 +46,28 @@ Rails.application.configure do
   # Raise an error on page load if there are pending migrations.
   config.active_record.migration_error = :page_load
 
+  # ── AND ANSWER IT IN JSON, BECAUSE THIS IS AN api_only APP ────────────────
+  #
+  # `migration_error` above renders Rails' own HTML error page, which is right
+  # for a browser and unreadable to every client this app actually has. A
+  # migration left unapplied here once put the public endpoints on 500 for
+  # every session on this box and the symptom named nothing —
+  # `check_pending_migrations` refuses even the pre-auth routes, so from
+  # another session it reads as "the API is down".
+  #
+  # DEVELOPMENT ONLY, and not by oversight: `CheckPending` is only in the stack
+  # when `migration_error` is set, which is here. Production migrates as a
+  # deploy step and this middleware is not inserted there at all — so nothing
+  # in production returns this 503, and `insert_before` would raise at boot if
+  # this were moved to a shared config.
+  #
+  # `require`d rather than autoloaded: the stack is built during boot, where
+  # autoloading is not supported, which is why `lib/middleware` is on
+  # `autoload_lib`'s ignore list in config/application.rb.
+  require Rails.root.join("lib/middleware/pending_migration_json")
+  config.middleware.insert_before ActiveRecord::Migration::CheckPending,
+                                  PendingMigrationJson
+
   # Highlight code that triggered database queries in logs.
   config.active_record.verbose_query_logs = true
 
