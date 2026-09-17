@@ -516,6 +516,59 @@ a migration. `spec/config/entrypoint_migration_spec.rb` reads both files and
 **executes the real condition against the real arguments**, so a change to
 either side goes red.
 
+### ADMINISTRATE'S SEARCH BREAKS ON RAILS 8.2 — dependency, with a trigger
+
+Surfaced while driving the ops console on 2026-09-17. Every console search
+emits:
+
+```
+DEPRECATION WARNING: String#mb_chars is deprecated and will be removed in
+Rails 8.2. Use normal string methods instead.
+```
+
+from **`administrate-1.0.0/lib/administrate/search.rb:114`** —
+`["%#{term.mb_chars.downcase}%"] * fields_count`. Not our code, and not
+fixable in our code.
+
+**It is the most-used feature of the surface Hamma9900 says matters most**:
+finding an order by the code a customer reads out is the thousand-times-a-day
+action, and it goes through that line.
+
+**Trigger: the Rails 8.2 upgrade.** At that point Administrate must be upgraded
+first, or console search raises `NoMethodError` on every query. Worth checking
+whether Administrate has released a fix before the upgrade is attempted rather
+than during it.
+
+### THE OPS CONSOLE IS OPERABLE — five real tasks, driven, all possible
+
+Everything proved before this was about the console's DATA being right. This
+asked whether a non-developer can complete a job in it, by driving five real
+operator tasks through HTTP rather than reading dashboards
+(`spec/requests/admin/operator_can_do_the_job_spec.rb`).
+
+| # | The task | Possible | Pages |
+|---|---|---|---|
+| 1 | A customer reads out an order code — find it, see status, courier, cash | **yes** | 2 |
+| 2 | A courier says he was not paid — find him, read the ledger, credit him | **yes** | 3 |
+| 3 | A restaurant says nobody collected — find it, reassign, audited | **yes** | 2 |
+| 4 | A courier applied — find it, see what is missing, approve | **yes** | 2 |
+| 5 | A fee is wrong — find the setting, change it, pricing reads it | **yes** | 2 |
+
+**No `search_text` is needed on `orders` or `users`, and its absence is not a
+gap.** Administrate searches every `Field::String` in a dashboard's
+`ATTRIBUTE_TYPES` directly, which was suspected to be missing and is not.
+Driven, not assumed: an order is found by its **code** and by the **customer's
+phone**; a courier by **phone** and by **name**.
+
+**Task 2's extra page is a real hop and it is already linked**: the user's show
+page renders links to both `courier_wallet` and `courier_profile`, verified by
+asserting the rendered paths rather than the dashboard constant. Search the
+user, open him, click the wallet.
+
+Nothing was missing, so nothing was added. Recorded because **a clean result
+that is not written down gets re-audited**, and because the page counts are the
+baseline any future console change should be measured against.
+
 ### FOUR AUDITS THAT CAME BACK CLEAN — 2026-09-17, recorded so nobody redoes them
 
 **An audit whose clean result is not written down gets repeated.** Each of
