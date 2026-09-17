@@ -81,6 +81,37 @@ module Couriers
         kind: :commission, amount: -@job.commission, source: @job,
         recorded_by: @courier, note: "Commission on #{@job.code}"
       )
+
+      record_topup!(wallet)
+    end
+
+    # WHAT WE GAVE BACK, as its own movement rather than as a smaller
+    # commission. One-way door #4: a balance can be recomputed from entries and
+    # entries can never be reconstructed from a balance — a top-up that showed
+    # only as a reduced commission would be a movement with no record, and
+    # "what did the top-up cost us in November" would be unanswerable.
+    #
+    # It also keeps `merchant_payout` still: that figure is derived from
+    # `commission`, so reducing the commission itself would quietly pay the
+    # RESTAURANT more, on exactly the thin far orders this exists to rescue.
+    #
+    # THE NOTE IS FOR AN OPERATOR, not for the courier. There is no wallet
+    # screen in the app — `/courier/wallet/entries` has no client caller yet —
+    # so this is read in the ops console, where a complaint is actually
+    # answered. It carries the arithmetic rather than a sentence, so the figure
+    # explains itself. Courier-facing copy gets written in Pashto when the
+    # statement screen is built, by somebody looking at the screen.
+    def record_topup!(wallet)
+      topup = @job.try(:commission_topup).to_d
+      return if topup <= 0
+      return if wallet.wallet_entries.exists?(source: @job, kind: :commission_topup)
+
+      wallet.record_entry!(
+        kind: :commission_topup, amount: topup, source: @job,
+        recorded_by: @courier,
+        note: "Distance top-up on #{@job.code}: #{@job.distance_km}km drop, " \
+              "min #{Setting.fetch('courier_min_earnings_per_km')}/km"
+      )
     end
   end
 end

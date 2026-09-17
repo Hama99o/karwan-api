@@ -34,9 +34,24 @@ RSpec.describe WalletEntry, type: :model do
     # Each of these is a real policy in CLAUDE.md, not a taxonomy for its own
     # sake: commission is what we take, top_up is a bank deposit reconciled by
     # the 4-digit code, reimbursement is the platform absorbing a refused order
-    # the same day, adjustment is a named human fixing something.
-    it "covers the four ways money moves" do
-      expect(described_class.kinds.keys).to eq(%w[commission top_up reimbursement adjustment])
+    # the same day, adjustment is a named human fixing something, and
+    # commission_topup is US GIVING BACK — the distance top-up on a thin far
+    # order, which is the opposite direction from `top_up` despite the name.
+    it "covers the five ways money moves" do
+      expect(described_class.kinds.keys)
+        .to eq(%w[commission top_up reimbursement adjustment commission_topup])
+    end
+
+    # THE INTEGERS ARE THE CONTRACT, not the order of the keys. They are in the
+    # database, so appending is safe and renumbering would silently rewrite
+    # history — every commission becoming a top-up. Asserted as the mapping
+    # rather than as a list, because a list only catches a REORDER and this
+    # catches a renumber too.
+    it "never renumbers, because the integers are already in the database" do
+      expect(described_class.kinds).to eq(
+        "commission" => 0, "top_up" => 1, "reimbursement" => 2,
+        "adjustment" => 3, "commission_topup" => 4
+      )
     end
   end
 

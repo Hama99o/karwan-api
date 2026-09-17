@@ -63,6 +63,13 @@ class Setting < ApplicationRecord
     # second pair of eyes, and a mistyped 10 where 1.5 was meant must not be
     # able to quote a real customer a 10x fare.
     "max_total_multiplier"     => { type: :decimal, default: "2.0", description: "Hard ceiling on shortage x premium combined. A typo in the box above cannot get past this." },
+    # ── THE DEAD LEG NOBODY WAS PAYING FOR ──────────────────────────────────
+    #
+    # A cheap order a long way out pays the courier for the short hop at the
+    # end and nothing for the ride OUT to the restaurant. Hamma9900's answer:
+    # "we will have a zero commission for our side". See Pricing::CourierTopUp.
+    "courier_topup_enabled"    => { type: :boolean, default: "false", description: "Whether a courier's pay is topped up out of our commission when a job's distance is worth more than its fee." },
+    "courier_min_earnings_per_km" => { type: :decimal, default: "0.0", currency: "AFN", description: "What a courier should clear per km of the WHOLE run, including the ride out to the merchant. Short of it, the gap comes out of our commission, down to zero and never below. 0 tops up nothing." },
     # How many jobs a courier may carry at once, counting the one he has. 1
     # means no batching at all, which is v0: the tier is RECORDED now because
     # consent cannot be retrofitted, and honoured by never batching until this

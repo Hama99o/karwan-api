@@ -12,7 +12,14 @@
 class WalletEntry < ApplicationRecord
   include Monetary
 
-  enum :kind, { commission: 0, top_up: 1, reimbursement: 2, adjustment: 3 }, prefix: true
+  # `commission_topup` is OURS GIVING BACK, not the courier paying in — read it
+  # as "a top-up OF his pay, funded from the commission", the opposite
+  # direction from `top_up`, which is his own deposit. The sign says so too: a
+  # positive entry against a negative `commission`.
+  #
+  # APPENDED AS 4, never by renumbering — these integers are in the database.
+  enum :kind, { commission: 0, top_up: 1, reimbursement: 2, adjustment: 3, commission_topup: 4 },
+       prefix: true
 
   belongs_to :courier_wallet
   belongs_to :source, polymorphic: true, optional: true

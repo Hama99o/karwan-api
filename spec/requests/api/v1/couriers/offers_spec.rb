@@ -35,6 +35,116 @@ RSpec.describe "Api::V1::Couriers::Offers", type: :request do
       expect(offer.offerable.reload.courier).to eq(courier)
     end
 
+    # ── THE DEAD LEG IS PRICED AT ASSIGNMENT, BECAUSE THAT IS WHEN IT EXISTS ─
+    #
+    # The leg is courier→merchant, so at quote time — the cart — there is no
+    # courier to measure from. Frozen onto the row here like every other
+    # amount, and it moves nothing the customer was quoted: it shifts money
+    # from our commission to the courier.
+    context "the distance top-up" do
+      def set(key, value)
+        Setting.find_or_initialize_by(key: key)
+               .update!(value: value.to_s, value_type: Setting::DEFINITIONS.fetch(key)[:type])
+      end
+
+      before do
+        set("courier_topup_enabled", "true")
+        set("courier_min_earnings_per_km", "20")
+      end
+
+      # A courier 4 km out, a 6 km drop: 10 km of riding for a fee priced on the
+      # drop alone.
+      def far_from_the_merchant(order)
+        order.update!(distance_km: 6)
+        courier.courier_profile.update!(last_latitude: merchant.latitude + 0.036,
+                                        last_longitude: merchant.longitude,
+                                        location_updated_at: Time.current)
+      end
+
+      it "freezes what we are giving back onto the order" do
+        order = delivery
+        far_from_the_merchant(order)
+        offer = create(:offer, courier: courier, offerable: order)
+
+        post "/api/v1/courier/offers/#{offer.id}/accept", headers: auth
+        order.reload
+
+        expect(response).to have_http_status(:ok)
+        expect(order.commission_topup).to be > 0
+        expect(order.commission_topup)
+          .to eq((Setting.fetch("courier_min_earnings_per_km") *
+                  Pricing::CourierTopUp.total_km(courier: courier, jobs: [ order ]) -
+                  order.courier_fee).round(2))
+      end
+
+      # ── THE ORDERING IS LOAD-BEARING ────────────────────────────────────────
+      #
+      # Assigning the courier is what sets `courier_fee` from HIS vehicle's
+      # rate — the assignment freeze point. So the top-up must be computed
+      # AFTER that line, against the fee he is actually paid, not against the
+      # placeholder the order was created with.
+      #
+      # This example is written as the difference between the two, because it
+      # is the only way to tell them apart: it asserts the top-up matches the
+      # POST-assignment fee and would not match the pre-assignment one.
+      it "measures the shortfall against the fee the courier is actually paid" do
+        order = delivery
+        far_from_the_merchant(order)
+        # A commission big enough that the cap does NOT bind. Without this the
+        # example is vacuous: both the right answer and the wrong one get
+        # clamped to the commission and compare equal, which is how the first
+        # version of it passed against a planted bug.
+        order.update!(items_total: 900, commission: 400, merchant_payout: 500,
+                      customer_total: 900 + order.delivery_fee)
+        fee_before = order.courier_fee
+        offer = create(:offer, courier: courier, offerable: order)
+
+        post "/api/v1/courier/offers/#{offer.id}/accept", headers: auth
+        order.reload
+
+        # The vehicle rate moved the fee; if it ever stops doing so this
+        # example is no longer testing anything and should be deleted rather
+        # than left to pass vacuously.
+        expect(order.courier_fee).not_to eq(fee_before)
+
+        naive = (Setting.fetch("courier_min_earnings_per_km") *
+                 Pricing::CourierTopUp.total_km(courier: courier, jobs: [ order ]) -
+                 fee_before).round(2)
+        expect(order.commission_topup).not_to eq(naive)
+      end
+
+      it "changes nothing the customer was quoted" do
+        order = delivery
+        order.update!(distance_km: 6)
+        offer = create(:offer, courier: courier, offerable: order)
+
+        expect { post "/api/v1/courier/offers/#{offer.id}/accept", headers: auth }
+          .not_to change { order.reload.slice(:customer_total, :delivery_fee, :merchant_payout) }
+      end
+
+      it "freezes nothing while the switch is off" do
+        set("courier_topup_enabled", "false")
+        order = delivery
+        order.update!(distance_km: 6)
+        offer = create(:offer, courier: courier, offerable: order)
+
+        post "/api/v1/courier/offers/#{offer.id}/accept", headers: auth
+
+        expect(order.reload.commission_topup).to eq(0)
+      end
+
+      # It must never be the reason a courier cannot take a job.
+      it "still assigns the job when there is no position to measure from" do
+        courier.courier_profile.update!(last_latitude: nil, last_longitude: nil)
+        offer = create(:offer, courier: courier, offerable: delivery)
+
+        post "/api/v1/courier/offers/#{offer.id}/accept", headers: auth
+
+        expect(response).to have_http_status(:ok)
+        expect(offer.reload.offerable.courier).to eq(courier)
+      end
+    end
+
     # ── THE DOUBLE-BOOKING REFUSAL ───────────────────────────────────────────
     #
     # The eligibility check alone is not enough, and this is why: eligibility

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_17_130559) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_17_150210) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -365,6 +365,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_17_130559) do
     t.integer "cancelled_by_role"
     t.string "code", null: false
     t.decimal "commission", precision: 12, scale: 2, default: "0.0", null: false
+    t.decimal "commission_topup", precision: 12, scale: 2, default: "0.0", null: false
     t.datetime "courier_arrived_at"
     t.decimal "courier_fee", precision: 12, scale: 2, default: "0.0", null: false
     t.bigint "courier_id"

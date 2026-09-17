@@ -189,6 +189,61 @@ RSpec.describe "Api::V1::Couriers::Jobs", type: :request do
       expect(entry.amount).to eq(-50)
     end
 
+    # ── THE DISTANCE TOP-UP, AS ITS OWN MOVEMENT ────────────────────────────
+    #
+    # Frozen onto the order at assignment, spent here. It is a SECOND ledger
+    # row rather than a smaller commission, and both halves of that matter:
+    # one-way door 4 wants the movement recorded, and `merchant_payout` is
+    # derived from `commission`, so reducing the commission itself would pay
+    # the RESTAURANT more on exactly the thin far orders this rescues.
+    context "when the order carried a distance top-up" do
+      before { order.update!(commission_topup: 20) }
+
+      it "gives it back as its own entry, beside the full commission" do
+        post "/api/v1/courier/jobs/delivery/#{order.id}/advance", headers: auth
+        post "/api/v1/courier/jobs/delivery/#{order.id}/advance", headers: auth
+
+        charged = WalletEntry.find_by(source: order, kind: :commission)
+        given = WalletEntry.find_by(source: order, kind: :commission_topup)
+
+        expect(charged.amount).to eq(-50)
+        expect(given.amount).to eq(20)
+      end
+
+      it "leaves the courier 20 better off than the commission alone" do
+        post "/api/v1/courier/jobs/delivery/#{order.id}/advance", headers: auth
+
+        expect { post "/api/v1/courier/jobs/delivery/#{order.id}/advance", headers: auth }
+          .to change { courier.courier_wallet.reload.balance }.by(-30)
+      end
+
+      # The note is read by an operator in the console — there is no wallet
+      # screen — so it carries the arithmetic rather than a sentence.
+      it "explains itself to whoever answers the complaint" do
+        2.times { post "/api/v1/courier/jobs/delivery/#{order.id}/advance", headers: auth }
+
+        expect(WalletEntry.find_by(source: order, kind: :commission_topup).note)
+          .to include(order.code).and include("km")
+      end
+
+      it "gives it back once, however many times it is called" do
+        3.times { post "/api/v1/courier/jobs/delivery/#{order.id}/advance", headers: auth }
+
+        expect(WalletEntry.where(source: order, kind: :commission_topup).count).to eq(1)
+      end
+
+      it "does not touch what the merchant is paid" do
+        expect { 2.times { post "/api/v1/courier/jobs/delivery/#{order.id}/advance", headers: auth } }
+          .not_to change { order.reload.merchant_payout }
+      end
+    end
+
+    it "writes no top-up entry when there was none" do
+      2.times { post "/api/v1/courier/jobs/delivery/#{order.id}/advance", headers: auth }
+
+      expect(WalletEntry.where(source: order, kind: :commission_topup)).to be_empty
+    end
+
     # A double-tap on a bad connection must not charge twice.
     it "charges the commission once, however many times it is called" do
       2.times { post "/api/v1/courier/jobs/delivery/#{order.id}/advance", headers: auth }
