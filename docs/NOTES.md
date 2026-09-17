@@ -451,7 +451,7 @@ been asking for.
 > findable by building it, or by reading the file it was copied from. Both of
 > today's Dockerfile findings came from Hatiwal rather than from inspection.
 
-### INHERITED: THE PRODUCTION IMAGE SHIPS THE WHOLE TEST TOOLCHAIN
+### THE PRODUCTION IMAGE SHIPPED THE WHOLE TEST TOOLCHAIN — FIXED, AND IT IS A DELIBERATE DIVERGENCE
 
 `brakeman`, `rubocop`, `rspec-*`, `factory_bot`, `faker`, `rswag-specs` are all
 in the image — 153 gem directories.
@@ -460,12 +460,28 @@ in the image — 153 gem directories.
 groups are excluded, and the Gemfile has `group :development, :test` plus a
 separate `group :test`. Nothing in either group is dropped.
 
-**NOT OURS AND NOT FIXED HERE.** `hatiwal-api` has the identical Dockerfile line
-and the identical Gemfile shape, so its production image ships them too — and
-it launches first. The fix is `BUNDLE_WITHOUT="development:test"`, one word, but
-it diverges from the reference on a pattern the shipping app shares, so it went
-to Hamma9901 as a finding rather than being taken unilaterally. Bloat and dev
-tooling on a server rather than a break.
+**Severity, stated honestly: bloat, not a break.** Production loads only the
+default group plus the environment's, so those gems sit on disk rather than in
+memory. The cost is image size, pull time, and a wider surface on a server he
+administers alone from France.
+
+**FIXED HERE as a DELIBERATE DIVERGENCE FROM `hatiwal-api`**, on Hamma9901's
+call and recorded so it is legible later: Hatiwal has the identical line and the
+identical Gemfile shape and ships them too, but **Karwan is not launching, so
+the risk of correcting it is ours to take.** Hatiwal improves on its next build;
+the finding went to Hamma9900 with that urgency — low, nothing new breaks, no
+deploy blocked.
+
+**This is the first time this repo has knowingly diverged TOWARD correctness
+rather than away**, and that direction matters to whoever reconciles the two
+later.
+
+**Proven by running it, not by diffing a gem list.** `rswag-api` and `rswag-ui`
+are in the DEFAULT group because they are mounted in production, and they
+survive; only `rswag-specs` goes. 153 gem directories → 115. The rebuilt image
+then booted against a real database and served
+`/api/v1/public/merchants` **200** and a real `app_config` payload — **not
+`/up`, which any Rails app answers**.
 
 ### READING THE PRECEDENT CORRECTED A CLAIM ABOUT OUR OWN REPO
 
@@ -568,10 +584,26 @@ fi
 server — byte-identical to `hatiwal-api/bin/docker-entrypoint`. So the schema
 is always current after a deploy and the `migrate` alias is belt-and-braces.
 
-**`db:seed` is the half that is genuinely manual**, and the finding below
-stands entirely on it: no hook and no entrypoint line runs it, so the
-`settings` rows Hamma9900 tunes from do not exist until somebody types
-`kamal seed`.
+**NARROWED AGAIN 2026-09-17, by running the image rather than reading it.**
+The first production container booted against a real database and logged
+**"Seeding complete."** — because `db:prepare` **creates, loads the schema AND
+RUNS SEEDS when the database does not yet exist.** Verified: 48 `settings` rows
+in a freshly created `karwan_production`, and `/api/v1/public/app_config`
+answering with real JSON.
+
+So **a FIRST deploy seeds itself** and the Config screen is fully populated. My
+earlier "the console would be empty on a fresh deploy" was wrong.
+
+**The genuine gap is the second deploy onward.** Once the database exists,
+`db:prepare` only migrates — it does not re-seed. So **a `Setting` added in a
+later release never materialises on the running server**, and `Setting.fetch`
+silently serves its code default while the console has no row for it. That is
+the realistic case, it recurs with every release that adds a knob, and it is
+exactly what `bin/preflight`'s config-rows check catches — which makes that
+check more valuable than when it was written, not less.
+
+`kamal seed` after every deploy remains the fix, and is safe: the reference half
+is idempotent and never overwrites a tuned value.
 
 **The failure is quiet, which is what makes it worth writing down.**
 `Setting.fetch` falls back to the definition's default when no row exists, so

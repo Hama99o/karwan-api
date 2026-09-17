@@ -194,10 +194,14 @@ whenever the container starts the server**, byte-identical to `hatiwal-api`'s.
 So the schema is current after every deploy and `kamal migrate` is
 belt-and-braces you can run if you want to watch it.
 
-**`kamal seed` is the step that is genuinely manual, and forgetting it is
-silent.** `hatiwal-api` is the same, so this is the established practice in this
-owner's deploys rather than an oversight — but it only works while somebody
-remembers.
+**`kamal seed` matters from the SECOND deploy onward.** A first deploy seeds
+itself — `db:prepare` creates the database, loads the schema and runs the seeds,
+verified by booting the production image against an empty database and counting
+48 `settings` rows. But once the database exists it only migrates, so **a
+setting added in a later release never appears on the running server**:
+`Setting.fetch` serves its code default and the console has no row to type in.
+`hatiwal-api` behaves identically. Safe to run every time — the reference half
+is idempotent and never overwrites a tuned value.
 
 **A first deploy, in order:**
 
@@ -400,7 +404,10 @@ reports an error.
 Safe on every deploy, not just the first: the reference half is idempotent,
 refuses sample data in production, and never overwrites a number you have tuned.
 
-*Proves:* the Config screen has all 37 settings in it.
+*Proves:* the Config screen has every setting in it. **On a first deploy this
+step is belt-and-braces** — `db:prepare` already seeded when it created the
+database. It becomes load-bearing on every deploy after that, because a setting
+added in a later release materialises no other way.
 
 ## 7 · `bin/preflight` — the gate that says whether any of this worked
 

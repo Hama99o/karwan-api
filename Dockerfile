@@ -24,7 +24,23 @@ RUN apt-get update -qq && \
 ENV RAILS_ENV="production" \
     BUNDLE_DEPLOYMENT="1" \
     BUNDLE_PATH="/usr/local/bundle" \
-    BUNDLE_WITHOUT="development" \
+    # `development:test`, NOT `development`. Bundler drops a gem only when ALL
+    # its groups are excluded — and this Gemfile has `group :development, :test`
+    # plus a separate `group :test`, so excluding development alone dropped
+    # nothing. Measured: the image shipped brakeman, rubocop, rspec, faker,
+    # factory_bot and rswag-specs, 153 gem directories in total.
+    #
+    # DELIBERATE DIVERGENCE FROM hatiwal-api, which has the same line and the
+    # same Gemfile shape and therefore ships them too. Karwan is not launching,
+    # so the risk of correcting it is ours to take; Hatiwal improves on its next
+    # build. Recorded in docs/NOTES.md, because this is a divergence TOWARD
+    # correctness and whoever reconciles the two repos later needs to know which
+    # direction it points.
+    #
+    # `rswag-api` and `rswag-ui` are in the DEFAULT group on purpose — they are
+    # mounted in production — so this does not drop them. `rswag-specs`, which
+    # only regenerates the swagger file, goes.
+    BUNDLE_WITHOUT="development:test" \
     LD_PRELOAD="/usr/local/lib/libjemalloc.so"
 
 # Throw-away build stage to reduce size of final image
