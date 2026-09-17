@@ -52,6 +52,26 @@ RSpec.describe "the test database" do
     expect(test_block).not_to match(/^\s+database:/)
   end
 
+  # ── THE LOCK IS ACTUALLY HELD, not merely written ───────────────────────
+  #
+  # Asserted from INSIDE a running example, by asking Postgres — so it proves
+  # the guard is in force for this very process rather than that the source
+  # contains the right words. Remove `rails_helper`'s lock and this goes red.
+  it "holds an advisory lock on this database while the suite runs" do
+    held = ActiveRecord::Base.connection.select_value(<<~SQL.squish)
+      SELECT count(*) FROM pg_locks
+       WHERE locktype = 'advisory' AND objid = #{EXCLUSIVE_DATABASE_LOCK_KEY}
+    SQL
+
+    expect(held.to_i).to be >= 1
+  end
+
+  it "keys the lock on the database name, so two suffixes never collide" do
+    expect(EXCLUSIVE_DATABASE_LOCK_KEY)
+      .to eq(Zlib.crc32(ActiveRecord::Base.connection_db_config.database.to_s))
+    expect(Zlib.crc32("karwan_test")).not_to eq(Zlib.crc32("karwan_test_99"))
+  end
+
   it "never resolves to the development database, whatever the suffix" do
     expect(ActiveRecord::Base.connection_db_config.database).to start_with("karwan_test")
   end

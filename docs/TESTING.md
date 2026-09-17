@@ -494,11 +494,28 @@ have measured something true and learned nothing.
    other one just looks like a regression, and costs an hour of bisecting a bug
    that does not exist.
 
-   So the rule is stronger than "own your database": **one rspec process per
-   database at a time, including your own second one.** Before starting a run,
-   check nothing else is running — `ps -eo args | grep -c '[r]spec'` — and if a
-   suite is in flight, wait for it rather than opening a second front on the
-   same rows.
+   **THE SUITE NOW REFUSES, so this is no longer a rule to remember.**
+   `spec/rails_helper.rb` takes a Postgres advisory lock keyed on the database
+   name before anything can truncate, and a second process exits **1** with a
+   message naming the database. A rule has to be recalled at the exact moment
+   somebody is mid-hunt and wants one quick targeted run — which is when it
+   will not be. A lock does not.
+
+   Two details worth keeping, both found by testing it rather than reasoning:
+
+   - **It is taken BEFORE the support glob.** `spec/support/database_cleaner.rb`
+     registers a `before(:suite)` that truncates; hooks run in registration
+     order and sorted alphabetically it would load first. The truncation is the
+     destructive act, so the lock has to precede it.
+   - **`exit!`, not `abort`.** `abort` raises SystemExit, RSpec's
+     `before(:suite)` swallows it, and the run then reports
+     `0 examples, 0 failures` and exits **0** — a refusal that looks like a
+     pass, which is the exact shape the guard exists to prevent. The first
+     version did precisely that.
+
+   The boundary is per **process**, not per session: the measured failure was
+   one session colliding with itself, so `TEST_DB_SUFFIX` alone never reached
+   it.
 
    The diagnosis that settles it, for next time: a failure that **does not
    reproduce in any subsequent run** and appeared while another process shared

@@ -254,23 +254,88 @@ RSpec.describe "money conservation" do
     end
   end
 
-  # ═══ A RIDE — THE SIMPLER HALF, AND IT BALANCES ══════════════════════════
+  # ═══ A RIDE — THE SIMPLER HALF, AND WHERE THE PREMIUM ACTUALLY ARRIVES ═══
   #
   # No merchant and no advance: the passenger pays the fare, the courier keeps
-  # his earnings, the platform takes its commission from the same wallet.
-  # `Trip` validates `fare == commission + courier_earnings`, so this is that
-  # identity asserted from the OUTSIDE — through the quote, not the validation.
+  # it, the platform's share comes out of his prepaid wallet.
+  #
+  # ── WHY `fare == commission + courier_earnings` IS NOT WORTH ASSERTING ───
+  #
+  # `Pricing::RideQuote` computes `courier_earnings` as `fare - commission`.
+  # It is a RESIDUAL, so that identity is true by arithmetic and an example
+  # asserting it proves only that subtraction works — the same trap this file
+  # already fell into once on the delivery side.
+  #
+  # The two INDEPENDENT quantities are the fare (a two-part tariff) and the
+  # commission (a rate applied to it). Those are what these examples pin.
   describe "a ride" do
-    %i[normal premium].each do |tier|
-      it "splits the fare between the courier and us, with nothing left over (#{tier})" do
-        fare = Pricing::RideQuote.new(
-          pickup_latitude: 34.5553, pickup_longitude: 69.2075,
-          dropoff_latitude: 34.5658, dropoff_longitude: 69.2123,
-          service_tier: tier
-        ).call.amounts
+    def ride(tier: :normal, vehicle_type: nil)
+      Pricing::RideQuote.new(
+        pickup_latitude: 34.5553, pickup_longitude: 69.2075,
+        dropoff_latitude: 34.5658, dropoff_longitude: 69.2123,
+        vehicle_type: vehicle_type, service_tier: tier
+      ).call.amounts
+    end
 
-        expect(fare[:courier_earnings] + fare[:commission]).to eq(fare[:fare])
-      end
+    it "takes exactly the configured share of the fare, computed independently" do
+      amounts = ride
+
+      expect(amounts[:commission])
+        .to eq((amounts[:fare] * Setting.fetch("trip_commission_rate")).round(2))
+    end
+
+    it "leaves the courier the rest, and nobody holding a negative amount" do
+      amounts = ride
+
+      expect(amounts[:courier_earnings]).to eq(amounts[:fare] - amounts[:commission])
+      expect(amounts[:courier_earnings]).to be > 0
+      expect(amounts[:commission]).to be > 0
+    end
+
+    # ── THE ASYMMETRY WITH A DELIVERY, AND IT IS THE INTERESTING PART ───────
+    #
+    # On a ride the fare IS the courier's revenue and we take a percentage, so
+    # a premium fare lifts BOTH sides — the platform's share rises with it,
+    # automatically, because the commission is a rate applied to the bigger
+    # number. `Pricing::DeliveryQuote` says this asymmetry is deliberate.
+    #
+    # **It is also the proof that the delivery-side premium leak is a defect
+    # rather than a policy.** The same uplift, on the same platform, charged to
+    # the same kind of customer, reaches us on a ride and reaches the courier
+    # on a delivery. Nobody would choose that.
+    it "lifts OUR share too when the passenger pays for premium" do
+      normal = ride
+      premium = ride(tier: :premium)
+
+      expect(premium[:fare]).to be > normal[:fare]
+      expect(premium[:commission]).to be > normal[:commission]
+      expect(premium[:courier_earnings]).to be > normal[:courier_earnings]
+    end
+
+    it "keeps our share the same PROPORTION of a premium fare" do
+      rate = Setting.fetch("trip_commission_rate")
+
+      expect(ride(tier: :premium)[:commission])
+        .to eq((ride(tier: :premium)[:fare] * rate).round(2))
+    end
+
+    # What the courier physically ends with, through the wallet rather than
+    # through the quote: he collects the fare and is charged the commission.
+    it "charges the wallet exactly our share, so his cash matches his earnings" do
+      courier = create(:user, :courier)
+      courier.courier_wallet.update!(balance: 5_000, credit_line: 500)
+      amounts = ride
+      trip = create(:trip, :accepted, courier: courier, fare: amounts[:fare],
+                                      commission: amounts[:commission],
+                                      courier_earnings: amounts[:courier_earnings])
+
+      courier.courier_wallet.record_entry!(kind: :commission, amount: -trip.commission,
+                                           source: trip, recorded_by: courier)
+
+      collected = trip.fare
+      charged = -courier.courier_wallet.wallet_entries.where(source: trip).sum(:amount)
+
+      expect(collected - charged).to eq(trip.courier_earnings)
     end
   end
 end
