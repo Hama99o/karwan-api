@@ -145,6 +145,24 @@ Concretely, the guards worth adding:
   is a failure; so is a structural check that matched zero files, or a key-parity
   check that found zero keys. Assert the denominator.
 
+### A passing suite that does not EXIT has not finished talking
+
+The same family, one step further out. Sixteen tests passed in six seconds and
+the Jest worker then sat for six hundred more. **The result agreed with me while
+the instrument was lying about something else entirely** — a query had rejected,
+`useLastKnown` retries once, and `client.clear()` drops the cache without
+cancelling the timer.
+
+`--detectOpenHandles` reported nothing, because a React Query retry is not a
+handle Jest names. What found it was running each test **alone** and diffing
+against `HEAD`: the two that hung were exactly the two whose queries rejected.
+
+So: **a green run that does not return to the prompt is an unread result.** Do
+not reach for `--forceExit` — that hides precisely the thing the hang is telling
+you, which is that the code under test leaves work running after the assertion
+passed. In an app that is a timer nobody cancels; in a test it is six hundred
+seconds of somebody's afternoon.
+
 ### The three shapes, together, because they are one family
 
 All three came from the same bug in one week, and each was caught by asking
