@@ -100,13 +100,36 @@ FactoryBot.define do
 
   factory :order_item do
     order
-    catalog_item { nil }
+    # ── A REAL ORDER LINE POINTS AT A CATALOG ITEM ───────────────────────────
+    #
+    # This was `nil`, which describes a world the app cannot produce:
+    # `Orders::PlaceService` always sets `catalog_item`, and catalog items are
+    # SOFT deleted, so the pointer survives a delisting too. A line with no
+    # pointer is reachable only for orders placed before the column existed.
+    #
+    # It mattered because "order this again" is built on that pointer, and a
+    # fixture with none made every re-order example pass against nothing —
+    # `docs/TESTING.md`: could this DB state occur through the app?
+    #
+    # Built from the ORDER'S OWN merchant, not a free-floating one, because a
+    # line pointing at another shop's dish is the other impossible state.
+    catalog_item do
+      create(:catalog_item, catalog_category: create(:catalog_category, merchant: order.merchant),
+                            name: name, price: unit_price)
+    end
     name { "Chicken Kabab" }
     unit_price { 400 }
     options_total { 0 }
     quantity { 1 }
     line_total { 400 }
     currency { "AFN" }
+
+    # THE ONE CASE THAT REALLY HAS NO POINTER: an order placed before the
+    # column existed. Kept expressible because the serializer must render it
+    # and the app must refuse to re-order it rather than crash.
+    trait :delisted do
+      catalog_item { nil }
+    end
 
     trait :with_options do
       options_total { 100 }

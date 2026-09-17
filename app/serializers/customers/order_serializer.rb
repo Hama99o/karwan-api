@@ -18,6 +18,17 @@ module Customers
       order.merchant.name
     end
 
+    # THE ID, AND IT IS FOR RE-ORDERING. `merchant_name` is what the customer
+    # reads; this is what the app needs to open the right catalog when they tap
+    # "order this again" — without it the name would have to be searched for,
+    # which finds the wrong shop the first time two are called Kabab House.
+    #
+    # Not sensitive: a customer browses merchants by id all day on
+    # `/public/merchants`. It is only absent here because nothing had needed it.
+    field :merchant_id do |order|
+      order.merchant_id
+    end
+
     # The number that matters. Named for what the customer does with it rather
     # than for the column it comes from.
     field :amount_to_pay_in_cash do |order|

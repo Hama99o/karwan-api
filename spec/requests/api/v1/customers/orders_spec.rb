@@ -316,6 +316,69 @@ RSpec.describe "Api::V1::Customers::Orders", type: :request do
   describe "GET /api/v1/customer/orders/:id" do
     let!(:order) { create(:order, :with_items, customer: customer, merchant: merchant) }
 
+    # ── WHAT "ORDER THIS AGAIN" NEEDS, AND WHY IT IS NOT THE SNAPSHOT ────────
+    #
+    # `order_items` is a SNAPSHOT — name, price and options as they were — and
+    # that is one of this project's six one-way doors: a merchant renaming a
+    # dish tomorrow must not rewrite what somebody ordered today.
+    #
+    # But a snapshot cannot be re-ordered. It has no identity, so the app could
+    # only match by NAME against the live menu, which finds the wrong dish the
+    # first time a merchant has "Kabab" and "Kabab (large)".
+    #
+    # So the serializer carries POINTERS alongside the snapshot — the catalog
+    # item id, the option value ids, and the merchant id — and they are exactly
+    # that: pointers, nullable, never the source of what was charged. These
+    # examples exist because nothing asserted they survive, and a re-order
+    # feature built on fields nobody tests is one refactor from silently
+    # falling back to name matching.
+    describe "the pointers re-ordering needs" do
+      it "carries the merchant id, so the app can open the right catalog" do
+        get "/api/v1/customer/orders/#{order.id}", headers: auth
+
+        expect(json.dig("order", "merchant_id")).to eq(merchant.id)
+      end
+
+      it "carries the catalog item id on every line" do
+        get "/api/v1/customer/orders/#{order.id}", headers: auth
+
+        ids = json.dig("order", "items").map { |item| item["catalog_item_id"] }
+        expect(ids).to all(be_present)
+      end
+
+      # THE SNAPSHOT STILL WINS on anything the customer was charged for. If
+      # these ever came from the live catalog, last month's receipt would change
+      # when a price did.
+      it "keeps the snapshot authoritative even though the pointer is present" do
+        line = order.order_items.first
+        item = line.catalog_item
+        item.update!(name: "Renamed Since", price: line.unit_price + 500)
+
+        get "/api/v1/customer/orders/#{order.id}", headers: auth
+
+        shown = json.dig("order", "items").first
+        expect(shown["name"]).to eq(line.name)
+        expect(shown["unit_price"].to_f).to eq(line.unit_price.to_f)
+        # And the pointer still points, so it can still be re-ordered — at the
+        # NEW price, which is the customer's to accept in the cart.
+        expect(shown["catalog_item_id"]).to eq(item.id)
+      end
+
+      # A DELISTED DISH LEAVES THE RECEIPT INTACT. `catalog_item_id` is
+      # nullable for exactly this, and the app has to render the line and
+      # refuse to re-order it rather than crash on a missing id.
+      it "still renders a line whose dish has been deleted" do
+        order.order_items.destroy_all
+        line = create(:order_item, :delisted, order: order)
+
+        get "/api/v1/customer/orders/#{order.id}", headers: auth
+
+        shown = json.dig("order", "items").first
+        expect(shown["name"]).to eq(line.name)
+        expect(shown["catalog_item_id"]).to be_nil
+      end
+    end
+
     it "returns the timeline with a timestamp per step" do
       order.transitions.create!(from_status: "placed", to_status: "accepted",
                                 actor: merchant.owner, actor_role: :merchant_owner,
