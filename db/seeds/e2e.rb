@@ -403,6 +403,109 @@ end
 # a completed step behind it and a money step in front, the map has both
 # points, and "I am here" is on screen. A `ready` job would show the first step
 # only.
+# ── A PENDING OFFER AND A WALLET LEDGER, BECAUSE TWO FIXTURES WERE EMPTY ──
+#
+# `karwan-mobile/src/api/__tests__/contract.test.ts` replays the real server's
+# bytes through the real parsers, and it found two BLOCKERs that 749 green unit
+# tests could not (F-40, F-41). **Two of its fixtures were honestly weak and
+# said so in their own test names**: `courier_offer.json` was `{"offer": null}`
+# and `courier_wallet_entries.json` had zero rows, so the offer card's money and
+# a ledger entry's shape had never been through a parser at all.
+#
+# The test's header named the fix: "a seed with a live offer, not a softer
+# assertion". This is that.
+#
+# ── HONEST ABOUT THE SUSPICION, WHICH IS NOW LOW ──────────────────────────
+#
+# A static cross-check of the offer path before writing this found it CLEAN on
+# both known classes: every field the client requires is serialised (no F-41),
+# and `earnings`, `advance_required`, `total_to_collect` and the pickup
+# coordinates all go through `money()` rather than `num()`, so a Rails decimal
+# arriving as a string is already handled (no F-40).
+#
+# It is seeded anyway, because F-40's whole lesson is that **reading a shape is
+# not measuring it** — a hand-checked payload agrees with itself exactly as a
+# hand-written fixture does. The expected outcome is a green test that proves
+# something rather than a red one.
+#
+# ── AN OFFER FIXTURE IS TIME-LIMITED, UNLIKE EVERY OTHER ROW HERE ─────────
+#
+# `Offer.pending` is `status_offered.where(expires_at: Time.current..)`, so a
+# seeded offer stops being pending when it expires. That is the domain being
+# honest — a 60-second dispatch deadline is the point — but it means **the
+# capture must happen within the window**, which `qa/CONTRACT_FIXTURES.md`
+# now says. Once captured, the fixture file is static forever; the expiry only
+# constrains the moment of capture, never the stored bytes.
+#
+# The window is deliberately generous (30 minutes, not the production 60
+# seconds) so a human running the capture by hand is not racing it.
+#
+# ── THE DEDICATED COURIER HOLDS IT, NOT THE RIG'S OWN ACCOUNT ─────────────
+#
+# `E2E[:courier]` gets the offer, while the customer account keeps the live JOB
+# (KQA00002). `Dispatch::Eligibility`'s `:already_on_a_job` means one courier
+# cannot sensibly hold both, and a fixture that contradicts the domain is a
+# fixture that teaches the wrong thing. It also means capturing this payload
+# needs the COURIER account's token, which the runbook spells out.
+seed_section "e2e courier offer and wallet ledger" do
+  customer = User.find_by!(phone: E2E[:customer])
+  courier  = User.find_by!(phone: E2E[:courier])
+  merchant = Merchant.find_by!(phone: "+93700000804")
+  item     = merchant.catalog_items.first
+
+  # A separate order from the live one and the courier's job, in `ready` —
+  # which is the state dispatch offers FROM.
+  order = Order.find_or_initialize_by(code: "KQA00003")
+  order.assign_attributes(
+    customer: customer, merchant: merchant, status: :ready,
+    items_total: 260, delivery_fee: 100, commission: 35, courier_fee: 100,
+    merchant_payout: 225, customer_total: 360, currency: "AFN",
+    payment_method: :cash, payment_status: :pending,
+    delivery_latitude: 34.5290, delivery_longitude: 69.1610,
+    delivery_landmark_note: "QA fixture — offer target, green door",
+    customer_phone: customer.phone,
+    placed_at: 8.minutes.ago, accepted_at: 7.minutes.ago,
+    preparing_at: 5.minutes.ago, ready_at: 1.minute.ago,
+    created_at: 8.minutes.ago
+  )
+  order.save!
+  if order.order_items.none?
+    order.order_items.create!(catalog_item: item, name: item.name, unit_price: 260,
+                              quantity: 1, options_total: 0, line_total: 260, currency: "AFN")
+  end
+
+  offer = Offer.find_or_initialize_by(offerable: order, sequence: 1)
+  offer.assign_attributes(
+    courier: courier, status: :offered,
+    offered_at: 30.seconds.ago, expires_at: 30.minutes.from_now
+  )
+  offer.save!
+
+  # ── THE LEDGER: one of each kind that matters, so a parser meets them all ─
+  #
+  # A balance can always be recomputed from entries and entries can never be
+  # reconstructed from a balance (CLAUDE.md, one-way door 4) — so `balance_after`
+  # is written to match the running total rather than invented per row.
+  wallet = courier.courier_wallet || courier.create_courier_wallet!(balance: 0, credit_line: 500)
+  if wallet.wallet_entries.none?
+    running = 0
+    [
+      { kind: :top_up,        amount:  2_000, note: "bank deposit, rider code 41" },
+      { kind: :commission,    amount:    -35, note: "KQA00010" },
+      { kind: :commission,    amount:    -50, note: "KQA00011" },
+      { kind: :reimbursement, amount:    260, note: "customer refused — food returned" },
+      { kind: :adjustment,    amount:    -15, note: "counted short at settlement" }
+    ].each do |e|
+      running += e[:amount]
+      wallet.wallet_entries.create!(
+        kind: e[:kind], amount: e[:amount], balance_after: running,
+        currency: "AFN", note: e[:note], recorded_by: customer
+      )
+    end
+    wallet.update!(balance: running)
+  end
+end
+
 seed_section "e2e courier job" do
   customer = User.find_by!(phone: E2E[:customer])
   merchant = Merchant.find_by!(phone: "+93700000804")
