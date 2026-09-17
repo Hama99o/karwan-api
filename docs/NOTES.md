@@ -13,32 +13,59 @@ Two rules from the wider workspace that apply to this file:
 
 ## Open problems — not yet fixed
 
-> **Current as of 2026-09-16, 01:00.** A stale gap list actively misdirects —
-> it sends the next person to fix something already fixed and lets something
-> real sit. Everything below has been re-checked against the code, not
-> remembered.
+> **Re-derived against the code on 2026-09-17**, line by line, rather than
+> remembered. The stamp before this one read *2026-09-16, 01:00* and the list
+> had drifted by thirty commits: it pointed a reader at a decision Hamma9900 had
+> already made, it quoted a number that was never the number, and it left a
+> **second gateway** unlisted. **Every entry below names the commit or the file
+> that settles it**, because a list written from memory is exactly how that
+> happened and a fresher memory is not the fix.
+>
+> A gap that could not be verified either way stays, marked **unverified**,
+> with what would settle it. Deleting an item because nobody could confirm it
+> is how a real gap disappears.
 
-### EVERYTHING STILL OPEN NEEDS HAMMA9900, NOT CODE
+### WHAT IS OPEN IS HAMMA9900'S — EXCEPT ONE LINE OF OURS
 
-The backend is functionally complete for v0: 1,040 examples, rubocop and
-brakeman clean, every screen the app has is served. What remains is not
-engineering:
+The backend is functionally complete for v0: **1,523 examples, 0 failures**, as
+recorded by `5d86ce8` — that is the last measured count, not a run made for
+this rewrite, and the box was too loaded to re-run it honestly.
 
-| Open | What it needs | Why it cannot be decided here |
+| Open | What it needs | Where it stands in the code |
 |---|---|---|
-| **SMS gateway** | His choice and his money | The one true per-unit cost in v0. The adapter seam and the message exist (`Notifications::SmsClient`, `Setting` rows per locale); `SMS_PROVIDER=log` writes codes to the log, and `bin/preflight` warns that nobody can sign in that way. Choosing a gateway is an afternoon. |
-| **VPS and deployment** | A host and a DNS record | `config/deploy.yml` is written and parked: a fourth service on the existing OVH box, Postgres on 5435, no Redis. Nothing is deployed. |
-| **The support phone number** | One row in the admin console | `/public/app_config` serves it and every installed app picks it up with no rebuild. Blank today, so the app correctly hides the button. |
-| **Pashto and Dari OTP copy** | Two rows in the admin console | An SMS has no device to translate it, so the server holds the words. English placeholders ship until he pastes the real text. |
+| **SMS gateway** | His choice and his money | The one true per-unit cost in v0. The seam and the message exist — `Notifications::SmsClient` picks an adapter from `SMS_PROVIDER`, which defaults to `log` and writes codes to the log; `bin/preflight:130` warns that nobody can sign in that way. Choosing a gateway is an afternoon. |
+| **SMTP credentials — the SECOND gateway, and this list did not have it** | A host, a user and a password | `config/environments/production.rb:75` sets `delivery_method = :smtp` with every value from ENV and `SMTP_ADDRESS` **defaulting to `localhost`**. It is reached whenever somebody types an EMAIL into the reset form — `Users::PasswordResetService.deliver` picks the channel from the shape of the identifier, then `UserMailer#password_reset`. Because it is `deliver_later`, an unset SMTP host does **not** fail the request: the endpoint answers 200, the app says "check your email", and the code dies in a job. `bin/preflight` warns about SMS and says **nothing** about SMTP. |
+| **The support phone number** | One row in the admin console | `Setting::DEFINITIONS["support_phone"]` defaults to `""`; `/public/app_config` serves it and every installed app picks it up with no rebuild. Blank today, so the app correctly hides the button. |
+| **Eight Pashto and Dari strings — not two** | His words, once | The login changed under this row and nobody updated it. `app/models/setting.rb` now carries **8** keys marked `AWAITING TRANSLATION`: `otp_sms_body_{ps,fa}`, `password_reset_sms_body_{ps,fa}`, `password_reset_email_subject_{ps,fa}` and `password_reset_email_body_{ps,fa}` — the last four exist because `c7c8d21` replaced the OTP login with a password and a reset flow. An SMS has no device to translate it, so the server holds the words; English placeholders ship until he pastes the real text. |
 | **New-courier credit line and the guarantor policy** | His numbers | `default_credit_line` is a `Setting` at 500 AFN, chosen as a placeholder. |
-| **OSRM distance for pricing** | His decision | Routed distance raises fares ~29%. `routing_distance_source` defaults to `straight_line`; switching it is one row, no deploy. |
 | **Renaming the karwan-api GitHub repo** | His account | — |
 
+**The one line of ours in that table is the SMTP warning.** Every other row
+waits on him. `bin/preflight` exists precisely so that a stack which is not
+ready says so out loud, and it covers the SMS gateway and says nothing about
+the mail one — so the failure it was built to prevent is reachable through the
+door it does not watch. It is three lines beside the SMS check; it is not done
+here because this rewrite is a doc pass and quietly widening it is how a doc
+pass becomes something nobody reviewed.
+
+**Closed since the last stamp, and worth naming because the old row misled
+twice.** *OSRM distance for pricing* sat here as his decision, and he made it:
+`748c135` turned it on, so `Setting::DEFINITIONS["routing_distance_source"]`
+now defaults to **`osrm`**. The row also quoted "raises fares ~29%", which was
+never true of a fare — 29% was the DISTANCE ratio. Measured over four Kabul
+pairs, the **fee** moves +15.3%, +16.3%, +20.2% and **0%** on a short hop,
+because the fixed base dilutes it and the minimum absorbs it entirely. A number
+quoted from the wrong quantity is worse than no number, because it is the one
+he would have decided against.
+
 Two things are deliberately OUT rather than open: **the ride product**
-(PRODUCT.md — "do not build the ride product yet"; the model, the pricing and
-the courier's ride flow exist, the passenger endpoints do not) and **merchant
+(PRODUCT.md — "do not build the ride product yet") and **merchant
 self-service profile editing** (PRODUCT.md — "not self-serve in v0, admin
-onboards restaurants").
+onboards restaurants"). **Verified 2026-09-17** for the first: `trips` is
+routed only inside the ADMIN namespace as `index`/`show`,
+`app/controllers/api/v1/customers/` holds `addresses` and `orders` and nothing
+else, and the courier's side is complete — so the model, the pricing and the
+courier's ride flow exist and a passenger still cannot request one.
 
 
 ### Found by wiring the mobile screens — three gaps, three lessons
@@ -162,21 +189,31 @@ defaulted to a container that is up on this box, once per feature.
   app fetches both. Cheap enough (two tiny responses on a screen the customer
   lives on) that a third shape of the same record is not yet worth the drift
   risk. **Trigger:** if the status screen ever feels slow on a real Kabul
-  connection, collapse it.
-- **`Customers::QuoteSerializer#suggested_notes` returns the total unchanged.**
-  So "have change for 500" is computed on the device
-  (`src/lib/orderStatus.ts`: round up to the next 500, stay quiet on a multiple
-  of 100). That is a presentation rule and it is tested, but the rule belongs
-  here once Hamma9900 settles it — he knows which notes people actually carry.
-  The old hardcoded copy advised "change for 500" on a 1,250 AFN order.
+  connection, collapse it. **Still true on 2026-09-17:** the `customers`
+  block in `config/routes.rb` carries `index`, `show`, `create`, `quote`,
+  `cancel` and `track`, and no `active`.
+- ~~**`Customers::QuoteSerializer#suggested_notes` returns the total
+  unchanged.**~~ **CLOSED.** The rule came off the device: `Monetary`
+  (`app/models/concerns/monetary.rb`) owns `change_advice` — nil on a round
+  hundred, otherwise the next multiple of 500 — and **both** serializers read
+  it, `Customers::QuoteSerializer` and `Customers::OrderSerializer`, so the
+  cart and the status screen cannot disagree. It also fixes the arithmetic the
+  old note complained about: 1,250 AFN now advises 1,500, where a flat "change
+  for 500" was simply wrong. Left here rather than deleted because the reason
+  is the transferable part — **a money rule on the device is a money rule
+  Hamma9900 cannot change.**
 - **`Couriers::JobSteps` sends `completed` but no timestamp per step.** The
   courier's stepper therefore shows ticks and no times, while the customer's —
   built from the transition log — shows both. Correct for a man being told what
-  to do next; add `at` if he ever needs to prove when he paid.
+  to do next; add `at` if he ever needs to prove when he paid. **Still true:**
+  `app/services/couriers/job_steps.rb` merges `completed:` into each step and
+  no timestamp beside it.
 - **A `ready` order has nothing to say to the merchant.** No merchant action
   exists (the COURIER records the handover, which is the right side of the
   transaction to trust), so the card carries no button and no copy. It needs a
-  Pashto string meaning "waiting for the courier" — Hamma9900's.
+  Pashto string meaning "waiting for the courier" — Hamma9900's. **Still
+  true:** the merchant's order actions in `config/routes.rb` are `accept`,
+  `reject`, `preparing`, `ready` — and nothing after `ready`.
 
 ### Closed on 2026-09-15/16 — listed so nobody re-opens them
 
@@ -233,13 +270,18 @@ one address, so a limit tight enough to be interesting locks out a real street.
 | `faraday`, `signet` | Google sign-in, excluded by instruction |
 | `redis` | All three solid adapters run on Postgres |
 | `chartkick`, `groupdate` | PRODUCT.md asks for numbers, not charts |
-| `postmark-rails` | No email anywhere — the identity is a phone number |
+| `postmark-rails` | Mail IS sent now — `UserMailer#password_reset` carries a reset code, and `users.email` has existed since `c7c8d21` — but through **plain SMTP** configured in `config/environments/production.rb`, not a keyed third-party API (correction 14). This row used to read "no email anywhere"; that stopped being true when the login changed. |
 | `app/channels/`, `cable/` | Polling beats WebSockets at our scale, with written switch triggers in docs/REALTIME_AND_SCALE.md |
 | `Dockerfile.dev` | The app runs on the host; only Postgres is containerised |
 | `app/validators/` | No custom validator needed yet; adding an empty directory is not parity |
 | `spec/serializers/` | Serializer keys are asserted in the request specs, which test the real payload rather than the object |
 
-### THE ONE REAL GAP STILL OPEN: no API documentation
+**Every row re-checked 2026-09-17** against `Gemfile`, `Gemfile.lock` and the
+directory listing. All still hold, and one is worth naming because it could
+easily have slipped: `Routing::OsrmClient` talks HTTP with **stdlib
+`Net::HTTP`**, so adding a router did not quietly add `faraday` back.
+
+### NO API DOCUMENTATION — still open, still deferred on purpose
 
 hatiwal-api generates OpenAPI from rswag request specs and serves it at
 `/api-docs`. We have `rswag-api` and `rswag-ui` in the Gemfile and
@@ -255,6 +297,19 @@ the controllers directly.
 **The trigger to do it:** anyone other than this session needs to call the API.
 At that point it is worth the rewrite; before it, the specs already document
 the endpoints and the rewrite would buy a web page.
+
+**Verified 2026-09-17:** `swagger/` still does not exist, and `rswag-api`,
+`rswag-ui` and `rswag-specs` are all still in the `Gemfile`. The trigger has
+moved closer than the paragraph above admits — the client is written by a
+SECOND session now (`karwan-mobile`, Karwan [9d4e65]) rather than by this one —
+but it is still one person's two sessions reading the same controllers, so the
+deferral holds. **It stops holding the moment somebody who cannot read this
+repo needs an endpoint.**
+
+**This heading used to say "the one real gap still open", and that was already
+false when it was written** — the SMTP gateway above had no entry anywhere. A
+superlative in a gap list is a claim about everything you did NOT write down,
+which is the one claim a list like this cannot support.
 
 ## Solved, with the reasoning
 
