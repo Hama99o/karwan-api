@@ -113,6 +113,54 @@ on.
 
 ---
 
+## A measurement taken on an EMPTY SUBJECT agrees with everything
+
+The third shape of the same failure, and the one that hides best.
+
+**Earned on F-21, 2026-09-17.** A script measured the left and right gutters of
+a screenshot to decide whether a layout had overflowed. On a cold start that had
+not finished rendering, it reported **"looks correct"** — because an unrendered
+band is entirely background, so *both* gutters measured the full screen width and
+the symmetry test passed. **A blank screen is the most symmetric screen there
+is.**
+
+That script existed specifically to avoid vacuous greens, and it had one built
+in. So the rule is not "be careful with instruments" — it is a check you can
+actually run:
+
+> **Before trusting a measurement, ask what it returns when there is nothing to
+> measure.** If the answer is "pass", the instrument cannot tell success from
+> absence, and every green reading it has ever given is unverified.
+
+Concretely, the guards worth adding:
+
+- **An emptiness check that fails loudly.** The gutter script now reports
+  `NO CONTENT in the band` when the two gutters sum to the full width, instead of
+  a verdict it cannot support.
+- **Wait for the SUBJECT, not for a timer.** Two readings in that session were
+  taken during a Metro re-bundle and had to be discarded. The loop now waits for
+  a known piece of real content and re-verifies it is still present *after* the
+  capture.
+- **A count assertion on any gate that iterates.** A suite reporting `0 examples`
+  is a failure; so is a structural check that matched zero files, or a key-parity
+  check that found zero keys. Assert the denominator.
+
+### The three shapes, together, because they are one family
+
+All three came from the same bug in one week, and each was caught by asking
+whether the instrument could SEE the thing rather than whether it agreed:
+
+| | The failure | What it looked like |
+|---|---|---|
+| **Clipped** | the instrument physically cannot observe the defect | `uiautomator` bounds are clipped to the window, so overflow read 0 px in every state |
+| **Out of frame** | the instrument is fine, the SUBJECT is not where it looks | a planted bug positioned in dp while the band was in pixels — it landed below the band and read "correct" |
+| **Empty** | there is no subject at all | an unrendered screen passed a symmetry test |
+
+**A green reading is only evidence if you know what red looks like AND that the
+subject was present.**
+
+---
+
 ## When a comment and the code disagree, believe neither — run it
 
 A near-miss worth the same discipline, from the same session. A test asserted
