@@ -350,6 +350,56 @@ which is the one claim a list like this cannot support.
 
 ## Solved, with the reasoning
 
+### TWO THINGS THE DISTANCE TOP-UP LEAVES OPEN — neither is a bug today
+
+Both were decided deliberately while building `Pricing::CourierTopUp`
+(`4aaaeba`). Written here rather than carried in a message, because nothing
+should depend on a supervisor relay to survive (correction 5).
+
+**1 · A HAND-REASSIGNED JOB GETS NO TOP-UP.** The top-up is computed in
+`offers#accept`, which is the only path a courier assigns himself through.
+Admin reassignment (`patch :reassign` on the ops console) sets the courier
+directly and never runs it — so a job Hamma9900 moves by hand qualifies for the
+top-up and does not receive it, silently.
+
+Not built, because it is a money decision rather than an oversight: should a
+job assigned by a human be topped up on the same terms? The honest answer is
+probably yes — the courier rides the same dead leg however he got the job — but
+it is his money and his call. **When it is answered, the change is one call in
+the reassign path**, and the arithmetic already takes a set, so it needs no new
+shape.
+
+**2 · `merchant_payout: items_total - commission` IS NOW LOAD-BEARING IN A
+SECOND PLACE.** That line is known-wrong against MONEY_AND_SETTLEMENT.md §2 and
+is waiting on one sentence from Hamma9900; it is deliberately untouched.
+
+`CourierTopUp` routes AROUND it — the top-up is its own column and its own
+ledger entry rather than a reduction in `commission` — precisely because
+lowering the commission would raise `merchant_payout` under that formula and
+hand our margin to the restaurant on exactly the thin far orders the feature
+exists to rescue, with every total still summing.
+
+**So the day that line changes, `Pricing::CourierTopUp` must be re-read in the
+same pass.** Its entire safety argument is "we never touch `commission`, so
+`merchant_payout` cannot move". If the payout stops being derived from the
+commission, that argument stops being the reason it is safe — it may still BE
+safe, but nobody will have checked.
+
+### A RIDE HAS NO SHORTAGE MULTIPLIER, AND THE ASYMMETRY IS DELIBERATE
+
+`Pricing::DeliveryQuote` reads `Pricing::ShortageMultiplier`; `Pricing::RideQuote`
+does not, and `trips` has no column for it. A storm raises delivery fees and
+leaves fares alone.
+
+That is scope, not a decision about rides: the shortage switch was asked for
+against deliveries, and the ride product is OUT of v0 on the passenger side
+anyway. **The shape transfers whole when it is wanted** — the module takes a
+tier and returns a multiplier, and `Pricing::Quote` already carries the two
+fields — so it is a column on `trips` and two lines in `RideQuote`.
+
+Recorded because the asymmetry is invisible from either file on its own, and
+the first person to notice will otherwise read it as a bug.
+
 ### `/courier/wallet/entries` HAS NO CALLER — AHEAD OF ITS SCREEN, NOT DEAD
 
 Said plainly because this repo's own habit is to delete or "fix" an endpoint
