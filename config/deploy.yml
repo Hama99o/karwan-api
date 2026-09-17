@@ -64,6 +64,35 @@ env:
     # raising — a missing push must not fail an order.
     - FCM_PROJECT_ID
     - FCM_ACCESS_TOKEN
+    # ── THE TWO GATEWAYS, DECLARED AND EMPTY ON PURPOSE ───────────────────
+    #
+    # Correction 14 names exactly two permitted third-party dependencies: SMS
+    # for one-time codes, and FCM for push. Both cost real money or real
+    # account setup, both are Hamma9900's to choose, and **neither had a slot
+    # here at all** — so the app read five SMTP keys and `SMS_PROVIDER` that
+    # the deploy had nowhere to supply.
+    #
+    # Declared and left EMPTY rather than filled with something plausible. An
+    # invented host or a placeholder that looks real is worse than a blank: it
+    # boots, it looks configured, and the failure lands somewhere nobody
+    # predicted. `bin/preflight` FAILS a deployed box with no `SMTP_ADDRESS`,
+    # so the honest shape is a named slot plus a refusal to start until it is
+    # filled.
+    #
+    # SMTP carries the password-reset code for anyone who signs in with an
+    # email. `Users::PasswordResetService` picks the channel from the SHAPE of
+    # what was typed, and `UserMailer#password_reset` is `deliver_later` — so
+    # an unset host does not fail the request, it answers 200 and the code dies
+    # in a job. That is why this is declared rather than left to a default.
+    - SMTP_ADDRESS
+    - SMTP_USER_NAME
+    - SMTP_PASSWORD
+    # The SMS gateway. `SMS_PROVIDER` defaults to `log` in code, which writes
+    # codes to the log and means nobody in Kabul can sign in — correct locally,
+    # fatal in production, and `bin/preflight` says so. The provider itself is
+    # Hamma9900's open decision (chosen on price per message to Afghan
+    # networks); the adapter seam is `Notifications::SmsClient`.
+    - SMS_PROVIDER
   clear:
     DATABASE_HOST: karwan_api-db
     DATABASE_PORT: 5432

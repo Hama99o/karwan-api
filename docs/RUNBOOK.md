@@ -187,9 +187,17 @@ about that distinction and it is the reason the first boot found what it did.
 
 `config/deploy.yml` defines `migrate` and `seed` under **`aliases:`**. Aliases are
 shortcuts a person types; they are not hooks, and there is no `.kamal/hooks/`
-directory, so **a deploy runs neither.** `hatiwal-api` is the same, so this is
-the established practice in this owner's deploys rather than an oversight — but
-it only works while somebody remembers.
+directory.
+
+**Migrations are not the problem: `bin/docker-entrypoint` runs `db:prepare`
+whenever the container starts the server**, byte-identical to `hatiwal-api`'s.
+So the schema is current after every deploy and `kamal migrate` is
+belt-and-braces you can run if you want to watch it.
+
+**`kamal seed` is the step that is genuinely manual, and forgetting it is
+silent.** `hatiwal-api` is the same, so this is the established practice in this
+owner's deploys rather than an oversight — but it only works while somebody
+remembers.
 
 **A first deploy, in order:**
 
@@ -215,3 +223,227 @@ environment after `kamal seed`, not only locally.
 reference half is idempotent, refuses sample data in production, and
 `Setting.seed_defaults!` only writes a value when the row has none — so a
 number Hamma9900 has tuned is never overwritten.
+
+---
+
+## Every ENV key the app reads, and where it comes from
+
+**37 keys, classified from the source rather than from memory** (2026-09-17).
+This is the table to read at 2am with a broken deploy. It is enforced by
+`spec/config/deploy_env_spec.rb`, which scans for `ENV.fetch`/`ENV[...]` — so
+key 38 has to appear here or the gate goes red.
+
+### Declared in `deploy.yml` → `env: clear:` — non-secret, visible in the repo
+
+`APP_BASE_URL` · `DATABASE_HOST` · `DATABASE_PORT` · `DATABASE_USERNAME` ·
+`RAILS_LOG_TO_STDOUT` · `SOLID_QUEUE_IN_PUMA` · `OSRM_BASE_URL`
+
+### Declared as SECRETS — named in `deploy.yml`, resolved by `.kamal/secrets`
+
+`RAILS_MASTER_KEY` · `DATABASE_PASSWORD` (and `POSTGRES_PASSWORD`, read from
+the same line so app and accessory cannot disagree) · `KAMAL_REGISTRY_PASSWORD`
+· `FCM_PROJECT_ID` · `FCM_ACCESS_TOKEN` · **`SMTP_ADDRESS`** ·
+**`SMTP_USER_NAME`** · **`SMTP_PASSWORD`** · **`SMS_PROVIDER`**
+
+> **The four in bold are declared and EMPTY on purpose.** They are the two
+> gateways correction 14 permits — SMS for one-time codes, SMTP for the
+> password-reset code — and both are Hamma9900's decision and his money. A
+> named slot with no value plus `bin/preflight` refusing a deployed box without
+> `SMTP_ADDRESS` is the honest shape. **A plausible placeholder would be
+> worse than a blank**: it boots, it reads as configured, and the failure lands
+> somewhere nobody predicted.
+>
+> Until `.env.production` carries them, `kamal secrets` resolves them to empty
+> and the deploy is refused by preflight rather than starting misconfigured.
+
+### Safe documented defaults in code — nothing to declare
+
+`ADMIN_MAILER_SENDER` and `MAILER_FROM` (`no-reply@karwan.af`) · `APP_DOMAIN`
+(`api.karwan.af`) · `SMTP_DOMAIN` (`karwan.af`) · `SMTP_PORT` (`587`) · `PORT`
+(`3017`, and `config/puma.rb` is where that lives — see the port entry above) ·
+`RAILS_LOG_LEVEL` · `RAILS_MAX_THREADS` · `DATABASE_URL` (development only;
+`config/database.yml` derives the test URL from it) · `KARWAN_SEED_SAMPLE`,
+`KARWAN_SEED_SCALE`, `KARWAN_SEED_STRESS`, `KARWAN_SEED_RESET_STRESS`
+
+### Supplied at deploy time, deliberately absent from the file
+
+`KAMAL_HOST` · `KAMAL_PROXY_HOST` · `KAMAL_IMAGE` · `KAMAL_REGISTRY_USERNAME` ·
+`SSH_USER` · `SSH_KEY_PATH`
+
+**`KAMAL_HOST` having no default IS the "complete without an IP" design.**
+`kamal config` refuses without it rather than inventing a server, which is
+correct — and it is why validating this file locally needs
+`KAMAL_HOST=… KAMAL_PROXY_HOST=… bundle exec kamal config`, not a bare run.
+
+### Set by the runtime, not by us
+
+`BUNDLE_GEMFILE` (Bundler) · `CI` (the workflow) · `PIDFILE` and
+`WEB_CONCURRENCY` (Puma). A nil is the documented "not set" for each.
+
+### What was wrong before this table existed
+
+The app read five `SMTP_*` keys and `SMS_PROVIDER` and **`deploy.yml` had
+nowhere to put any of them** — so `bin/preflight` demanded a value the deploy
+could not supply, and the two halves of the same requirement did not meet.
+Found by counting what the app reads against what the deploy declares, which is
+the check the spec now performs on every run.
+
+---
+
+# THE FIRST DEPLOY — the ordered list, for a night with nobody to ask
+
+**Shape copied from `../../Hatiwal/DEPLOYMENT.md`** (read 2026-09-17), which is
+backed by a real deployment with real users. Karwan differs in three places and
+each is marked **DIFFERENT FROM HATIWAL** rather than silently diverging:
+OSRM as a fourth accessory, `kamal seed` as a required step, and `bin/preflight`
+as the gate that says whether it worked.
+
+Do these in order. Every step says what it proves, because a step that looks
+satisfied and is not is what this whole file exists to prevent.
+
+## 0 · Before you start — two decisions that are yours, not the machine's
+
+**Nothing below works without these, and no code can supply them.**
+
+- **The SMS gateway.** Chosen on price per message to Afghan networks. Without
+  it nobody in Kabul can receive a sign-in code, so **no real person can use the
+  app at all.** The adapter is `Notifications::SmsClient` and swapping the
+  provider is an afternoon.
+- **The mail host.** Carries the password-reset code for anyone who signs in
+  with an email. **Fill `SMTP_ADDRESS` before step 6 or `bin/preflight` will
+  refuse to pass**, by design.
+
+Both have named, empty slots in `deploy.yml` and `.kamal/secrets`. Empty is
+deliberate — a placeholder that looks real would boot and fail somewhere you
+would not think to look.
+
+## 1 · Provision the VPS
+
+Ubuntu LTS, Docker installed, an SSH key you hold, and a user Kamal can use.
+Hatiwal runs on an OVH box as `kamal@<ip>`; Karwan is a **fourth service on the
+same box**, so if Hatiwal is already there this step is done.
+
+*Proves:* you can `ssh` in without a password prompt.
+
+## 2 · DNS, or a nip.io name if you have no domain yet
+
+Point a hostname at the IP. Hatiwal uses
+`api.hatiwal.<ip>.nip.io` for exactly this reason — **you do not need to buy a
+domain to deploy.** `kamal-proxy` gets the certificate from Let's Encrypt.
+
+*Proves:* the name resolves to your IP. `dig +short <host>`.
+
+## 3 · The isolated Docker network
+
+```bash
+ssh kamal@<ip> "docker network create karwan_api-net"
+```
+
+*Proves:* the app, Postgres and OSRM can reach each other and nothing else can.
+**Karwan's Postgres is on 5435 and bound to 127.0.0.1**, so it is not reachable
+from the internet at all.
+
+## 4 · `.env.production` — where every value comes from
+
+```bash
+cp .env.production.example .env.production   # then fill it in; it is gitignored
+```
+
+| Variable | Where the value comes from |
+|---|---|
+| `DATABASE_PASSWORD` | `openssl rand -hex 32` — invent it here, nothing else knows it |
+| `KAMAL_REGISTRY_PASSWORD` | a Docker Hub access token |
+| `RAILS_MASTER_KEY` | **not here** — `.kamal/secrets` reads `config/master.key` |
+| `SMTP_ADDRESS` `SMTP_USER_NAME` `SMTP_PASSWORD` | **your mail provider, from step 0** |
+| `SMS_PROVIDER` | **your SMS gateway, from step 0** |
+| `FCM_PROJECT_ID` `FCM_ACCESS_TOKEN` | Firebase console. Absent, push stays quiet rather than raising — a missing push must never fail an order |
+
+`.gitignore` covers `/.env*` and `/config/*.key`, both verified. **Never put a
+literal into `.kamal/secrets`** — it is committed; a spec fails the build if
+anybody does.
+
+*Proves:* nothing. Filling a file proves nothing until step 6.
+
+## 5 · `kamal setup` — first deploy, and it does a lot
+
+```bash
+KAMAL_HOST=<ip> KAMAL_PROXY_HOST=<hostname> kamal setup
+```
+
+Bootstraps the server, boots the accessories, builds and pushes the image, and
+starts the app. **DIFFERENT FROM HATIWAL:** Karwan has a third accessory,
+**OSRM**, which needs the Afghanistan extract at `/var/karwan/osrm` on the host
+before it will start. Build it the way `karwan-map` builds its tileset — from
+the same `afghanistan-latest.osm.pbf`, or you will route over roads the map
+does not draw.
+
+**Migrations need no step.** `bin/docker-entrypoint` runs `db:prepare` whenever
+the container starts the server, which also creates the cache, queue and cable
+databases. `kamal migrate` exists as an alias if you want to watch it happen.
+
+*Proves:* containers are up. `kamal app details`.
+
+## 6 · `kamal seed` — REQUIRED, and forgetting it is silent
+
+```bash
+kamal seed        # bin/rails db:seed — reference data only in production
+```
+
+**DIFFERENT FROM HATIWAL in emphasis, not mechanism:** both projects seed by
+hand, and in Karwan the consequence is sharper. `Setting.fetch` falls back to
+each definition's default when no row exists, so **the app boots, prices orders
+and delivers food perfectly on values you cannot see or change.** The Config
+screen is simply short. Correction 13's whole premise — that you retune prices
+weekly from the console with no deploy — quietly stops being true, and nothing
+reports an error.
+
+Safe on every deploy, not just the first: the reference half is idempotent,
+refuses sample data in production, and never overwrites a number you have tuned.
+
+*Proves:* the Config screen has all 37 settings in it.
+
+## 7 · `bin/preflight` — the gate that says whether any of this worked
+
+**DIFFERENT FROM HATIWAL: Karwan has one and Hatiwal does not.** Run it
+against the deployed environment, not only locally:
+
+```bash
+kamal app exec -i "bin/preflight"
+```
+
+It fails — not warns — on a deployed box for: a pending migration, a missing
+`SMTP_ADDRESS`, or a `Setting` with no row. Each names what is missing and the
+command that fixes it.
+
+*Proves:* the stack is ready **and it is ours** — it asserts the API's identity
+rather than that something answered a 200.
+
+## 8 · The three curls that prove it is serving
+
+```bash
+curl -sS https://<host>/up                               # → 200
+curl -sS https://<host>/api/v1/public/merchants | head   # → JSON, not an error page
+curl -sS https://<host>/api/v1/public/app_config | head  # → the support number
+open https://<host>/admin                                # → the ops console login
+```
+
+**The second one is the real test.** `/up` is answered by any Rails app —
+including the unrelated one on port 3000 of this box, which is how a health
+check once reported a green API that was a stranger's.
+
+## 9 · If it is wrong — the rollback sentence
+
+```bash
+kamal rollback              # previous image, immediately
+kamal app logs -f           # what actually happened
+```
+
+**The first deploy is the one most likely to need this**, and a rollback is
+cheap: the image is already on the server. The database is the part a rollback
+does **not** undo — migrations are forward-only here, so a bad migration is
+restored from a dump, not rolled back. Take one before any deploy that migrates
+anything you care about:
+
+```bash
+kamal accessory exec db "pg_dump -U karwan karwan_production" > karwan-$(date +%F).sql
+```

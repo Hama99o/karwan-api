@@ -471,8 +471,27 @@ and audits who did it.
 ### NOTHING RUNS `db:seed` ON A DEPLOY, SO THE CONSOLE WOULD BE EMPTY
 
 `config/deploy.yml` defines `migrate` and `seed` under **`aliases:`** — they
-are shortcuts a person types, not hooks. There is **no `.kamal/hooks/`
-directory**, so a deploy runs neither.
+are shortcuts a person types, not hooks — and there is **no `.kamal/hooks/`
+directory**.
+
+**CORRECTED 2026-09-17, by reading `bin/docker-entrypoint` instead of trusting
+this paragraph's first draft.** I originally wrote "so a deploy runs neither",
+and the migration half of that is **wrong**:
+
+```bash
+if [ "${@: -2:1}" == "./bin/rails" ] && [ "${@: -1:1}" == "server" ]; then
+  ./bin/rails db:prepare
+fi
+```
+
+**`db:prepare` DOES run automatically**, on every container that starts the
+server — byte-identical to `hatiwal-api/bin/docker-entrypoint`. So the schema
+is always current after a deploy and the `migrate` alias is belt-and-braces.
+
+**`db:seed` is the half that is genuinely manual**, and the finding below
+stands entirely on it: no hook and no entrypoint line runs it, so the
+`settings` rows Hamma9900 tunes from do not exist until somebody types
+`kamal seed`.
 
 **The failure is quiet, which is what makes it worth writing down.**
 `Setting.fetch` falls back to the definition's default when no row exists, so
@@ -492,7 +511,8 @@ the exact distinction TESTING.md now carries, arriving from a third direction.
 `hatiwal-api` has the identical gap — `.kamal/hooks/` holds nothing but Kamal's
 untouched `.sample` files, which do not execute, and its `deploy.yml` puts
 `migrate` and `seed` under `aliases:` exactly as ours does. **The app in
-production with real users also runs neither on deploy**, so manual is the
+production with real users also seeds by hand on deploy** (its migrations run
+from the same entrypoint ours do), so manual is the
 established practice in this owner's deploys rather than an oversight here.
 
 Two things follow. There is **no Hatiwal mechanism to copy**, so a hook would
