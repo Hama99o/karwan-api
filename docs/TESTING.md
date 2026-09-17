@@ -200,12 +200,17 @@ That second step took one edit and answered in one run, after two wrong
 hypotheses had each cost a full suite run. **Reach for it before the third
 guess, not after it.**
 
-## THE FOUR SHAPES OF A LYING INSTRUMENT
+## THE SIX SHAPES OF A LYING INSTRUMENT
 
-All four came out of **one bug in one week** — F-21 — and every one was caught
-by asking *what can this instrument see?* rather than *does it agree with me?*
-They are worth learning as a set, because each one passes the checks that catch
-the others.
+The first four came out of **one bug in one week** — F-21 — and every one was
+caught by asking *what can this instrument see?* rather than *does it agree
+with me?* They are worth learning as a set, because each one passes the checks
+that catch the others.
+
+The fifth and sixth were added on 17 Sept 2026 and are the two that do not fit
+the table: the fifth reads **nothing** and is mistaken for a reading; the sixth
+reads something **true** and is mistaken for evidence. Both arrive exactly when
+you are hunting a red, which is what makes them expensive.
 
 | | The failure | How it appeared |
 |---|---|---|
@@ -353,9 +358,9 @@ substitute for it.
 ### The fifth shape: THE MEASUREMENT THAT NEVER RAN
 
 The four above all read something and read it wrongly. This one reads
-**nothing**, and gets mistaken for a reading — which makes it the cheapest of
-the five to fall for, because it appears at the exact moment you are looking
-for a red.
+**nothing**, and gets mistaken for a reading — which makes it among the
+cheapest of the six to fall for, because it turns up at the exact moment you
+are looking for a red.
 
 Measured here on **2026-09-17**. Two sessions were running suites against the
 same test database. A deliberately planted bug came back as:
@@ -370,6 +375,44 @@ The plant WAS correct and the gate WAS real — but that output proves neither.
 It is not a pass and it is not a fail. **Read as a red it would have "proved" a
 gate that never ran**, which is precisely the claim the plant exists to
 establish, arrived at without evidence.
+
+### The sixth shape: A VALUE THAT CANNOT BE WRONG
+
+Added 17 Sept 2026, from F-21's widening question, and it is the subtlest of
+the set because the reading is **true**. It is not "reads nothing", and it is
+not "wrong subject" — it is an accurate measurement of the wrong quantity.
+
+The question was whether the app's layout handles the window GROWING, or
+whether it is broken and merely invisible. The instrument: read the widest
+node's pixel width out of a uiautomator dump in each of six states.
+
+It returned **1080px in all six — including the state already known to be
+broken.** A red-proof case coming back green.
+
+The cause: the app's root is a `flex: 1` container, so it **always** lays out
+at the window width whatever the app believes its own dp width to be. A stale
+reported width harms components that SIZE THEMSELVES from it, never the root.
+Every one of those 1080s was correct. They were also silent about the defect,
+because the quantity was correct **by construction** — no possible state of the
+bug could have moved it.
+
+**The tell, and it is the same tell as the other five: the case that should
+have gone red did not.** The protocol saves you here if you follow it — state
+the measurement and the state that must make it fail BEFORE forming a
+hypothesis, then check that state actually fails. A green from an instrument
+whose red case has never fired is not evidence.
+
+**What worked instead: measure the disagreement, not one side of it.** F-21 IS
+`useWindowDimensions()` and the real layout width differing, so the instrument
+became a probe rendering BOTH numbers and their delta. A non-zero delta is the
+bug and its SIGN says which direction is broken — so it can go red in either
+direction, which was the whole question. It then went red twice in the same run
+(both shrink states, +20.57dp) and zero twice (both widen states), and those
+zeros mean something precisely because the reds happened beside them.
+
+**The question to ask of any instrument, before trusting a green:** *could this
+number have moved at all if the bug were present?* If the answer is no, you
+have measured something true and learned nothing.
 
 ### THE RULE — one test database per session
 
