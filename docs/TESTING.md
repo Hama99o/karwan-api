@@ -200,17 +200,20 @@ That second step took one edit and answered in one run, after two wrong
 hypotheses had each cost a full suite run. **Reach for it before the third
 guess, not after it.**
 
-## THE SIX SHAPES OF A LYING INSTRUMENT
+## THE SEVEN SHAPES OF A LYING INSTRUMENT
 
 The first four came out of **one bug in one week** — F-21 — and every one was
 caught by asking *what can this instrument see?* rather than *does it agree
 with me?* They are worth learning as a set, because each one passes the checks
 that catch the others.
 
-The fifth and sixth were added on 17 Sept 2026 and are the two that do not fit
-the table: the fifth reads **nothing** and is mistaken for a reading; the sixth
-reads something **true** and is mistaken for evidence. Both arrive exactly when
-you are hunting a red, which is what makes them expensive.
+The fifth, sixth and seventh were added on 17 Sept 2026 and are the three that
+do not fit the table: the fifth reads **nothing** and is mistaken for a
+reading; the sixth reads something **true** and is mistaken for evidence; the
+seventh reads correctly today and **becomes wrong later**. The first two arrive
+exactly when you are hunting a red, which is what makes them expensive. The
+seventh is worse than expensive — it is the only one that is **undetectable by
+looking**, because on the day it is written it works.
 
 | | The failure | How it appeared |
 |---|---|---|
@@ -496,6 +499,75 @@ zeros mean something precisely because the reds happened beside them.
 **The question to ask of any instrument, before trusting a green:** *could this
 number have moved at all if the bug were present?* If the answer is no, you
 have measured something true and learned nothing.
+
+### The seventh shape: A TIME-DECAYING SUBJECT
+
+The first four lie **now**. The fifth reads nothing. The sixth reads something
+that cannot be wrong. **This one is honest on the day it is written and becomes
+a liar on a date nobody chose.**
+
+Found while seeding a pending offer so that `courier_offer.json` — which was
+`{"offer": null}` — became a real subject at all.
+
+`Offer.pending` is `status_offered.where(expires_at: Time.current..)`. When the
+seeded offer expires, `GET /courier/offer` answers `{"offer": null}` again. A
+test asserting a populated offer then **fails**, which is fine. The danger is
+the version that does not fail: a test written against the null path, or a
+fixture re-captured after expiry. Either one **silently restores the exact
+empty subject the work existed to remove** — and the empty subject is shape one
+on this list. The fixture does not merely go stale. **It rots back into
+vacuousness, with nothing red.**
+
+**Why only a plant finds it, and this is what separates it from the other
+six:** *on the day you write it, it works.* Every assertion passes, the payload
+is populated, the suite is green. The decay is in the future, so no amount of
+care at the time of writing detects it — the other six all yield to somebody
+looking properly, and this one is **undetectable by looking**, at the moment of
+writing, by the person best placed to see it. By the time it decays, whoever
+reads the green did not write it.
+
+**The three questions for any fixture. The third is the new one.**
+
+1. Is the subject there at all? *(shape one)*
+2. Could the number I am reading have moved if the bug were present?
+   *(shape six)*
+3. **Will this subject still exist next month, and what does the suite say on
+   the day it does not?**
+
+**What to do, in order of preference:**
+
+- **Prefer a subject that cannot expire.** An order, an address, a catalog item
+  are permanent rows. An offer, a session, a countdown, a signed URL, a token
+  and anything carrying `expires_at` are not.
+- **Where the domain requires expiry — and here it does, a 60-second dispatch
+  deadline is the product — make the window generous for a human** (the seed
+  uses 30 minutes) **and say in the runbook that the capture happens inside
+  it.** `karwan-mobile/qa/CONTRACT_FIXTURES.md` does.
+- **ASSERT THE LIVENESS, NOT THE PRESENCE.** This is the whole finding in one
+  line, usable by somebody who reads nothing else: `offer.present?` passes an
+  expired offer and `expires_at > Time.current` does not. `spec/seeds/e2e_spec.rb`
+  asserts the latter, and the plant that proves it — seed an already-expired
+  offer — fails 3 examples. Presence alone passes it.
+
+### The near-miss beside it: A DIAGNOSIS THAT READS AS TRUTH
+
+Recorded next to the seventh shape because they are **the same lesson from
+opposite ends**, and neither yields to care.
+
+Another session concluded a spec failure was another's work: the file sat
+uncommitted in that tree, and the last commit touching it was theirs.
+**Circumstantially perfect, and factually wrong.** It was composing the message
+when it ran the example both ways — and its own seed's `find_or_create_by!` had
+created the account the spec's setup then found and skipped. **Invisible in both
+diffs.**
+
+- The seventh shape is **a test that decays into a lie.**
+- This is **a diagnosis that arrives already sounding true.**
+
+A wrong diagnosis that *looks* wrong gets checked. One assembled from real
+evidence, pointing at a real person's real uncommitted file, does not — it gets
+sent. **Both yield to exactly one thing: running it twice.** Not reading it
+again, not reasoning about it more carefully. Running it.
 
 ### THE RULE — one test database per session
 
