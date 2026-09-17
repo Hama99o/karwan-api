@@ -338,7 +338,32 @@ that would be rewritten into a less readable form to produce a web page. It matt
 and right now the only client is being written in this same session, against
 the controllers directly.
 
-**The trigger to do it:** anyone other than this session needs to call the API.
+### THE DECISION, taken 2026-09-17: NO OpenAPI DOCUMENT UNTIL THERE IS A CONSUMER
+
+**This is a skip with a condition, not a gap.** A gap gets rediscovered and
+re-costed by whoever finds it next; a decision with a trigger gets honoured.
+
+**The trigger:** a consumer outside this repo needs to call the API. At that
+point, rswag DSL on the endpoints *they actually call* — not all 423.
+
+**Until then the description already exists and is executable:** the 423
+request specs, and `karwan-mobile/src/api/`. Neither can drift, because both
+are run. There is no consumer to drift from, either: correction 16 gives two
+deliverables, and correction 18's future split produces four apps written by us
+against the same namespaces they call today.
+
+**A hand-written `swagger.yaml` with a route-existence drift check was
+considered and rejected**, and the reason is worth keeping because it was
+nearly built. Such a check pins that every documented path exists in
+`routes` — and **pins nothing about request or response SHAPE**, which is the
+only part a client consumes. It would certify the cheapest property while the
+expensive one drifted freely, and the page would carry the authority of having
+been verified. That is a sixth shape of a lying instrument, and building it the
+same day the other five were written down would have been a particularly
+expensive joke. A second description that can disagree with the first is worse
+than no second description.
+
+**The trigger, restated:** anyone other than this session needs to call the API.
 At that point it is worth the rewrite; before it, the specs already document
 the endpoints and the rewrite would buy a web page.
 
