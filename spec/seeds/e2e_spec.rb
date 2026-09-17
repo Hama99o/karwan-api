@@ -157,6 +157,50 @@ RSpec.describe "db/seeds/e2e.rb" do
 
   # F-20: the app draws the support bar only when there IS a number, so without
   # this row the rig's highest-value RTL assertion has nothing to assert.
+  # ── ORDER HISTORY NEEDS PAST ORDERS, and this is the fourth time ──────────
+  #
+  # The rig had ONE order, live, so the customer's history was empty — and an
+  # empty history renders nothing, which on a device looks exactly like a screen
+  # that does not work. Three seed gaps of this shape have already cost three
+  # runs.
+  describe "the orders order history reads" do
+    let(:orders) { Order.where(customer: customer).order(placed_at: :desc) }
+
+    # TWO delivered, not one: `fetchActiveOrder` renders the NEWEST order in
+    # full at the top whether or not it is live, so a single delivered order
+    # would leave nothing to list.
+    it "gives the customer at least two DELIVERED orders" do
+      expect(orders.select { |order| order.status == "delivered" }.count).to be >= 2
+    end
+
+    it "places them in the past, so they are not confused with the live one" do
+      delivered = orders.select { |order| order.status == "delivered" }
+
+      expect(delivered).to all(have_attributes(placed_at: be < 1.day.ago))
+      expect(delivered.map(&:delivered_at)).to all(be_present)
+    end
+
+    # RE-ORDERABLE, which is the half a status test would miss. "Order this
+    # again" resolves `catalog_item_id` against the live menu; a delivered
+    # fixture without one is unre-orderable, and the rig's re-order step would
+    # fail for a reason that is not the app's.
+    it "gives every past line a catalog pointer, so it can be re-ordered" do
+      pointers = orders.flat_map { |order| order.order_items.map(&:catalog_item_id) }
+
+      expect(pointers).to all(be_present)
+    end
+
+    # And the pointer has to lead somewhere still on the menu, or every
+    # re-order resolves to "delisted" and the flow proves the opposite of what
+    # it is for.
+    it "points at items that are still on the merchant's live menu" do
+      orders.flat_map(&:order_items).each do |line|
+        expect(line.catalog_item).to be_present
+        expect(line.catalog_item.is_available).to be(true)
+      end
+    end
+  end
+
   it "sets a support number, which /public/app_config serves to every role" do
     expect(Setting.fetch("support_phone")).to be_present
   end

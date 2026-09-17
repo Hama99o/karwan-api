@@ -228,6 +228,48 @@ seed_section "e2e live order" do
     order.transitions.create!(from_status: from, to_status: to, actor: nil,
                               created_at: (18 - (index * 3)).minutes.ago)
   end
+
+  # ── TWO DELIVERED ORDERS, SO ORDER HISTORY HAS SOMETHING TO LIST ──────────
+  #
+  # The fourth instance of the same seed gap. The rig had ONE order, live, so
+  # the customer's history was empty — and `OrderHistory` renders nothing when
+  # it is empty, which on a device looks exactly like a screen that does not
+  # work. The three before this cost three runs between them.
+  #
+  # TWO, not one, and that is not padding: `fetchActiveOrder` renders the
+  # NEWEST order in full at the top whether or not it is live, so with a single
+  # delivered order there would be nothing left to list. Two means one is shown
+  # above and one is history.
+  #
+  # Both carry a REAL `catalog_item`, because "order this again" resolves that
+  # pointer against the live menu — a delivered order with no pointer is
+  # unre-orderable and would make the rig's re-order step fail for a reason
+  # that is not the app's.
+  [
+    { code: "KQA00010", days_ago: 3 },
+    { code: "KQA00011", days_ago: 9 }
+  ].each do |fixture|
+    past = Order.find_or_initialize_by(code: fixture[:code])
+    placed = fixture[:days_ago].days.ago
+    past.assign_attributes(
+      customer: customer, merchant: merchant, status: :delivered,
+      items_total: 400, delivery_fee: 100, commission: 50, courier_fee: 100,
+      merchant_payout: 350, customer_total: 500, currency: "AFN",
+      payment_method: :cash, payment_status: :collected,
+      delivery_latitude: 34.5400, delivery_longitude: 69.1750,
+      delivery_landmark_note: "QA fixture — second floor, blue gate",
+      customer_phone: customer.phone,
+      placed_at: placed, accepted_at: placed + 2.minutes,
+      preparing_at: placed + 5.minutes, ready_at: placed + 20.minutes,
+      picked_up_at: placed + 25.minutes, delivered_at: placed + 40.minutes
+    )
+    past.save!
+
+    next unless past.order_items.empty?
+
+    past.order_items.create!(catalog_item: item, name: item.name, unit_price: 400,
+                             quantity: 1, options_total: 0, line_total: 400, currency: "AFN")
+  end
 end
 
 # ── A LIVE JOB, so the courier's screen has something on it ─────────────────
