@@ -100,24 +100,38 @@ RSpec.describe "The console audits every edit", type: :request do
   end
 
   describe "deleting a record from the console" do
-    # THE MOST IMPORTANT ONE TO KEEP: after this the row is gone, so the audit
-    # log is the only place its values still exist.
-    it "records what the row held before it went" do
+    # ── `merchant.discarded`, NOT `merchant.deleted` ────────────────────────
+    #
+    # `Admin::MerchantsController#destroy` now DISCARDS rather than destroys:
+    # `Merchant` includes `SoftDeletable` and Administrate's generic action was
+    # bypassing it, hard-deleting the shop and cascading onto its catalog
+    # (docs/NOTES.md). So the audit row is written by that action rather than
+    # by the generic `log_console_edit` hook, and it is named for what it does.
+    #
+    # It still carries the FULL before-snapshot. The row is no longer destroyed,
+    # so that is belt and braces — but an audit entry is cheap and values it
+    # never held cannot be added back later.
+    it "records what the row held when it went" do
       doomed = create(:merchant, name: "Closing Down", phone: "+93700000222")
 
       expect { delete "/admin/merchants/#{doomed.id}" }
-        .to change { logs("merchant.deleted").count }.by(1)
+        .to change { logs("merchant.discarded").count }.by(1)
 
-      log = logs("merchant.deleted").first
+      log = logs("merchant.discarded").first
       expect(log.before["name"]).to eq("Closing Down")
       expect(log.before["phone"]).to eq("+93700000222")
     end
 
-    it "writes nothing when the delete was refused" do
+    # A merchant that has TRADED used to be refused outright, because a hard
+    # delete would have orphaned its order history. A discard orphans nothing,
+    # so it is now allowed — and audited. The `restrict_with_error` guard still
+    # stands behind it for anything that does try to destroy.
+    it "discards a merchant that has traded, and records that too" do
       create(:order, merchant: merchant)
 
-      expect { delete "/admin/merchants/#{merchant.id}" }.not_to change(AuditLog, :count)
-      expect(merchant.reload).to be_persisted
+      expect { delete "/admin/merchants/#{merchant.id}" }
+        .to change { logs("merchant.discarded").count }.by(1)
+      expect(merchant.reload).to be_discarded
     end
   end
 

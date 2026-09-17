@@ -10,6 +10,48 @@ module Admin
       Merchant.includes(:merchant_kind, :owner).order(:name)
     end
 
+    # ── DELETE MEANS DISCARD, BECAUSE ONE-WAY DOOR 6 SAYS SO ─────────────────
+    #
+    # `Merchant` includes `SoftDeletable` and implements `discard_dependents!`
+    # to hide its catalog with it — the whole mechanism is built. Administrate's
+    # default `destroy` bypassed all of it and called `destroy`, which is a HARD
+    # delete, cascading `dependent: :destroy` onto `catalog_categories` and
+    # `catalog_items`.
+    #
+    # MEASURED rather than reasoned: driving `DELETE /admin/merchants/:id`
+    # against a merchant with a catalog and no orders removed the row and left
+    # **0 catalog items**, and answered 303 as though it had worked.
+    #
+    # The blast radius was bounded — `has_many :orders, dependent:
+    # :restrict_with_error` stops any merchant that has ever traded, so there
+    # was never a hole in the books — which makes this a newly onboarded
+    # restaurant losing the menu somebody typed in, rather than lost history.
+    # Bounded is not the same as intended: the model says discard and the
+    # button said destroy.
+    # A merchant that HAS traded can be discarded, and that is the improvement
+    # rather than a regression. Hard delete was refused for it by
+    # `has_many :orders, dependent: :restrict_with_error`, and rightly — it
+    # would have orphaned order history. A discard orphans nothing: the row
+    # stays, every past order still resolves through it, and the shop simply
+    # stops being listed. That is precisely what one-way door 6 exists to
+    # allow.
+    def destroy
+      resource = requested_resource
+      snapshot = audit_values(resource.attributes)
+      resource.discard!
+
+      log_intervention(
+        "merchant.discarded", target: resource,
+        # The FULL row, as the generic console delete recorded. The row is no
+        # longer destroyed so this is belt and braces — but an audit entry is
+        # cheap and the values it holds cannot be added back later.
+        before: snapshot,
+        after: { deleted_at: resource.deleted_at.to_s },
+        details: { catalog_items_hidden: resource.catalog_items.discarded.count }
+      )
+      redirect_to admin_merchants_path, notice: "#{resource.name} removed. Its menu went with it."
+    end
+
     def open_merchant
       toggle(true, "opened")
     end

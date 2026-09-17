@@ -388,6 +388,86 @@ which is the one claim a list like this cannot support.
 
 ## Solved, with the reasoning
 
+### `git add -A` SWEPT ANOTHER SESSION'S WORK INTO COMMIT `21dffee`
+
+**`21dffee` is not what its message says.** Titled *"the before-balance two
+wallet movements never recorded"*, it also contains `db/seeds/e2e.rb` (+19) and
+`spec/seeds/e2e_spec.rb` (+24) — Karwan [9d4e65]'s uncommitted change-note
+coverage work, including the `items_total: 405` that makes the seeded live
+order 505.
+
+**So `git log db/seeds/e2e.rb` explains that total with a message about wallet
+auditing.** Anybody bisecting a seed change to that commit will read the wrong
+cause. Recorded rather than rewritten: **history rewriting in a tree another
+session is actively working in is worse than a misattributed commit.**
+
+**THE RULE: `git add <named paths>`. Never `-a`, never `.`, while another
+session shares this checkout.** It lives here rather than in `CLAUDE.md`
+because the brief is Hamma9900's.
+
+**The generalisation, which is the part worth keeping — this is the SECOND
+cross-session collision in this repo today.** The first was an unapplied
+migration taking the shared development API down for every session. Same root
+both times: **an action whose blast radius extends past my own working set,
+taken as though it were local.**
+
+> In a shared checkout, **`git add -A`, a pending migration, and the test
+> database are all shared state.** Two of the three have now bitten. The third
+> is closed by the advisory lock in `spec/rails_helper.rb`.
+
+The uncomfortable part: I staged named paths deliberately all morning, for
+exactly this reason, and then stopped. A discipline that is applied while it is
+front of mind and dropped when it is not is the same failure as a check nobody
+runs — which is why this is a rule in a file rather than a resolution.
+
+### FOUR AUDITS THAT CAME BACK CLEAN — 2026-09-17, recorded so nobody redoes them
+
+**An audit whose clean result is not written down gets repeated.** Each of
+these was a real question, checked properly, and answered no. Three are now
+held by a gate rather than by this paragraph, which is the difference between
+*verified in September* and *still true*.
+
+| Question | How it was checked | Answer | Held by |
+|---|---|---|---|
+| Do any admin interventions write no audit row? | Drove all **18** custom admin actions and asserted a row with an actor | **All 18 audit.** A count had suggested four gaps; two artefacts explained it — `merchants#open/close` share a private `toggle` that audits, and `mark_settled`/`reject_amount` sit below `private` and are helpers, not actions | `spec/requests/admin/every_intervention_is_audited_spec.rb`, enumerated from `Rails.application.routes` |
+| Is one-way door 6 (soft delete) unimplemented on three of its four names? | Grepped `include SoftDeletable` and `deleted_at` in `db/schema.rb` | **Covered.** Five models, not three: `merchant`, `user`, `catalog_item`, `catalog_category`, `address`. Restaurants → merchants, **riders → users**, menu items → catalog_items, addresses → addresses | — |
+| Can the console hard-delete anything holding money or history? | Read every admin `resources … only:` list | **No.** `destroy` is routed for `merchants` alone; not for users, wallets, orders, wallet_entries, settlements or audit_logs — so the `User → wallet → wallet_entries` cascade is unreachable | `delete_is_discard_spec.rb`, six examples asserting no destroy route exists |
+| Does any Administrate form bypass a model mechanism? | Read every dashboard's `FORM_ATTRIBUTES` | **No.** `CourierWalletDashboard` is `[:credit_line]` so balance cannot be typed past `record_entry!` (door 4); `OrderDashboard` and `TripDashboard` are `[]` so status cannot be set past `Order::TRANSITIONS` (door 3) | — |
+
+**The one that was NOT clean is recorded separately below** — `merchants#destroy`
+hard-deleted a soft-deletable model. It is the same class as the fourth row
+(Administrate's generic CRUD bypassing a model mechanism) and it was the only
+instance; the others above are the negative result of looking for siblings.
+
+**The method note, since three of these started as a grep that was wrong in the
+same way:** each mistaken claim was a **negative** derived from a pattern
+search — "only three models have soft delete" came from grepping
+`discard|deleted_at` across `app/models/*.rb`, which finds nothing in a model
+that includes a `SoftDeletable` **concern**. A grep for symptoms cannot produce
+a trustworthy negative. Find the mechanism, then grep for its inclusion.
+
+### THE CONSOLE'S DELETE BUTTON HARD-DELETED A SOFT-DELETABLE MODEL — CLOSED
+
+`Merchant` includes `SoftDeletable` and implements `discard_dependents!` to
+hide its catalog with the shop. **Administrate ships a `destroy` action that
+calls `destroy`**, so the console bypassed the whole mechanism and hard-deleted,
+cascading `dependent: :destroy` onto `catalog_categories` and `catalog_items`.
+
+Measured by driving it, because reading the controller showed nothing wrong —
+there was no code to see. A merchant with a catalog and no orders: row gone,
+**0 catalog items left**, HTTP 303 as though it had worked. `discard_dependents!`
+was **called by nothing**.
+
+Bounded by an unrelated guard: `has_many :orders, dependent:
+:restrict_with_error` refuses any merchant that has ever traded, so there was
+never a hole in the books. The real cost was a newly onboarded restaurant
+losing the menu somebody sat and typed in — the exact user Hamma9900 is
+hardest-won.
+
+**Bounded is not intended.** The model said discard and the button said
+destroy. Now `Admin::MerchantsController#destroy` discards, hides the catalog,
+and audits who did it.
+
 ### NOTHING RUNS `db:seed` ON A DEPLOY, SO THE CONSOLE WOULD BE EMPTY
 
 `config/deploy.yml` defines `migrate` and `seed` under **`aliases:`** — they

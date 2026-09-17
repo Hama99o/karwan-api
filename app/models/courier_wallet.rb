@@ -19,7 +19,25 @@ class CourierWallet < ApplicationRecord
   TOP_UP_CODE_LENGTH = 4
 
   belongs_to :user
-  has_many :wallet_entries, dependent: :destroy
+  # ── THE LEDGER IS NOT A DEPENDENT, IT IS THE RECORD ──────────────────────
+  #
+  # `dependent: :destroy` here was a STATEMENT, and the statement was false: it
+  # said destroying a wallet should destroy its ledger. One-way door 4 says the
+  # opposite — *a balance can always be recomputed from entries; entries can
+  # never be reconstructed from a balance* — so the honest answer to "delete
+  # this wallet" is **no**.
+  #
+  # Changed for the documentation, not for defence in depth: nothing can reach
+  # it today (no `destroy` route exists for wallets or users, asserted in
+  # spec/requests/admin/delete_is_discard_spec.rb). But the next person reads
+  # an association as permission, and that is exactly how the merchant console
+  # button happened — the model said discard and the button said destroy. The
+  # code should not assert something we would refuse.
+  #
+  # This also makes `User has_one :courier_wallet, dependent: :destroy`
+  # truthful by consequence: destroying a courier who has ever been paid now
+  # fails on the ledger rather than silently taking it with him.
+  has_many :wallet_entries, dependent: :restrict_with_error
 
   validates :top_up_code, presence: true, uniqueness: true
   validates :balance, numericality: true
