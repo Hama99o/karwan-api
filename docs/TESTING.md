@@ -241,6 +241,70 @@ Three fixes for F-21 were "verified" against instruments from this list before
 one of them was caught. A wrong instrument does not merely fail to find the
 bug — it manufactures agreement, and agreement is what stops you looking.
 
+### A CHECK NOBODY RUNS IS INDISTINGUISHABLE FROM A CHECK NOBODY WROTE
+
+The five shapes are about instruments that **lie**. This one is about an
+instrument that is **correct and never read**, which costs exactly as much and
+is harder to see, because every audit of the code finds it present and right.
+
+**This repo has now paid for it four times.**
+
+| | The check | Why it never fired |
+|---|---|---|
+| `OrderPolicy#track?` | written, correct, complete | nothing called it — the customer's map had no data source and the policy spec did not notice, because a request spec proves the endpoints that exist and says nothing about a predicate nothing calls |
+| edu-safi's tenancy scope | the correct scope existed | five endpoints never consulted it; `current_organization` is tenancy, not permission |
+| two role-gate methods | looked like the gate | no callers at all. Deleted rather than tested — a gate with no caller is not a gate |
+| **`bin/preflight:58`** | `needs_migration?`, hard-failing, with a scar in its own comment | **nobody ran preflight between generating a migration and the API being hit**, so the shared development API 500ed for every session on this box |
+
+The fourth is the instructive one, because the check was not merely present —
+it was *good*. It fails closed, it asks Rails rather than `psql`, and its
+comment records a previous bug in itself. None of that mattered for one hour of
+three sessions' time.
+
+**So a check earns its place only with a trigger**, and "somebody will run it"
+is not one. A trigger is CI, a git hook, a pre-deploy step, a startup
+assertion, or a failure the system produces by itself at the moment of the
+mistake. When you add a check, write down what runs it — and if the answer is a
+person remembering, you have written a docstring with an `if` in it.
+
+The corollary that applies to everything in this file: **before adding a check,
+look for the one that already exists.** Today's fix was very nearly a second
+copy of a working check, which would have left two checks nobody runs.
+
+### AN ASSERTION ON A DIFFERENCE IS SATISFIED BY BOTH SIDES BEING UNMOVED
+
+Not a fifth shape — a sharper form of the rule the four already serve, and it
+cost a real example on 2026-09-17.
+
+The shortage multiplier's whole justification is that **the platform keeps none
+of the uplift**: the customer pays more because the courier is paid more. That
+was asserted as
+
+```ruby
+expect(amounts[:delivery_fee] - amounts[:courier_fee]).to eq(0)
+```
+
+which is true when both sides rose together — **and equally true when neither
+moved at all**, because the customer's fee is derived from the courier's.
+Planting `courier_fee = base_delivery_fee`, which deletes the entire feature,
+left it green.
+
+**Zero-on-both-sides is what deleting a feature looks like.** So any assertion
+shaped like `a - b == 0`, `a == b`, `ratio == 1` or "nothing leaked" needs a
+second one saying **the pair is not at rest**:
+
+```ruby
+expect(amounts[:delivery_fee]).to be > calm[:delivery_fee]   # the storm arrived
+expect(amounts[:delivery_fee] - amounts[:courier_fee]).to eq(0)  # we kept none of it
+```
+
+The uncomfortable part, and the reason this is here rather than in a code
+comment: it was written by somebody who had finished documenting *a check that
+cannot fail is worse than no check* an hour earlier, in this file. **The rule
+cannot be followed by remembering it — only by executing the plant.** That is
+what the plant step is for, and it is why "I checked carefully" is not a
+substitute for it.
+
 ### The fifth shape: THE MEASUREMENT THAT NEVER RAN
 
 The four above all read something and read it wrongly. This one reads

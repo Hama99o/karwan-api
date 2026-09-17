@@ -68,6 +68,43 @@ else, and the courier's side is complete — so the model, the pricing and the
 courier's ride flow exist and a passenger still cannot request one.
 
 
+### For karwan-mobile, recorded here because it was found from this side
+
+Not ours to fix — `karwan-mobile` belongs to another session — but it is the
+same class as everything else in this file and would be lost in a chat log.
+
+- **`src/api/parse.ts`'s `money()` is the repo's Rails-decimal parser and is
+  now used for four COORDINATES** (`courier.ts:92`, `orders.ts:199`, twice in
+  `addresses.ts`). The name is a misnomer that will eventually stop somebody
+  using it where they should. Proposed there: rename to `decimal()`, keep
+  `money` as an alias rather than forking it into two names.
+- **Rails serialises every `decimal` column as a STRING**, which cost two live
+  blockers today: `Customers::AddressSerializer` sends `{"latitude":"34.54"}`
+  and the client's coordinate parser rejected it, so `listAddresses()` threw on
+  every real response and the cart's saved-place picker had never once worked
+  against a real server.
+
+  **The API-side consequence, taken rather than waited for:** the shortage
+  multiplier is `decimal(5,3)` and is therefore deliberately **serialised to
+  nobody**. It lives on the order row so a complaint about a high fee is
+  answerable from the record, and that record is the ops console — a laptop,
+  where a string is a string. Adding it to a mobile payload would have been a
+  new decimal for a client to parse and a fresh chance to repeat the bug, in
+  exchange for a number the customer has no use for: they were quoted a total
+  upfront and it was frozen.
+
+**The rule this pair earns, and it generalises past decimals:** a number the
+client only ever DISPLAYS should cross the wire as **a formatted string the
+server decided**, and a number the client computes with should cross as
+something it can compute with — and you must know which one you are sending.
+Rails' `decimal` lands in the middle: it looks like a number in the schema and
+arrives as a string, so it silently becomes the first while the client was
+written for the second. The failure is not the string; it is that nobody chose.
+Three consequences we now take as read: money and coordinates are parsed
+explicitly on arrival (`src/api/parse.ts`), totals are never summed on the
+device, and a value the customer merely reads — a multiplier, a percentage, a
+distance — is formatted once, on the server, in the locale the request carried.
+
 ### Found by wiring the mobile screens — three gaps, three lessons
 
 Every one of these was invisible from the server side and obvious the moment a
@@ -312,6 +349,69 @@ superlative in a gap list is a claim about everything you did NOT write down,
 which is the one claim a list like this cannot support.
 
 ## Solved, with the reasoning
+
+### AN UNAPPLIED MIGRATION TAKES THE SHARED DEV API DOWN FOR EVERY SESSION
+Generating `20260917130559_add_shortage_multiplier_to_orders.rb` and not
+applying it to **development** put `/api/v1/public/app_config` and
+`/api/v1/public/merchants` on HTTP 500 for every session on this box, and
+blocked a 21-flow device run that had nothing to do with pricing.
+
+**The symptom names nothing.** `check_pending_migrations` refuses every
+request, including the pre-auth public ones, so it reads as "the API is
+broken" from a session that never touched the schema — and the session that
+did touch it is running its own suite against its own test database, where
+everything is green.
+
+Two rules out of it:
+
+- **Generate and apply in the same breath.** A pending migration is not a local
+  inconvenience on a box where `karwan_development` is shared by the API
+  server, the QA rig and every other session.
+- **Nobody else can fix it for you**, and Karwan [9d4e65] was right to refuse:
+  `db/schema.rb` was modified in the migrating session's working tree, so a
+  `db:migrate` from another session would have regenerated it underneath an
+  in-flight edit. That is the same cross-session collision `TEST_DB_SUFFIX`
+  exists to stop, arriving through a different door.
+
+### A CHECK THAT CANNOT FAIL, WRITTEN BY SOMEBODY WHO HAD JUST READ THE RULE
+The shortage multiplier's most important property is that **the platform keeps
+none of the uplift** — the customer pays more because the courier is paid more.
+It was asserted as:
+
+```ruby
+expect(amounts[:delivery_fee] - amounts[:courier_fee]).to eq(0)
+```
+
+which is true when both sides rose together **and equally true when neither
+moved at all**, because the customer's fee is derived from the courier's.
+Planting `courier_fee = base_delivery_fee` — deleting the whole feature — left
+it green.
+
+It now asserts the storm ARRIVED as well as that we did not keep it. The
+transferable part is not "check two things": it is that **an invariant stated
+as a difference is satisfied by zero on both sides**, and zero-on-both-sides is
+exactly what deleting a feature looks like. Any assertion of the form `a - b ==
+0`, `a == b` or `ratio == 1` needs a second one saying the pair is not at rest.
+
+Worth recording precisely because the rule was already known and written down
+two files away. **Reading the rule is not the same as applying it to the line
+you are typing**, which is why the plant matters more than the rule does.
+
+### GREPPING `app/` IS NOT GREPPING THE CALLERS
+`Pricing::Quote#to_attributes` looked order-only: a grep across `app/` returned
+exactly one caller, `Orders::PlaceService`. So two order-specific keys went into
+it — and the RIDE specs went red, because they build a `Trip` from the same
+method and `trips` has no such column.
+
+The second consumer was in `spec/`. A shape used by a test is still a shape
+somebody depends on, and in this case the test was the honest one: it was
+asserting that a quote can fill a trip, which is a real contract.
+
+Fixed at the right seam rather than by adding dead columns to `trips`:
+`to_attributes` stays what every consumer can accept, and `Orders::PlaceService`
+merges the two delivery-only keys itself. **A shortage applies to deliveries
+today and to rides when somebody builds it** — the asymmetry is now stated in
+the code rather than implied by a column nothing writes.
 
 ### Cross-script search — CLOSED, and the design was chosen by measurement
 A customer typing `kabab` could not find کباب. The failure mode was the worst
