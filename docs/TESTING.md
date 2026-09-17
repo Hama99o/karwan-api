@@ -241,6 +241,31 @@ Three fixes for F-21 were "verified" against instruments from this list before
 one of them was caught. A wrong instrument does not merely fail to find the
 bug — it manufactures agreement, and agreement is what stops you looking.
 
+### THE HEADLINE PROPERTY IS THE ONE MOST LIKELY TO BE UNASSERTED
+
+Because it is the thing you were **thinking about**, not the thing you were
+**checking**. It is so present in your head while you write the code that it
+does not feel like something anyone could fail to test — and so it is the one
+nobody did.
+
+**Three receipts from a single day, 2026-09-17:**
+
+| Feature | What was asserted | What was NOT |
+|---|---|---|
+| the shortage multiplier | `delivery_fee - courier_fee == 0` — the platform keeps none of it | that the storm ever **arrived**. Deleting the whole feature left it green |
+| the pending-migration 503 | the status, the JSON, the code, the remedy, the cache header | that it **named the migration** — the entire reason it exists |
+| the distance top-up's ordering | that a top-up was written, with the right value | that it used the **post-assignment** fee. The first version compared two values the cap had clamped to the same number |
+
+The pattern is the same each time: every assertion was about the *scaffolding*
+around the property, and the property itself was assumed. And each was caught
+by the same thing — **planting the bug and watching which example goes red**,
+not by re-reading the spec.
+
+So, before a feature is done, ask it in one sentence: *what is the one thing
+this exists to do?* Then find the example that goes red when that one thing is
+removed. If there is not one, the feature is untested however many examples
+are green.
+
 ### A CHECK NOBODY RUNS IS INDISTINGUISHABLE FROM A CHECK NOBODY WROTE
 
 The five shapes are about instruments that **lie**. This one is about an

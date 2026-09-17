@@ -350,6 +350,27 @@ which is the one claim a list like this cannot support.
 
 ## Solved, with the reasoning
 
+### `/courier/wallet/entries` HAS NO CALLER — AHEAD OF ITS SCREEN, NOT DEAD
+
+Said plainly because this repo's own habit is to delete or "fix" an endpoint
+nothing calls, and here that would be wrong. `src/screens/courier/` contains
+`Apply.tsx` and `Job.tsx` and **there is no wallet screen** — ROADMAP records
+that as a deliberate cut, *"balance and fundability already appear on the offer
+card, at the moment they matter."*
+
+So the endpoint is waiting for a screen rather than orphaned by one. **What
+depends on it:** the courier-facing copy for a `commission_topup` entry. There
+is nothing to render a string today, so no placeholder was invented — a
+placeholder nothing displays is translation debt created out of nothing. The
+ledger note carries the ARITHMETIC for an operator instead, because the console
+is where a complaint is actually answered. When the statement screen is built,
+the Pashto gets written by somebody looking at the screen.
+
+**The distinction worth keeping:** a guard with no caller is dead and dangerous
+because it *claims* to protect something. A read endpoint with no caller is
+merely early. The test is whether anything would be worse if it were deleted —
+and here, the day the screen is built, it would be.
+
 ### AN UNAPPLIED MIGRATION TAKES THE SHARED DEV API DOWN FOR EVERY SESSION
 Generating `20260917130559_add_shortage_multiplier_to_orders.rb` and not
 applying it to **development** put `/api/v1/public/app_config` and
