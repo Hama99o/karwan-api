@@ -163,19 +163,46 @@ you, which is that the code under test leaves work running after the assertion
 passed. In an app that is a timer nobody cancels; in a test it is six hundred
 seconds of somebody's afternoon.
 
-### The three shapes, together, because they are one family
+## THE FOUR SHAPES OF A LYING INSTRUMENT
 
-All three came from the same bug in one week, and each was caught by asking
-whether the instrument could SEE the thing rather than whether it agreed:
+All four came out of **one bug in one week** — F-21 — and every one was caught
+by asking *what can this instrument see?* rather than *does it agree with me?*
+They are worth learning as a set, because each one passes the checks that catch
+the others.
 
-| | The failure | What it looked like |
+| | The failure | How it appeared |
 |---|---|---|
-| **Clipped** | the instrument physically cannot observe the defect | `uiautomator` bounds are clipped to the window, so overflow read 0 px in every state |
-| **Out of frame** | the instrument is fine, the SUBJECT is not where it looks | a planted bug positioned in dp while the band was in pixels — it landed below the band and read "correct" |
-| **Empty** | there is no subject at all | an unrendered screen passed a symmetry test |
+| **1 · Clipped** | the instrument physically cannot observe the defect | `uiautomator` `bounds` are clipped to the window, so right-edge overflow read **0 px in every condition**, including screens that were visibly broken |
+| **2 · Out of frame** | the instrument is fine; the SUBJECT is not where it looks | a planted bug positioned at `top: 700` **dp** while the measurement band was in **pixels** — it landed at px 1838, below the band, and the instrument read "correct" |
+| **3 · Empty** | there is no subject at all | an unrendered screen passed a symmetry test, because both gutters measured the full width |
+| **4 · Wrong subject** | there IS a subject, and it is the wrong one | a **splash screen** passed the gutter test with flying colours — a splash is perfectly symmetric |
 
-**A green reading is only evidence if you know what red looks like AND that the
-subject was present.**
+### The question that finds each one
+
+Shape 3 taught "ask what it returns when there is nothing to measure". Shape 4
+showed that was not enough: **"is there content" was the wrong question, and
+"is it the content I meant" is the right one.** A guard that only checks for
+emptiness is satisfied by any screen at all.
+
+So the working procedure, in order of what it costs:
+
+1. **Put the bug back and check the measurement moves.** Catches shape 1.
+2. **Locate the plant.** Confirm the thing you planted is where the instrument
+   looks — units especially, dp against px being the classic. Catches shape 2.
+3. **Ask what it says with no subject.** Catches shape 3.
+4. **Assert the subject's IDENTITY, not just its presence**, and re-assert it
+   *after* the capture. Catches shape 4. Concretely, what finally worked:
+   dump → capture → dump again, requiring a known marker **both times**, so a
+   reload between the two invalidates the pair and it retries.
+
+**A green reading is evidence only when you know what red looks like, and that
+the subject was present, and that it was the right subject.**
+
+### Why this is not paranoia
+
+Three fixes for F-21 were "verified" against instruments from this list before
+one of them was caught. A wrong instrument does not merely fail to find the
+bug — it manufactures agreement, and agreement is what stops you looking.
 
 ---
 
