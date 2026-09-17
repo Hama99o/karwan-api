@@ -143,6 +143,7 @@ RSpec.describe "The ops console", type: :request do
         get "/admin/orders", params: { filter: "overdue" }
 
         expect(response.body).to include(overdue.code)
+        # by-design: the line above asserts the overdue order IS in the body.
         expect(response.body).not_to include(fresh.code)
       end
 
@@ -165,6 +166,7 @@ RSpec.describe "The ops console", type: :request do
           route.defaults[:action]
         end
 
+        expect(routes).to include("index"), "no routes found at all — the check below is vacuous"
         expect(routes.uniq).not_to include("edit", "update", "destroy", "new", "create")
       end
     end

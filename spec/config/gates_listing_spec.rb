@@ -38,6 +38,7 @@ RSpec.describe "bin/gates" do
   it "names any file it cannot read rather than omitting it" do
     output, = run
 
+    # by-design: other examples assert the listing is populated and counts every file.
     expect(output).not_to include("no RSpec.describe found"),
                           "some spec files have an unreadable describe — the listing cannot speak for them"
   end

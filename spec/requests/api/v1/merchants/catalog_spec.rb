@@ -45,6 +45,11 @@ RSpec.describe "Api::V1::Merchants catalog and profile", type: :request do
       get "/api/v1/merchant/catalog_items", headers: auth
 
       names = json["catalogs"].flat_map { |c| c["items"] }.map { |i| i["name"] }
+      # His OWN item must be there, or "the other merchant's is absent" is true
+      # of an empty payload — and an empty payload is exactly what a broken
+      # scope returns. A tenancy check that passes on nothing is the worst one
+      # to have.
+      expect(names).to include(item.name), "his own catalog is empty — the check below is vacuous"
       expect(names).not_to include(other_item.name)
     end
   end

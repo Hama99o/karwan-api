@@ -102,6 +102,7 @@ RSpec.describe "Cross-script search" do
       item.update!(name: "منتو")
 
       expect(item.reload.search_text).to include("mantu")
+      # by-design: the line above asserts "mantu" IS present, so search_text is populated.
       expect(item.search_text).not_to include("kabab")
     end
 

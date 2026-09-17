@@ -21,6 +21,7 @@ RSpec.describe OtpVerification, type: :model do
       record, code = described_class.issue!("+93770000001")
 
       expect(record.code_digest).not_to eq(code)
+      # by-design: a record's attribute list is never empty.
       expect(record.attributes.values.map(&:to_s)).not_to include(code)
     end
 

@@ -46,6 +46,7 @@ RSpec.describe "a job booked for somebody else", type: :model do
   it "never gives the courier the booker's number" do
     numbers = steps.values.map { |step| step[:phone] }.compact
 
+    expect(numbers).to be_present, "no phone on any step — the check below is vacuous"
     expect(numbers).not_to include(booker.phone)
   end
 
@@ -85,6 +86,8 @@ RSpec.describe "a job booked for somebody else", type: :model do
       steps = Couriers::JobSteps.new(trip).call
 
       phones = steps.map { |step| step[:phone] }.compact
+      # `all` passes on an EMPTY array, so it is not the positive it looks like.
+      expect(phones).to be_present, "no phones at all — both checks below are vacuous"
       expect(phones).to all(eq("+93700000333"))
       expect(phones).not_to include(booker.phone)
     end

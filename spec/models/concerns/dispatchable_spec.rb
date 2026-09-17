@@ -174,6 +174,7 @@ RSpec.describe Dispatchable do
 
         expect(from_sql.sort).to eq(from_ruby.sort)
         expect(from_sql).to include(stale.id)
+        # by-design: the line above asserts stale.id IS present.
         expect(from_sql).not_to include(fresh.id)
       end
 
@@ -182,6 +183,7 @@ RSpec.describe Dispatchable do
         done = create(klass.name.underscore.to_sym, terminal_trait)
         done.update_columns(created_at: 3.days.ago, updated_at: 3.days.ago)
 
+        # by-design: the example above proves `overdue` returns rows for a stale job.
         expect(klass.overdue.pluck(:id)).not_to include(done.id)
       end
     end

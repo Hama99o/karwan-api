@@ -282,6 +282,7 @@ RSpec.describe "how big a delivery is" do
     it "lists only the classes that seat the party, so a family never sees a motorbike fare" do
       expect(CourierProfile.vehicle_types_seating(4)).to eq([ "car" ])
       expect(CourierProfile.vehicle_types_seating(1)).to include("motorbike", "rishka", "car")
+      # by-design: the line above asserts motorbike, rishka and car ARE present.
       expect(CourierProfile.vehicle_types_seating(1)).not_to include("bicycle", "on_foot")
     end
   end

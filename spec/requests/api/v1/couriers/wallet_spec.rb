@@ -179,13 +179,27 @@ RSpec.describe "Api::V1::Couriers::Wallet", type: :request do
       expect(json.dig("meta", "pagination", "total_count")).to eq(30)
     end
 
+    # ── THIS ASSERTED NOTHING UNTIL 2026-09-17 ─────────────────────────────
+    #
+    # It created another courier's entry and checked this courier's statement
+    # did not contain it — but **this courier had no entries at all**, so the
+    # exclusion was true of an empty list and would have stayed true if the
+    # scope had leaked every entry in the database and then broken for an
+    # unrelated reason.
+    #
+    # A tenancy check that passes on nothing is the worst kind to hold: it is
+    # edu-safi's "tenancy is not permission" lesson with no teeth. He now has
+    # an entry of his own, so the exclusion is observable.
     it "never shows another courier's entries" do
+      courier.courier_wallet.record_entry!(kind: :top_up, amount: 500)
       other = create(:user, :courier)
       other.courier_wallet.record_entry!(kind: :top_up, amount: 777)
 
       get "/api/v1/courier/wallet/entries", headers: auth
 
-      expect(json["wallet_entries"].map { |e| e["amount"].to_f }).not_to include(777.0)
+      amounts = json["wallet_entries"].map { |e| e["amount"].to_f }
+      expect(amounts).to include(500.0), "his own statement is empty — the check below is vacuous"
+      expect(amounts).not_to include(777.0)
     end
   end
 

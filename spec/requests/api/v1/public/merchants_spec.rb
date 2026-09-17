@@ -52,7 +52,9 @@ RSpec.describe "Api::V1::Public::Merchants", type: :request do
 
         get "/api/v1/public/merchants"
 
-        expect(json["merchants"].map { |m| m["name"] }).not_to include("Not Approved Yet")
+        names = json["merchants"].map { |m| m["name"] }
+        expect(names).to include(open_merchant.name), "the list is empty — the check below is vacuous"
+        expect(names).not_to include("Not Approved Yet")
       end
 
       it "hides a suspended merchant" do
@@ -60,7 +62,9 @@ RSpec.describe "Api::V1::Public::Merchants", type: :request do
 
         get "/api/v1/public/merchants"
 
-        expect(json["merchants"].map { |m| m["name"] }).not_to include("Suspended Shop")
+        names = json["merchants"].map { |m| m["name"] }
+        expect(names).to include(open_merchant.name), "the list is empty — the check below is vacuous"
+        expect(names).not_to include("Suspended Shop")
       end
 
       it "hides a discarded merchant" do
@@ -68,7 +72,9 @@ RSpec.describe "Api::V1::Public::Merchants", type: :request do
 
         get "/api/v1/public/merchants"
 
-        expect(json["merchants"].map { |m| m["name"] }).not_to include("Gone")
+        names = json["merchants"].map { |m| m["name"] }
+        expect(names).to include(open_merchant.name), "the list is empty — the check below is vacuous"
+        expect(names).not_to include("Gone")
       end
 
       # A closed merchant is SHOWN, greyed, with when it opens. Hiding it makes
@@ -243,6 +249,7 @@ RSpec.describe "Api::V1::Public::Merchants", type: :request do
       get "/api/v1/public/merchants/#{open_merchant.id}/catalog"
 
       names = json["catalogs"].flat_map { |c| c["items"] }.map { |i| i["name"] }
+      expect(names).to be_present, "the catalog came back empty — the check below is vacuous"
       expect(names).not_to include("Deleted Item")
     end
 
@@ -260,16 +267,28 @@ RSpec.describe "Api::V1::Public::Merchants", type: :request do
       expect(option["values"].first).to include("name" => "Large")
     end
 
+    # ── THIS EXAMPLE ASSERTED NOTHING UNTIL 2026-09-17 ─────────────────────
+    #
+    # It created ONE option value, marked unavailable, and asserted the payload
+    # did not contain it. The serializer correctly omits it — leaving `values`
+    # **empty** — so "Gone is absent" was true of an empty list and would have
+    # stayed true if options had stopped serialising altogether.
+    #
+    # A negative assertion needs its positive shown to be possible, so there is
+    # an AVAILABLE sibling now: the hiding is only observable when something
+    # survives it.
     it "hides an unavailable option value, which cannot be chosen anyway" do
       item = open_merchant.catalog_items.first
       size = create(:catalog_item_option, catalog_item: item, name: "Size")
+      create(:catalog_item_option_value, catalog_item_option: size, name: "Large", price_delta: 100)
       create(:catalog_item_option_value, catalog_item_option: size, name: "Gone", is_available: false)
 
       get "/api/v1/public/merchants/#{open_merchant.id}/catalog"
 
       values = json["catalogs"].flat_map { |c| c["items"] }.flat_map { |i| i["options"] }
-                               .compact.flat_map { |o| o["values"] }
-      expect(values.map { |v| v["name"] }).not_to include("Gone")
+                               .compact.flat_map { |o| o["values"] }.map { |v| v["name"] }
+      expect(values).to include("Large"), "no values survived — the check below would be vacuous"
+      expect(values).not_to include("Gone")
     end
   end
 
@@ -286,10 +305,13 @@ RSpec.describe "Api::V1::Public::Merchants", type: :request do
 
     it "excludes an inactive category" do
       create(:merchant_category, slug: "retired", is_active: false)
+      create(:merchant_category, :kabab)
 
       get "/api/v1/public/merchant_categories"
 
-      expect(json["merchant_categories"].map { |c| c["slug"] }).not_to include("retired")
+      slugs = json["merchant_categories"].map { |c| c["slug"] }
+      expect(slugs).to include("kabab"), "no categories at all — the check below is vacuous"
+      expect(slugs).not_to include("retired")
     end
   end
 

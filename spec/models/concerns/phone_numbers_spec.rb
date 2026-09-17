@@ -20,6 +20,7 @@ RSpec.describe PhoneNumbers do
     # The leading zero is a domestic dialling prefix, not part of the number.
     # Keeping it would make `+930700000801`, which nobody can ring.
     it "drops the domestic dialling zero rather than keeping it" do
+      # by-design: normalise returns a non-empty string, so this is a real fact about it.
       expect(described_class.normalise("0700000801")).not_to include("+930")
     end
 

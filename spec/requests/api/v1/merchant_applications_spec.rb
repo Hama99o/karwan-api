@@ -142,6 +142,9 @@ RSpec.describe "Api::V1::MerchantApplications", type: :request do
 
       get "/api/v1/public/merchants"
 
+      # The subject must EXIST for its absence to mean anything — a lead that was
+      # never created is excluded from every list trivially.
+      expect(Merchant.unscoped.find_by(name: "کباب هاوس")).to be_present
       expect(json["merchants"].map { |m| m["name"] }).not_to include("کباب هاوس")
     end
 

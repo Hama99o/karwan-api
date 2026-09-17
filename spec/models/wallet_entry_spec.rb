@@ -122,6 +122,7 @@ RSpec.describe WalletEntry, type: :model do
     # One-way door #4: a balance can always be recomputed from entries; entries
     # can never be reconstructed from a balance.
     it "has no updated_at" do
+      # by-design: a column list is never empty, and the next line asserts created_at IS present.
       expect(described_class.column_names).not_to include("updated_at")
       expect(described_class.column_names).to include("created_at")
     end

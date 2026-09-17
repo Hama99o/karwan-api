@@ -105,6 +105,7 @@ RSpec.describe PricingRate, type: :model do
     it "offers no ride on foot or by bicycle, because nobody hails a pedestrian" do
       selectable = described_class.for_job("ride").selectable.map(&:vehicle_type)
 
+      expect(selectable).to include("car"), "no selectable ride rates — the check below is vacuous"
       expect(selectable).not_to include("on_foot", "bicycle")
       expect(selectable).to include("motorbike", "car")
     end

@@ -73,6 +73,7 @@ RSpec.describe "The console audits every edit", type: :request do
 
       log = logs("merchant.edited").first
       expect(log.after.keys).to include("name")
+      # by-design: the line above asserts "name" IS present, so the row is not empty.
       expect(log.after.keys).not_to include("search_text", "updated_at")
     end
   end

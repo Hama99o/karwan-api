@@ -49,6 +49,7 @@ RSpec.describe Attachments::PublicUrl do
   it "does not double the slash when the base carries one" do
     ENV["APP_BASE_URL"] = "https://api.karwan.af/"
 
+    # by-design: the subject is a non-empty URL string, not a collection.
     expect(described_class.for(attach!)).not_to include("af//rails")
   end
 

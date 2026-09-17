@@ -73,6 +73,7 @@ RSpec.describe OrderItemOption do
   # catalog_items. So nullify is load-bearing here rather than a precaution
   # against something the app never does.
   it "is guarding a real possibility — option values are not soft-deleted" do
+    # by-design: a column list is never empty, so absence here is a real fact about the schema.
     expect(CatalogItemOptionValue.column_names).not_to include("deleted_at")
   end
 end

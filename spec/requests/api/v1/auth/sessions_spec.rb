@@ -128,6 +128,7 @@ RSpec.describe "Api::V1::Auth::Sessions", type: :request do
         # different here, not offer a form that does not exist.
         expect(json.dig("role_request", "apply_to")).to be_nil
         # And the app is never even offered admin as a role it could switch to.
+        expect(json.dig("user", "roles")).to include("customer"), "no roles at all — the check below is vacuous"
         expect(json.dig("user", "roles")).not_to include("admin")
         expect(admin.user_sessions.last.active_role).to eq("customer")
       end

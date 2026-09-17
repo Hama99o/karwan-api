@@ -100,7 +100,13 @@ RSpec.describe "Api::V1::Merchants::Orders", type: :request do
 
         get "/api/v1/merchant/orders", headers: auth
 
-        expect(json["orders"].map { |o| o["id"] }).not_to include(other_order.id)
+        ids = json["orders"].map { |o| o["id"] }
+        # His own order must be there, or the exclusion is true of an empty
+        # board — which is what a broken scope returns. edu-safi's lesson is
+        # that tenancy is not permission; a tenancy check that passes on
+        # nothing proves neither.
+        expect(ids).to include(order.id), "his own board is empty — the check below is vacuous"
+        expect(ids).not_to include(other_order.id)
       end
 
       it "refuses a customer, who holds no merchant" do

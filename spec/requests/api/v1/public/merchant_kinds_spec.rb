@@ -43,6 +43,9 @@ RSpec.describe "Api::V1::Public::MerchantKinds", type: :request do
   it "omits a kind that has been switched off" do
     get "/api/v1/public/merchant_kinds"
 
+    # by-design: the `before` block creates a retired kind, and the first
+    # example asserts the list equals [restaurant, bakery] — the positive is
+    # demonstrated, so this absence is real.
     expect(json["merchant_kinds"].map { |k| k["slug"] }).not_to include("retired")
   end
 

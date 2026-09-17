@@ -259,6 +259,7 @@ RSpec.describe User, type: :model do
     it "is checked against the stored digest, never in the clear" do
       user = create(:user, password: "a-long-enough-password")
 
+      # by-design: a bcrypt digest is a non-empty string, so this is a real fact about it.
       expect(user.encrypted_password).not_to include("a-long-enough-password")
       expect(user.valid_password?("a-long-enough-password")).to be true
       expect(user.valid_password?("something else")).to be false

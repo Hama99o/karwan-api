@@ -37,6 +37,7 @@ RSpec.describe "Api::V1::Customers::Addresses", type: :request do
            params: { address: pin[:address].merge(street: "Main St", city: "Kabul") }, headers: auth
 
       expect(response).to have_http_status(:created)
+      # by-design: a created address always has keys, and the status is asserted above.
       expect(json["address"].keys).not_to include("street", "city")
     end
 

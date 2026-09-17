@@ -57,6 +57,7 @@ RSpec.describe Notifications::ArrivalAlert do
     it "names the demand type, never the class" do
       described_class.new(order, client: client).deliver!
 
+      # by-design: `sent.last` raises if nothing was sent, so this cannot pass vacuously.
       expect(sent.last[:data].values.map(&:to_s)).not_to include("Order")
     end
 

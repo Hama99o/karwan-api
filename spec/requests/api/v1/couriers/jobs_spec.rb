@@ -115,6 +115,7 @@ RSpec.describe "Api::V1::Couriers::Jobs", type: :request do
 
         steps = json.dig("job", "steps")
         expect(steps.map { |s| s["key"] }).to eq(%w[go_to_pickup start_ride complete_and_collect])
+        # by-design: the line above asserts the exact step list, so it is not empty.
         expect(steps.map { |s| s["key"] }).not_to include("pay_merchant")
       end
 

@@ -415,6 +415,31 @@ The floor it produced: `spec/requests/admin/every_console_page_opens_spec.rb`,
 which drives index, search and show for every routed console resource — because
 the reason search was dark is that nothing opened the ordinary pages.
 
+### WHEN NOT TO BUILD A GATE: IT MUST NOT FIRE ON CORRECT CODE
+
+The eight shapes are about instruments that mislead. This is the condition under
+which **building one is the wrong move at all.**
+
+A gate that goes red on code that is fine does not get fixed. **It gets
+silenced** — and a disabled gate is worse than no gate, because it leaves a
+*reason to believe* behind it. Everybody remembers there is a check; nobody
+remembers it is off.
+
+Measured here. A heuristic for the rule below — *"a `not_to include(X)` with no
+`to include(X)` in the same file"* — flags **38** assertions, and **most are
+correct by design**: `not_to include("updated_at")` on a column list is a real
+fact about the schema, and a column list is never empty. Shipping that heuristic
+as a gate would have failed the legitimate majority on every run and been
+deleted within a week.
+
+**So it stayed a sweep and the judgements were written into the files instead**
+— a trailing `# by-design:` comment on each legitimate negative, so the next
+sweep reads only the unmarked ones. **A judgement pass that must be repeated
+from scratch is a judgement pass that will not be.**
+
+The test: *would this gate ever be red while the code is right?* If yes, it is a
+sweep with its results recorded, not a gate.
+
 ### A NEGATIVE ASSERTION NEEDS ITS POSITIVE SHOWN FIRST
 
 **"X is absent" proves nothing unless X could have been present.** Otherwise it

@@ -70,6 +70,7 @@ RSpec.describe StatusTransition, type: :model do
     # One-way door #3 in CLAUDE.md: "how long do orders sit in preparing" is
     # the metric that runs a delivery business and cannot be backfilled.
     it "has no updated_at, because a ledger row that can be edited is not a ledger" do
+      # by-design: a column list is never empty, and the next line asserts created_at IS present.
       expect(described_class.column_names).not_to include("updated_at")
       expect(described_class.column_names).to include("created_at")
     end

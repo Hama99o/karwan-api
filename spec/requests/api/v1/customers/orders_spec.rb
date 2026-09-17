@@ -309,6 +309,7 @@ RSpec.describe "Api::V1::Customers::Orders", type: :request do
       get "/api/v1/customer/orders", headers: auth
 
       keys = json["orders"].first.keys
+      # by-design: `.first.keys` raises on an empty list, so this cannot pass vacuously.
       expect(keys).not_to include("commission", "merchant_payout", "courier_fee")
     end
   end
@@ -469,6 +470,7 @@ RSpec.describe "Api::V1::Customers::Orders", type: :request do
         get "/api/v1/customer/orders/#{order.id}/track", headers: auth
 
         expect(json.dig("track", "courier", "phone")).to eq(order.courier.phone)
+        # by-design: the line above asserts the courier phone, so the payload is populated.
         expect(json.dig("track", "courier", "name")).not_to include(" ")
       end
 
