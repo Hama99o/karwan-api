@@ -20,12 +20,15 @@ class OrderItemDashboard < Administrate::BaseDashboard
     currency: Field::String,
     notes: Field::Text,
     selected_options: Field::HasMany,
+    # RENDERED ON THE ORDER PAGE, not behind a route. `selected_options` above
+    # is a HasMany whose dashboard nothing can open — see OrderItem#options_summary.
+    options_summary: Field::String,
     created_at: Field::DateTime
   }.freeze
 
-  COLLECTION_ATTRIBUTES = %i[name quantity unit_price options_total line_total].freeze
+  COLLECTION_ATTRIBUTES = %i[name quantity options_summary unit_price options_total line_total].freeze
   SHOW_PAGE_ATTRIBUTES = %i[
-    order name quantity unit_price options_total line_total currency notes
+    order name quantity options_summary unit_price options_total line_total currency notes
     selected_options created_at
   ].freeze
   # Nothing. A snapshot that can be edited is not a snapshot.

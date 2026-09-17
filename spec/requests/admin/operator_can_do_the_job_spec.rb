@@ -63,6 +63,47 @@ RSpec.describe "an operator can do the job", type: :request do
       expect(response.body).to include("Ahmad")
       expect(response.body).to match(/payment|cash/i)
     end
+
+    # ── WHICH OPTIONS DID THE CUSTOMER ACTUALLY CHOOSE? ────────────────────
+    #
+    # One-way door 1 snapshots the option name, value and price delta at order
+    # time **so a dispute can be settled** — "I ordered large, not small" is the
+    # argument it exists for. They were captured, frozen, and **unreachable from
+    # the console**: the only dashboard that rendered them
+    # (`OrderItemOptionDashboard`) hangs off a show page with no route, and the
+    # order page drew items through `COLLECTION_ATTRIBUTES`, which omitted them.
+    #
+    # Data nobody can look up is not an answer. `OrderItem#options_summary` now
+    # puts it on the order page itself rather than behind another click,
+    # because the operator is already there with the customer on the phone.
+    #
+    # THE FIXTURE MUST ACTUALLY CARRY OPTIONS, or the column renders empty and
+    # this passes while proving nothing.
+    it "shows which options the customer chose, on the order page" do
+      item = create(:order_item, order: order, name: "Chicken Kabab",
+                                 unit_price: 400, quantity: 1,
+                                 options_total: 100, line_total: 500)
+      create(:order_item_option, order_item: item, option_name: "Size",
+                                 value_name: "Large", price_delta: 100)
+
+      expect(item.reload.selected_options).to be_present,
+                                              "no options — the assertion below would be vacuous"
+
+      get "/admin/orders/#{order.id}"
+
+      expect(response.body).to include("Large"), "an operator cannot see which options were chosen"
+      expect(response.body).to include("Size")
+    end
+
+    # Most of these disputes are about the money rather than the word.
+    it "shows what the option cost, not only its name" do
+      item = create(:order_item, order: order, unit_price: 400, quantity: 1,
+                                 options_total: 100, line_total: 500)
+      create(:order_item_option, order_item: item, option_name: "Size",
+                                 value_name: "Large", price_delta: 100)
+
+      expect(item.reload.options_summary).to eq("Size: Large (+100)")
+    end
   end
 
   # ── 2 · A COURIER SAYS HE WAS NOT PAID ───────────────────────────────────

@@ -50,6 +50,26 @@ RSpec.describe "Every ops console page renders", type: :request do
   ].freeze
   EDITABLE = %w[merchants courier_profiles courier_wallets users settings pricing_rates].freeze
 
+  # ── THE HAND-WRITTEN LIST MUST STILL MATCH THE ROUTER ────────────────────
+  #
+  # `RESOURCES` mirrors `config/routes.rb` deliberately, so a read-only
+  # dashboard is never asked for an edit form it does not have. The cost of a
+  # hand-written denominator is that it drifts silently, so this asserts it
+  # against the router: a twelfth console resource turns this red rather than
+  # quietly escaping every example below.
+  it "lists exactly the resources the router exposes with index and show" do
+    routed = Rails.application.routes.routes.filter_map { |route|
+      controller = route.defaults[:controller]
+      next unless controller&.start_with?("admin/")
+
+      [ controller.sub("admin/", ""), route.defaults[:action] ]
+    }.group_by(&:first)
+     .select { |_c, pairs| (pairs.map(&:last) & %w[index show]).size == 2 }
+     .keys
+
+    expect(routed.sort).to eq(RESOURCES.sort)
+  end
+
   it "renders the console root" do
     get "/admin"
 
@@ -72,6 +92,24 @@ RSpec.describe "Every ops console page renders", type: :request do
         get "/admin/#{resource}/#{row.id}"
 
         expect(response).to have_http_status(:ok)
+      end
+
+      # ── SEARCH, WHICH NOTHING DROVE UNTIL 2026-09-17 ──────────────────
+      #
+      # The thousand-times-a-day action — an operator with a code read out to
+      # them over the phone — and it was the one console path with no coverage
+      # at all. That is how a deprecation inside `Administrate::Search` sat
+      # unseen: the suite emitted ZERO deprecation warnings, not because there
+      # were none but because nothing exercised the code that emits them.
+      #
+      # A `COLLECTION_FILTERS` lambda against a renamed column, or a searchable
+      # attribute that no longer exists, 500s here and nowhere else.
+      it "answers a search without raising" do
+        row_for(resource)
+
+        get "/admin/#{resource}", params: { search: "kabab" }
+
+        expect(response).to have_http_status(:ok), "searching #{resource} raised"
       end
 
       if EDITABLE.include?(resource)

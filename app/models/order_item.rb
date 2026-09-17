@@ -15,6 +15,30 @@ class OrderItem < ApplicationRecord
   validates :unit_price, :line_total, numericality: { greater_than_or_equal_to: 0 }
   validate  :line_total_matches_parts
 
+  # ── WHAT THE CUSTOMER ACTUALLY CHOSE, IN ONE LINE ─────────────────────────
+  #
+  # One-way door 1 snapshots the option name, the value and the price delta at
+  # order time **so a dispute can be settled later** — "I ordered large, not
+  # small" is the exact argument it exists for. Until this method, that snapshot
+  # was captured, frozen, and **unreachable from the ops console**: the only
+  # dashboard that rendered it (`OrderItemOptionDashboard`) hangs off a show
+  # page that has no route, so nothing could ever draw it.
+  #
+  # Data nobody can look up is not an answer. This puts it on the order page
+  # itself rather than behind another click, because the operator is already
+  # there with the customer on the phone.
+  #
+  # THE DELTA IS INCLUDED when it is not zero, because most of these disputes
+  # are about money rather than about the word: "Size: Large (+100)" answers
+  # both halves at once.
+  def options_summary
+    selected_options.map { |option|
+      delta = option.price_delta.to_d
+      label = "#{option.option_name}: #{option.value_name}"
+      delta.zero? ? label : "#{label} (#{delta.positive? ? '+' : ''}#{delta.to_i})"
+    }.join(" · ")
+  end
+
   # (unit_price + options_total) * quantity. Computed here so the client never
   # has to, and never gets to disagree.
   def expected_line_total
