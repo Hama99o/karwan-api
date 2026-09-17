@@ -420,6 +420,39 @@ exactly this reason, and then stopped. A discipline that is applied while it is
 front of mind and dropped when it is not is the same failure as a check nobody
 runs — which is why this is a rule in a file rather than a resolution.
 
+### READING THE PRECEDENT CORRECTED A CLAIM ABOUT OUR OWN REPO
+
+Correction 15 says copy Hatiwal and name the file you read. It is written as
+guidance on *how to build something*. On 2026-09-17 it did something else.
+
+Writing the first-deploy rehearsal meant reading
+`../../Hatiwal/DEPLOYMENT.md` for its shape. That file says migrations run
+automatically on boot via `bin/docker-entrypoint` — so I opened ours, which I
+had never done, and found it **byte-identical** (`diff` returns nothing). Our
+entrypoint runs `db:prepare` whenever the container starts the server.
+
+**That falsified a claim I had committed hours earlier**, in `44e9efa`: that a
+deploy "runs neither" `db:prepare` nor `db:seed`. I had asserted a negative
+about a file I had not opened — the exact failure this file records three times
+over on the supervisor's side. The seed half stood; the sentence around it did
+not, and both documents were corrected in place.
+
+> **Reading the precedent is not only for how to build something. It is a check
+> on what you believe you already have.** A reference implementation that
+> solved the same problem describes YOUR repo too, wherever the two were copied
+> from each other — so it is the cheapest available audit of your own
+> assumptions, and it arrives while you are looking at something else.
+
+**Closed by a gate, because the pairing it depends on is positional.** The
+entrypoint fires only when the last two arguments are `./bin/rails` and
+`server`, and the Dockerfile supplies them as
+`CMD ["./bin/thrust", "./bin/rails", "server"]` — **nothing connects the two
+files.** Appending a plausible flag is enough to break it silently, and the
+symptom would be an app serving traffic with an old schema and nothing naming
+a migration. `spec/config/entrypoint_migration_spec.rb` reads both files and
+**executes the real condition against the real arguments**, so a change to
+either side goes red.
+
 ### FOUR AUDITS THAT CAME BACK CLEAN — 2026-09-17, recorded so nobody redoes them
 
 **An audit whose clean result is not written down gets repeated.** Each of
