@@ -42,6 +42,28 @@ CUSTOMER  ──── pays 400 in cash ────►  COURIER
 | **Restaurant** | 315 received, 250 kept | | 250 | **65** |
 | **Platform** | — | 65, in one deposit | **65** | — |
 
+### ⚠ THE CODE DISAGREES WITH THIS SECTION, AND A SECOND THING NOW DEPENDS ON THE DISAGREEMENT
+
+`Pricing::DeliveryQuote` computes `merchant_payout: items_total - commission` — the courier
+hands over the food **minus** our commission (250 on a 300 meal). This section says he hands
+over the food **plus** our margin (315). They are not reconcilable and the difference is the
+whole of §2's point: whether the restaurant is the single collection point for revenue from both
+sides. **Awaiting one sentence from Hamma9900. Do not "fix" either side alone.**
+
+**The second cost, which he is entitled to know before he answers.** `Pricing::CourierTopUp`
+(the distance top-up on a thin far order) was deliberately built to route AROUND that line: it
+writes its own `commission_topup` column and its own ledger entry rather than reducing
+`commission`. The reason is arithmetic — under `payout = items_total - commission`, lowering the
+commission to pay a courier **raises what the restaurant receives**, so our margin would have
+become their windfall on exactly the orders the top-up exists to rescue, with every figure on
+the order still summing correctly.
+
+**So the day this line changes, `Pricing::CourierTopUp` must be re-read in the same pass.** Its
+entire safety argument is *"we never touch `commission`, so `merchant_payout` cannot move"*. If
+the payout stops being derived from the commission, that argument stops being the reason it is
+safe. It may well still BE safe — but nobody will have checked, and a decision that silently
+invalidates a safety argument somewhere else is the worst kind to take alone.
+
 ### The three things that make this shape right
 
 **1. ONLY TWO PARTIES EVER DEPOSIT MONEY: restaurants and taxi drivers.**

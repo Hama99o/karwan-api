@@ -261,6 +261,26 @@ around the property, and the property itself was assumed. And each was caught
 by the same thing — **planting the bug and watching which example goes red**,
 not by re-reading the spec.
 
+**A CAP OR A CLAMP MAKES A PLANT SURVIVABLE**, and the third receipt is the
+example. The ordering example compared the right answer against the wrong one
+— but both were above the commission, so the cap clamped them to the same
+number and the comparison was between two identical values. The plant ran, the
+example stayed green, and the code was genuinely broken.
+
+So: **an assertion downstream of a clamp has to be planted against a value the
+clamp cannot reach.** Concretely, give the fixture enough headroom that the cap
+does not bind, or assert on the pre-clamp quantity. Any `min`, `max`, `clamp`,
+floor, ceiling or `||` default between the bug and the assertion is a place
+where a wrong answer and a right one can arrive looking identical — which makes
+it a place where the plant proves nothing while appearing to prove everything.
+
+A fourth receipt from the same afternoon, different shape and the same lesson:
+**the code was right and the test was wrong.** An example expected 50 and got
+30.06; the instinct was to correct the expectation. The instrument said the
+courier's fee was 170 rather than the fixture's 100, because assignment
+re-freezes it from the courier's vehicle rate. A failing test feels like news
+about the code, and that is the direction almost nobody checks.
+
 So, before a feature is done, ask it in one sentence: *what is the one thing
 this exists to do?* Then find the example that goes red when that one thing is
 removed. If there is not one, the feature is untested however many examples

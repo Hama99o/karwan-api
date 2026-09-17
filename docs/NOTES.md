@@ -350,55 +350,76 @@ which is the one claim a list like this cannot support.
 
 ## Solved, with the reasoning
 
-### TWO THINGS THE DISTANCE TOP-UP LEAVES OPEN — neither is a bug today
+### THE TOP-UP AT A CALL SITE WAS A BUG, AND THE FIX WAS STRUCTURAL — CLOSED
 
-Both were decided deliberately while building `Pricing::CourierTopUp`
-(`4aaaeba`). Written here rather than carried in a message, because nothing
-should depend on a supervisor relay to survive (correction 5).
+Recorded because the reasoning generalises well past this feature.
 
-**1 · A HAND-REASSIGNED JOB GETS NO TOP-UP.** The top-up is computed in
-`offers#accept`, which is the only path a courier assigns himself through.
-Admin reassignment (`patch :reassign` on the ops console) sets the courier
-directly and never runs it — so a job Hamma9900 moves by hand qualifies for the
-top-up and does not receive it, silently.
+`Pricing::CourierTopUp` was first called from `offers#accept`, and I wrote it
+up as an open product question: *should a hand-reassigned job be topped up at
+all — his money, his call?* **That framing was wrong, and Hamma9901 was right
+to reject it.** The decision Hamma9900 already made is *pay a courier properly
+for a thin order a long way out*. **How the courier came to hold the job is not
+a dimension of that policy** — he rides the same dead leg either way. Paying
+him less because a human assigned him rather than the algorithm is not a policy
+anybody would choose; it is an inconsistency nobody would ever see, because
+both orders look correct on their own.
 
-Not built, because it is a money decision rather than an oversight: should a
-job assigned by a human be topped up on the same terms? The honest answer is
-probably yes — the courier rides the same dead leg however he got the job — but
-it is his money and his call. **When it is answered, the change is one call in
-the reassign path**, and the arithmetic already takes a set, so it needs no new
-shape.
+**And the fix was not a second call in `reassign`.** It moved onto the
+assignment itself — `Order#freeze_courier_pay`, the `after_save` that already
+freezes `courier_fee` from the courier's vehicle rate. Every path that assigns
+a courier passes through it, **including the ones that do not exist yet.**
 
-**2 · `merchant_payout: items_total - commission` IS NOW LOAD-BEARING IN A
-SECOND PLACE.** That line is known-wrong against MONEY_AND_SETTLEMENT.md §2 and
-is waiting on one sentence from Hamma9900; it is deliberately untouched.
+> **A second call site is a third one waiting to be forgotten.** This is the
+> same shape as a check nobody runs and a guard nobody calls, both of which
+> this repo has already paid for: a rule that must be REMEMBERED at each site
+> will eventually not be. Put it where the thing it depends on already lives,
+> so it cannot be omitted rather than must not be.
 
-`CourierTopUp` routes AROUND it — the top-up is its own column and its own
-ledger entry rather than a reduction in `commission` — precisely because
-lowering the commission would raise `merchant_payout` under that formula and
-hand our margin to the restaurant on exactly the thin far orders the feature
-exists to rescue, with every total still summing.
+Two properties came free from the move and are asserted:
 
-**So the day that line changes, `Pricing::CourierTopUp` must be re-read in the
-same pass.** Its entire safety argument is "we never touch `commission`, so
-`merchant_payout` cannot move". If the payout stops being derived from the
-commission, that argument stops being the reason it is safe — it may still BE
-safe, but nobody will have checked.
+- **The ordering is structural rather than remembered.** The top-up measures
+  the shortfall against the fee being computed on the line above, so
+  `self.courier_fee = fee` happens in memory before it is asked for. At a call
+  site this was a thing to get right; here it is the only thing that can
+  happen.
+- **A reassignment CLEARS a top-up the new courier does not qualify for**,
+  because the callback returns 0 rather than nil. Otherwise a courier standing
+  at the merchant's door would inherit the previous courier's 4 km.
 
-### A RIDE HAS NO SHORTAGE MULTIPLIER, AND THE ASYMMETRY IS DELIBERATE
+### A RIDE HAS NO SHORTAGE MULTIPLIER — HIS DECISION, NOT AN OVERSIGHT TO FIX
 
 `Pricing::DeliveryQuote` reads `Pricing::ShortageMultiplier`; `Pricing::RideQuote`
 does not, and `trips` has no column for it. A storm raises delivery fees and
 leaves fares alone.
 
-That is scope, not a decision about rides: the shortage switch was asked for
-against deliveries, and the ride product is OUT of v0 on the passenger side
-anyway. **The shape transfers whole when it is wanted** — the module takes a
-tier and returns a multiplier, and `Pricing::Quote` already carries the two
-fields — so it is a column on `trips` and two lines in `RideQuote`.
+**This is very likely an omission rather than a decision.** Hamma9900's
+instruction was that the storm switch lifts the customer's fee *and* the
+courier's pay together, and he was describing delivery because delivery was
+what we were discussing. A storm with no taxis on the street is the same market
+fact about the same courier pool — which is the whole business thesis.
 
-Recorded because the asymmetry is invisible from either file on its own, and
-the first person to notice will otherwise read it as a bug.
+**But it is his, and it is not close.** It changes what a passenger pays, and a
+ride fare is quoted upfront and frozen precisely so a passenger can verify it
+before getting in (correction 13). A multiplier nobody told them about is the
+trust problem this platform exists to solve, arriving from our side.
+
+**What it would take, so the answer is cheap when it comes:** a
+`shortage_multiplier` column on `trips`, two lines in `RideQuote`, and the
+`Pricing::Quote` fields that already exist. The module takes a tier and returns
+a multiplier and needs no change. Half a day, and it stays OUT until he says.
+
+### THE `merchant_payout` COUPLING — recorded against the decision itself
+
+`merchant_payout: items_total - commission` contradicts MONEY_AND_SETTLEMENT.md
+§2 and is waiting on one sentence from Hamma9900. **The note that matters is
+now in that document, beside the decision**, rather than only here: the day the
+line changes, `Pricing::CourierTopUp` must be re-read in the same pass, because
+its entire safety argument is "we never touch `commission`, so
+`merchant_payout` cannot move".
+
+Written there rather than in a commit body or a supervisor's head, because his
+answer may be days away and a decision that silently invalidates a safety
+argument elsewhere is the worst kind to take alone.
 
 ### `/courier/wallet/entries` HAS NO CALLER — AHEAD OF ITS SCREEN, NOT DEAD
 
