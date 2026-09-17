@@ -14,7 +14,24 @@ test:
   # Reuse the same host/credentials from DATABASE_URL but force a dedicated test
   # DB. Lifted verbatim from hatiwal-api/config/database.yml, where the comment
   # records it having actually happened.
-  url: <%= require "uri"; u = URI.parse(ENV.fetch("DATABASE_URL", "postgres://karwan:password@localhost:5417/karwan_development")); u.path = "/karwan_test"; u.to_s %>
+  #
+  # ── TEST_DB_SUFFIX: ONE DATABASE PER SESSION ──────────────────────────────
+  #
+  # This box runs several Claude sessions on one repo, and two suites against
+  # one test database do not merely queue — `database_cleaner` truncates while
+  # the other holds a lock, and the loser reports
+  #
+  #   0 examples, 0 failures, 1 error occurred outside of examples
+  #
+  # which is docs/TESTING.md's own lying-instrument shape. Measured here on
+  # 2026-09-17: a plant that should have gone red came back as that, and
+  # reading it as a red would have "proved" a gate that never ran.
+  #
+  # DEFAULTS EMPTY, so a lone session and CI behave exactly as before — this
+  # adds a seam, not a step. Each session exports its own suffix
+  # (`TEST_DB_SUFFIX=_99`) before running anything; docs/TESTING.md carries the
+  # rule and who holds which.
+  url: <%= require "uri"; u = URI.parse(ENV.fetch("DATABASE_URL", "postgres://karwan:password@localhost:5417/karwan_development")); u.path = "/karwan_test#{ENV.fetch('TEST_DB_SUFFIX', '')}"; u.to_s %>
 
 production:
   primary: &primary_production

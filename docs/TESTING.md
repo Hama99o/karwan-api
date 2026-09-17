@@ -241,6 +241,50 @@ Three fixes for F-21 were "verified" against instruments from this list before
 one of them was caught. A wrong instrument does not merely fail to find the
 bug — it manufactures agreement, and agreement is what stops you looking.
 
+### The fifth shape: THE MEASUREMENT THAT NEVER RAN
+
+The four above all read something and read it wrongly. This one reads
+**nothing**, and gets mistaken for a reading — which makes it the cheapest of
+the five to fall for, because it appears at the exact moment you are looking
+for a red.
+
+Measured here on **2026-09-17**. Two sessions were running suites against the
+same test database. A deliberately planted bug came back as:
+
+```
+0 examples, 0 failures, 1 error occurred outside of examples
+   ERROR:  deadlock detected
+   DETAIL:  ... database_cleaner ... truncate_tables
+```
+
+The plant WAS correct and the gate WAS real — but that output proves neither.
+It is not a pass and it is not a fail. **Read as a red it would have "proved" a
+gate that never ran**, which is precisely the claim the plant exists to
+establish, arrived at without evidence.
+
+### THE RULE — one test database per session
+
+**Binding, not a tip.** When more than one session is up on this box:
+
+1. **Each session exports its own `TEST_DB_SUFFIX` before running anything.**
+   `config/database.yml` appends it to `karwan_test`, and it **defaults to
+   empty**, so a lone session and CI behave exactly as they always have. Create
+   yours once with `TEST_DB_SUFFIX=_xx RAILS_ENV=test bin/rails db:prepare`.
+   Suffixes are handed out by Hamma9901 so two sessions cannot pick the same;
+   this session holds **`_99`**.
+2. **A run that reports zero examples is reported as an ERROR** — never as a
+   pass, never as a fail, and never as a plant confirmed. Re-run it on your own
+   database and believe the second result.
+3. **A count is part of a green claim.** "0 failures" without the example count
+   beside it is not a result, which is why every commit message here carries
+   the number. `1,523 examples, 0 failures` says something; `0 failures` says
+   nothing at all.
+
+**Why a suffix rather than a lock:** a lock makes the sessions wait on each
+other, and the one thing worse than a slow suite is a suite people stop running.
+This costs one environment variable and gives each session an instrument nobody
+else can move.
+
 ---
 
 ## When a comment and the code disagree, believe neither — run it
