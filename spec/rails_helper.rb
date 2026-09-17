@@ -154,4 +154,45 @@ RSpec.configure do |config|
   config.filter_rails_from_backtrace!
   # arbitrary gems may also be filtered via:
   # config.filter_gems_from_backtrace("gem name")
+
+  # ═══ THE SEED IS THE ONLY ROUTE BACK TO AN ORDER-DEPENDENT FAILURE ═══════
+  #
+  # `config.order = :random`, so a failure can depend on the permutation. RSpec
+  # prints the seed — but only in the SUMMARY, at the end. That is exactly when
+  # it is least likely to survive:
+  #
+  #   * a run killed by the OOM killer never reaches the summary, and this box
+  #     runs several sessions against one RAM budget;
+  #   * a long run piped through `tail` or `head` can lose it;
+  #   * a reported "N examples, 1 failure" pasted between sessions rarely
+  #     carries it.
+  #
+  # On 2026-09-17 a wallet tenancy example failed once under random order and
+  # passed on every rerun. The seed was not captured, so the permutation was
+  # gone and the mechanism could never be proven — the example was fixed by
+  # reasoning about its shape instead, which worked, but only because the shape
+  # happened to be visible.
+  #
+  # So the seed is announced BEFORE the first example as well as after the
+  # last, and appended to a log that outlives the terminal. One line at the
+  # top costs nothing; not having it costs an evening.
+  config.before(:suite) do
+    warn "\n[rspec] Randomized with seed #{RSpec.configuration.seed} " \
+         "— reproduce this exact order with: --seed #{RSpec.configuration.seed}\n"
+  end
+
+  config.after(:suite) do
+    log = Rails.root.join("tmp/rspec-seeds.log")
+    log.dirname.mkpath
+    log.open("a") do |f|
+      f.puts format("%s  seed=%-7d db=%s  %s",
+                    Time.now.utc.strftime("%F %T"),
+                    RSpec.configuration.seed,
+                    ENV.fetch("TEST_DB_SUFFIX", "(none)"),
+                    RSpec.configuration.files_to_run.size == 1 ? RSpec.configuration.files_to_run.first : "full run")
+    end
+  rescue SystemCallError => e
+    # A log that cannot be written must never fail a suite.
+    warn "[rspec] could not record the seed: #{e.message}"
+  end
 end

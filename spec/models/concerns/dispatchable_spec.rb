@@ -24,6 +24,9 @@ RSpec.describe Dispatchable do
     it "gives every job class a distinct, non-blank key" do
       keys = JOB_CLASSES.map(&:job_kind)
 
+      # Both assertions below are true of an empty list (0 == 0), so an empty
+      # JOB_CLASSES would report that every job class is fine while there are none.
+      expect(keys).not_to be_empty, "no job classes — both assertions below would be vacuous"
       expect(keys).to all(be_present)
       expect(keys.uniq.size).to eq(keys.size)
     end

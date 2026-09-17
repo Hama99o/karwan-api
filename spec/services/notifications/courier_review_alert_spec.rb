@@ -97,7 +97,11 @@ RSpec.describe Notifications::CourierReviewAlert do
 
     deliver!
 
-    expect(sent.last[:data].values.map(&:to_s)).to all(satisfy { |v| !v.match?(/\A\[:/) })
+    values = sent.last[:data].values.map(&:to_s)
+    # A notification that shipped no data at all would satisfy "no inspect
+    # output in a data value" by having no data values.
+    expect(values).not_to be_empty, "no data values — the assertion below would be vacuous"
+    expect(values).to all(satisfy { |v| !v.match?(/\A\[:/) })
   end
 
   it "says nothing at all for a state nobody decided" do

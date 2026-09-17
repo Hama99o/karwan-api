@@ -393,6 +393,10 @@ RSpec.describe "Api::V1::Public::Merchants", type: :request do
       get "/api/v1/public/merchants"
 
       cards = JSON.parse(response.body).fetch("merchants")
+      # The two sibling examples above are guarded by a `.uniq ... eq([...])`
+      # that fails on an empty list. This one is not: a broken listing scope
+      # would show "no distance to a guest" by showing no merchants.
+      expect(cards).not_to be_empty, "no merchants listed — the assertion below would be vacuous"
       expect(cards.map { |c| c["distance_km"] }).to all(be_nil)
     end
   end

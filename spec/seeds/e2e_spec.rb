@@ -248,6 +248,11 @@ RSpec.describe "db/seeds/e2e.rb" do
     it "places them in the past, so they are not confused with the live one" do
       delivered = orders.select { |order| order.status == "delivered" }
 
+      # `all` is vacuously true on an empty list. The sibling example above
+      # asserts there are at least two — but that is a DIFFERENT example, and a
+      # seed change that stopped delivering orders would turn this one green
+      # while turning that one red, which reads as one failure rather than two.
+      expect(delivered).not_to be_empty, "no delivered orders — both assertions below would be vacuous"
       expect(delivered).to all(have_attributes(placed_at: be < 1.day.ago))
       expect(delivered.map(&:delivered_at)).to all(be_present)
     end
@@ -285,6 +290,10 @@ RSpec.describe "db/seeds/e2e.rb" do
     it "gives every past line a catalog pointer, so it can be re-ordered" do
       pointers = orders.flat_map { |order| order.order_items.map(&:catalog_item_id) }
 
+      # Seeded orders with no LINES would satisfy "every past line has a
+      # pointer" by having no past lines — and the re-order step this exists to
+      # protect would still fail on the device.
+      expect(pointers).not_to be_empty, "no order lines at all — the assertion below would be vacuous"
       expect(pointers).to all(be_present)
     end
 

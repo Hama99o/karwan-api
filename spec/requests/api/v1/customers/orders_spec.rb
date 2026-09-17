@@ -344,6 +344,9 @@ RSpec.describe "Api::V1::Customers::Orders", type: :request do
         get "/api/v1/customer/orders/#{order.id}", headers: auth
 
         ids = json.dig("order", "items").map { |item| item["catalog_item_id"] }
+        # `all` is vacuously true on an empty list — an order serialised with no
+        # items would pass "every line carries an id" while carrying no lines.
+        expect(ids).not_to be_empty, "no items — the assertion below would be vacuous"
         expect(ids).to all(be_present)
       end
 

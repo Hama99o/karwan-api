@@ -190,16 +190,38 @@ RSpec.describe "Api::V1::Couriers::Wallet", type: :request do
     # A tenancy check that passes on nothing is the worst kind to hold: it is
     # edu-safi's "tenancy is not permission" lesson with no teeth. He now has
     # an entry of his own, so the exclusion is observable.
+    # ── AND THEN IT MATCHED ON AMOUNTS, WHICH IS NOT AN IDENTITY ───────────
+    #
+    # The hardened version above asserted `include(500.0)` and
+    # `not_to include(777.0)`. **An amount is not a name.** Any row written by
+    # anything else — a seed, a factory default, another session filling the
+    # same fixture from the other end — can carry 500 or 777 and either satisfy
+    # the positive without the courier's own entry being present, or contradict
+    # the exclusion without anything having leaked.
+    #
+    # It failed once under `config.order = :random` on the evening of
+    # 2026-09-17, hours after five new wallet entries were added to the shared
+    # seed by another session, and passed on every rerun. The seed was not
+    # captured, so the permutation is gone and the mechanism was never proven —
+    # **that is recorded as unproven rather than guessed at.** What needs no
+    # permutation to see is the shape: a ledger assertion keyed on a VALUE that
+    # other writers also produce.
+    #
+    # Keyed on the row's own id, no row written anywhere else can satisfy it or
+    # break it. Note also what made this findable at all: **a vacuous assertion
+    # cannot have an order dependency** — it passes regardless. Hardening it is
+    # what gave it the capacity to fail.
     it "never shows another courier's entries" do
-      courier.courier_wallet.record_entry!(kind: :top_up, amount: 500)
+      mine = courier.courier_wallet.record_entry!(kind: :top_up, amount: 500)
       other = create(:user, :courier)
-      other.courier_wallet.record_entry!(kind: :top_up, amount: 777)
+      theirs = other.courier_wallet.record_entry!(kind: :top_up, amount: 777)
 
       get "/api/v1/courier/wallet/entries", headers: auth
 
-      amounts = json["wallet_entries"].map { |e| e["amount"].to_f }
-      expect(amounts).to include(500.0), "his own statement is empty — the check below is vacuous"
-      expect(amounts).not_to include(777.0)
+      ids = json["wallet_entries"].map { |e| e["id"] }
+      expect(ids).to include(mine.id),
+                     "his own statement is empty — the exclusion below would be vacuous"
+      expect(ids).not_to include(theirs.id)
     end
   end
 

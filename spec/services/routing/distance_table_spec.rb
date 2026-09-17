@@ -102,6 +102,9 @@ RSpec.describe Routing::DistanceTable do
       table = result
 
       expect(table.source).to eq("straight_line")
+      # A fallback that produced NO distances also reports "straight_line", and
+      # `all` passes on an empty table — so the whole-list claim needs the list.
+      expect(table.km_by_key).not_to be_empty, "empty table — the assertion below would be vacuous"
       expect(table.km_by_key.values).to all(be_positive)
     end
 

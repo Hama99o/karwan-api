@@ -607,31 +607,6 @@ the four corrected in the other direction the same day.
 > Circumstantial evidence about **who** is not evidence about **what**. The repo
 > can answer the second question exactly, and the answer is cheap.
 
-#### THE BOUNDARY, because this rule was handed over unbounded
-
-**Running it both ways settles whether YOUR CHANGE caused a failure. It does not
-settle whether a FAILURE IS REAL.** Those are different questions and the rule
-only answers the first.
-
-Under `config.order = :random`, the second run **is a different experiment, not
-a repeat of the first** — a different permutation, a different set of rows
-already written. So a passing retry of an order-dependent failure is this rule
-giving a confident wrong answer: it says "not mine, and not there", when what
-happened is "not that permutation".
-
-> Revert-and-restore is a controlled experiment **only when the order is held
-> fixed**. Without `--seed`, a rerun changes two variables and attributes the
-> result to one.
-
-**So the seed is the experiment, and the retry is a new one.** Reproduce with
-`--seed N` before concluding anything from a rerun; if the seed was not
-captured, say the mechanism is unproven rather than picking the tidy story —
-and fix the example's *shape*, which needs no permutation to see.
-
-This repo now announces the seed **before** the first example and appends it to
-`tmp/rspec-seeds.log` (`spec/rails_helper.rb`), because RSpec prints it only in
-the summary and a run killed by the OOM killer never reaches the summary.
-
 ### A CHECK NOBODY RUNS IS INDISTINGUISHABLE FROM A CHECK NOBODY WROTE
 
 The five shapes are about instruments that **lie**. This one is about an
@@ -855,6 +830,15 @@ an **order dependency that is still there**, and the retry hid it.
 1. **Capture the seed before anything else.** RSpec prints
    `Randomized with seed NNNN` and it is the only route back to the
    permutation. Losing it — which I did — makes the failure unreachable.
+
+   **This no longer depends on anybody remembering.** RSpec prints the seed
+   only in the SUMMARY, which is exactly when it is least likely to survive: a
+   run killed by the OOM killer never reaches the summary, and this box runs
+   several sessions against one RAM budget. `spec/rails_helper.rb` now
+   announces it **before the first example** as well, and appends
+   `timestamp / seed / TEST_DB_SUFFIX / scope` to `tmp/rspec-seeds.log`, which
+   outlives the terminal. One line at the top costs nothing; not having it cost
+   an evening.
 2. **`--seed NNNN --bisect`** reduces it to the minimal pair of examples.
 3. **Only then re-run**, and re-run with that seed, so the second run is
    actually the same experiment.
