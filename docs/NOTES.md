@@ -537,6 +537,11 @@ call. **Trigger: upgrade Administrate BEFORE Rails 8.2, not during**, and check
 a fixed Administrate exists before the upgrade is attempted rather than
 half-way through it.
 
+**CONFIRMED ONE CALL SITE, NOT ELEVEN.** Driving search on every routed console
+resource emits 22 warning lines from the same `Administrate::Search` line — the
+per-resource dashboards share it, so the fix is one gem upgrade rather than
+eleven changes.
+
 Two other users of `mb_chars` exist in the gemset and **neither reaches us**:
 `activerecord` itself, which is Rails' to fix before it removes the method, and
 `annotaterb`, which is another project's gem in this shared RVM gemset and is

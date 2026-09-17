@@ -342,6 +342,73 @@ The fix was to assert the page he opens (`GET .../edit` contains
 never calls is not the surface; the form is.** Ask what the person actually
 does, and drive that.
 
+### THE EIGHTH SHAPE: A PERFECT INSTRUMENT POINTED AT SOMEBODY ELSE'S DOMAIN
+
+The other seven describe an instrument that is wrong. **This one has no defect
+at all** — it reads correctly, reports completely, and is honest about
+everything it covers. Its scope was simply inherited from an unrelated artifact,
+and nobody chose it.
+
+**The receipt is a ZERO, which is what makes it the hardest to see.** Catalogued
+every deprecation the app would die on at the next Rails upgrade by running the
+full suite with stderr captured. **Before the operator spec existed, that run
+emitted zero** — and a zero reads as *"the app is ready for 8.2"*.
+
+It was not. `Administrate::Search` calls `term.mb_chars`, removed in Rails 8.2,
+on the thousand-times-a-day path of the surface Hamma9900 says matters most.
+**Nothing was broken and nothing was lying. Nothing drove the code.**
+
+> **A catalogue built from a test suite inherits the suite's blind spots
+> exactly.** So the answer is to widen coverage, not to re-run.
+
+**How it differs from its neighbours**, because the distinction is the whole
+value:
+
+| | The instrument |
+|---|---|
+| shapes 1–4 | observes the wrong thing, or nothing, or the wrong subject |
+| fifth | reads **nothing** and is mistaken for a reading |
+| sixth | reads something **true** and is mistaken for evidence |
+| seventh | is **right today** and wrong on a date nobody chose |
+| **eighth** | is **correct and complete over a domain somebody else chose** |
+
+**The question it earns**, alongside *is the subject there* and *could this have
+moved*: **what is this measuring over, who decided that, and what lives outside
+it?** For anything derived from a suite — coverage, deprecations, a dependency
+audit, a performance profile — the honest report states the bound in the same
+breath as the number. *"One deprecation"* is a different claim from *"one
+deprecation on the paths the suite covers"*, and only the second is true.
+
+The floor it produced: `spec/requests/admin/every_console_page_opens_spec.rb`,
+which drives index, search and show for every routed console resource — because
+the reason search was dark is that nothing opened the ordinary pages.
+
+### A CONSTANT IN AN `RSpec.describe` BLOCK IS GLOBAL
+
+`ROUTED = ...` written inside `RSpec.describe` is **not scoped to the example
+group.** Ruby assigns it on `Object`, so it is a top-level constant shared by
+every spec file in the run.
+
+Measured 2026-09-17. Two spec files each derived a list from the router and each
+called it `ROUTED` — one the custom admin ACTIONS, one the routed console
+RESOURCES. **Both passed alone. In a full suite they collided**: whichever
+loaded second won, and the first file's examples then asserted against a list
+built to answer a different question. The failure message was bizarre — a
+resource-coverage example complaining about `admin/orders#reassign`.
+
+> **Green in isolation, wrong together, and invisible unless the whole suite
+> runs** — the same shape as two sessions sharing a test database, arriving
+> through the language instead of the box.
+
+Two consequences worth keeping:
+
+- **Name a constant in a spec for the question it answers**, not for the
+  concept — `CONSOLE_RESOURCES`, not `ROUTED`. A generic name is a name
+  somebody else will pick.
+- **A targeted run cannot see this class of bug at all.** It is the argument
+  for running the whole suite before committing, and the reason a passing file
+  is not a passing change.
+
 ### WHEN A FAILURE LOOKS LIKE ANOTHER SESSION'S, RUN IT BOTH WAYS FIRST
 
 **Revert your change, run the example, restore it, run it again.** Ninety
