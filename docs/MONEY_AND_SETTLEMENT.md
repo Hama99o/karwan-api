@@ -42,27 +42,58 @@ CUSTOMER  ──── pays 400 in cash ────►  COURIER
 | **Restaurant** | 315 received, 250 kept | | 250 | **65** |
 | **Platform** | — | 65, in one deposit | **65** | — |
 
-### ⚠ THE CODE DISAGREES WITH THIS SECTION, AND A SECOND THING NOW DEPENDS ON THE DISAGREEMENT
+### ⚠ ONE OPEN QUESTION, WHICH IS THE WHOLE OF §2 — HAMMA9900'S
 
-`Pricing::DeliveryQuote` computes `merchant_payout: items_total - commission` — the courier
-hands over the food **minus** our commission (250 on a 300 meal). This section says he hands
-over the food **plus** our margin (315). They are not reconcilable and the difference is the
-whole of §2's point: whether the restaurant is the single collection point for revenue from both
-sides. **Awaiting one sentence from Hamma9900. Do not "fix" either side alone.**
+**In a cash model the platform never touches the money.** Every note is handed from a customer to
+a courier to a restaurant. So every afghani of platform revenue has to travel back to us through
+some channel — and **there must be exactly one.**
 
-**The second cost, which he is entitled to know before he answers.** `Pricing::CourierTopUp`
-(the distance top-up on a thin far order) was deliberately built to route AROUND that line: it
-writes its own `commission_topup` column and its own ledger entry rather than reducing
-`commission`. The reason is arithmetic — under `payout = items_total - commission`, lowering the
-commission to pay a courier **raises what the restaurant receives**, so our margin would have
-become their windfall on exactly the orders the top-up exists to rescue, with every figure on
-the order still summing correctly.
+That is the real question, and it is currently answered two different ways in two places, with a
+third amount answering it not at all.
 
-**So the day this line changes, `Pricing::CourierTopUp` must be re-read in the same pass.** Its
-entire safety argument is *"we never touch `commission`, so `merchant_payout` cannot move"*. If
-the payout stops being derived from the commission, that argument stops being the reason it is
-safe. It may well still BE safe — but nobody will have checked, and a decision that silently
-invalidates a safety argument somewhere else is the worst kind to take alone.
+| | Who collects for us | `merchant_payout` on a 300 meal | What the platform's revenue is |
+|---|---|---|---|
+| **Option A — this document** | the **restaurant** | **315** — food *plus* our delivery margin | the restaurant deposits 65: our 50 commission and our 15 delivery margin, in one weekly payment |
+| **Option B — the code today** | the **courier's wallet** | **250** — food *minus* our commission | `commission` is charged to his prepaid wallet; the delivery margin is charged to nobody |
+
+The gap between 315 and 250 is 65, which is exactly the total platform revenue on that order.
+**They are not two versions of one design; they are two different collection mechanisms.**
+
+#### The three amounts this decides, and they must all use the same channel
+
+1. **The restaurant commission.** Option A: added to what the courier hands over, deposited
+   weekly. Option B: charged to the courier's wallet. Built as B.
+2. **The premium delivery margin** (`delivery_fee - courier_fee`). **Charged to the customer and
+   collected from nobody today** — the courier is handed the uplift with the fare and nothing
+   ever asks for it. On a 400 AFN order the customer pays 24 more for premium and the courier
+   keeps all 24. This is not a third question; it is this same fork, unanswered.
+3. **The platform's share of a shortage.** The shortage multiplier lifts the customer's fee and
+   the courier's pay together, and on a premium order it lifts our margin with them — so it
+   inherits whichever answer #2 gets, and is already built.
+
+**Whichever channel is chosen, ALL platform revenue must travel through it.** If commission comes
+back through the restaurant and the premium uplift through the wallet, there are two collection
+mechanisms for one company's revenue, two reconciliations, and a third inconsistency waiting in
+the next feature that adds an amount. That is precisely what has already happened twice.
+
+#### What each option costs, in one line each
+
+- **Option A** is what this document argues for, and the argument is strong: *the courier never
+  owes us anything*, so there is no wallet to chase, no debt, and no courier who can vanish owing
+  money. The cost is that the restaurant is holding our money between deposits.
+- **Option B** is built and working: the wallet is prepaid, so our exposure is bounded by design
+  and a courier cannot work with an empty balance. The cost is that it contradicts this section,
+  and that the delivery margin currently has no home in it.
+
+#### Do not answer half of it
+
+Two `pending` examples in `spec/services/pricing/money_conservation_spec.rb` name this decision.
+They turn **green** when it is implemented, and the companion examples pinning today's behaviour
+turn **red** — so one sentence from Hamma9900 produces a worklist rather than an afternoon of
+grep. **`Pricing::CourierTopUp` must be re-read in the same pass**: it was deliberately built to
+avoid touching `commission`, because under Option B's `payout = items_total - commission`,
+lowering the commission to pay a courier *raises* what the restaurant receives. If the payout
+stops being derived from the commission, that safety argument stops being the reason it is safe.
 
 ### The three things that make this shape right
 

@@ -382,6 +382,61 @@ which is the one claim a list like this cannot support.
 
 ## Solved, with the reasoning
 
+### THE PREMIUM UPLIFT IS CHARGED AND NEVER COLLECTED — OPEN, HAMMA9900'S
+
+Found by `spec/services/pricing/money_conservation_spec.rb` on its first run.
+**Live money, on the only paid upgrade the product has.**
+
+Measured, 400 AFN order at 12.5% commission:
+
+```
+normal   customer 480  merchant 350  courier ends with  80  platform 50
+premium  customer 504  merchant 350  courier ends with 104  platform 50
+```
+
+The customer pays **24 AFN more for premium and the courier keeps all 24.**
+
+**No single file is wrong, which is why nothing caught it.**
+`Pricing::DeliveryQuote` states *"THE PREMIUM UPLIFT IS THE PLATFORM'S"* and
+`Order` states *"the platform's delivery margin is `delivery_fee -
+courier_fee`"* — both correct as intent. But in Model A the courier collects
+`customer_total`, hands over `merchant_payout`, and his wallet is charged
+`commission`. **Nothing charges him the margin.** `Couriers::CashPosition` sums
+`commission` alone; `Order#platform_cash_held` returns `commission` alone. Each
+file is locally consistent and the money goes missing between them.
+
+**Not fixed here: whether the courier owes the premium margin is a money rule**
+(HOW_WE_WORK — his). It sits as a `pending` example naming him, which turns
+green the day it is fixed and fails loudly if anybody "fixes" it by editing the
+expectation. A second example pins what is true today so the leak cannot grow
+while the question is open.
+
+**It is probably the same decision as the §2 disagreement**, and worth putting
+to him as one: both are *where does platform revenue get collected in a cash
+model where the courier physically holds every note*. §2's answer — the
+restaurant as the single collection point for both sides — would answer this
+one too. Answering them separately is how a third inconsistency appears.
+
+### CONSERVATION IS NOT ATTRIBUTION, AND A RESIDUAL CANNOT FAIL
+
+The first version of the conservation spec defined the courier's share as
+`customer_total - merchant_payout - commission` — **a residual**. It therefore
+summed to `customer_total` by arithmetic, and the conservation assertion could
+not fail across 101 examples. Caught by planting a leak and finding nothing
+went red.
+
+Rebuilt so every share is computed from **independent stored fields**
+(`merchant_payout`, `courier_fee + topup`, `commission - topup + delivery_fee -
+courier_fee`). The same plant now turns **50 of 126** examples red.
+
+**The boundary, which shaped the file and is worth keeping:** conservation
+catches money appearing or vanishing. It does **not** catch the wrong party
+being paid — re-attributing the premium uplift from the platform to the courier
+conserves perfectly, which is exactly the live bug above. So the file asserts
+both: conservation over the matrix, and attribution (`intended` versus
+`actual`) per party. A test that only conserves would have been satisfied by
+the defect it was written to find.
+
 ### THE TOP-UP AT A CALL SITE WAS A BUG, AND THE FIX WAS STRUCTURAL — CLOSED
 
 Recorded because the reasoning generalises well past this feature.

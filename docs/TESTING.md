@@ -291,6 +291,40 @@ this exists to do?* Then find the example that goes red when that one thing is
 removed. If there is not one, the feature is untested however many examples
 are green.
 
+### A TEST THAT STATES WHAT IT CANNOT SEE IS WORTH MORE THAN ONE THAT IMPLIES IT SEES EVERYTHING
+
+`spec/services/pricing/money_conservation_spec.rb` asserts an accounting
+identity over a matrix of tiers, storms, distances and baskets. It is the
+strongest gate in the money model and **it has a hard limit that has to be
+written down, because a green conservation suite reads as "the money model is
+correct" and it does not mean that.**
+
+> **Conservation catches money appearing or vanishing. It does NOT catch the
+> wrong party being paid**, because re-attribution conserves perfectly.
+
+The live bug in that file is the proof: the premium uplift is charged to the
+customer and kept by the courier instead of the platform. Every afghani is
+accounted for, nothing appears or vanishes, and **conservation is satisfied by
+the defect.** That is why the file asserts a second, separate thing —
+*attribution*, `intended` versus `actual` per party — and why the leak lives in
+that half.
+
+**Two shapes came out of building it, both worth the rule:**
+
+**1 · A RESIDUAL CANNOT FAIL.** The first version defined the courier's share
+as `customer_total - merchant_payout - commission`, which sums to
+`customer_total` by arithmetic. 101 examples, in a file whose entire purpose is
+to fail, that could not. Caught by planting a leak and finding nothing went red
+— never by reading it. Rebuilt from independent stored fields, the same plant
+turns 50 of 126 red.
+
+**Any quantity defined as "everything that is left" is an identity, not a
+measurement.** If one term of a sum is computed by subtracting the others from
+the total, asserting the sum proves only that subtraction works.
+
+**2 · Say the limit in the file.** The next person to read a green suite should
+learn what it did not check from the suite itself, not from whoever wrote it.
+
 ### A CHECK NOBODY RUNS IS INDISTINGUISHABLE FROM A CHECK NOBODY WROTE
 
 The five shapes are about instruments that **lie**. This one is about an
