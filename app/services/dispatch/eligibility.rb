@@ -150,7 +150,10 @@ module Dispatch
       )
       return false if distance.nil?
 
-      distance > Setting.fetch("dispatch_max_offer_radius_km")
+      # PER VEHICLE, not one global ceiling: 8 km is a different journey on a
+      # bicycle and in a car. `OfferRadius` explains why an unknown vehicle
+      # falls back to the global row rather than to zero.
+      distance > OfferRadius.km(profile.vehicle_type)
     end
 
     def profile

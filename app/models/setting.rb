@@ -15,6 +15,11 @@ class Setting < ApplicationRecord
   # Every key the app reads, with its type, default and unit. A key missing
   # from here is a typo, not a setting — `fetch` raises on it rather than
   # returning nil and letting a fee silently become zero.
+  # The offer ceiling every vehicle starts at. One constant so the global
+  # fallback and the six per-vehicle rows cannot be given different "today"
+  # values by accident.
+  DEFAULT_OFFER_RADIUS_KM = "8.0".freeze
+
   DEFINITIONS = {
     "commission_rate"        => { type: :decimal, default: "0.125", description: "Platform share of the food total (0.125 = 12.5%)" },
     # Delivery fee, distance-based. Replaces an earlier flat `delivery_fee`,
@@ -66,7 +71,27 @@ class Setting < ApplicationRecord
     # ceiling does not need to be exact — it needs to exclude the absurd.
     # Generous rather than tight on purpose: a courier wrongly excluded is an
     # order nobody carries, which is worse than one offered slightly too far.
-    "dispatch_max_offer_radius_km" => { type: :decimal, default: "8.0", description: "Furthest a courier may be from the pickup to be offered a job. A GUESS — nothing in one neighbourhood tests it." },
+    # ONE CEILING PER VEHICLE, because one number cannot say the thing
+    # Hamma9900 asked for: **a motorbike should not be offered a pickup a car
+    # would happily take.** 8 km is a different journey on a bicycle, on a
+    # motorbike in Kabul traffic and in a car, and a single global figure has to
+    # be wrong for five of the six to be right for one.
+    #
+    # DERIVED FROM `VehicleTypes::ALL` rather than typed out, so a vehicle added
+    # to the enum cannot arrive without a radius — the pair cannot drift,
+    # because there is no second list to forget. Same discipline as the port:
+    # put the convention where the wrong thing is impossible rather than where
+    # somebody has to remember it.
+    #
+    # EVERY DEFAULT IS TODAY'S GLOBAL VALUE, so the day this lands nothing moves
+    # — it is a knob at rest. Correction 13: ship the tuning surface, let him
+    # turn it.
+    "dispatch_max_offer_radius_km" => { type: :decimal, default: DEFAULT_OFFER_RADIUS_KM, description: "Fallback ceiling, used only for a courier whose vehicle has no row of its own. Per-vehicle rows below are what dispatch actually reads. A GUESS — nothing in one neighbourhood tests it." },
+    **VehicleTypes::ALL.keys.to_h do |vehicle|
+      [ "dispatch_max_offer_radius_km_#{vehicle}",
+        { type: :decimal, default: DEFAULT_OFFER_RADIUS_KM,
+          description: "Furthest a courier on a #{vehicle} may be from the pickup to be offered a job." } ]
+    end,
     # OTP SEND limits. These are a BILL, not only a security control: SMS is one
     # of exactly two recurring costs in v0, and an unthrottled request endpoint
     # is someone else spending the owner's money. They are settings rather than

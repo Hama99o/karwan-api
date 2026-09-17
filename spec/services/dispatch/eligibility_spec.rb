@@ -108,10 +108,74 @@ RSpec.describe Dispatch::Eligibility do
 
       it "follows the Setting rather than a constant, so Hamma9900 can retune it" do
         put_courier_km_away(20)
-        Setting.find_or_initialize_by(key: "dispatch_max_offer_radius_km")
+        # The courier factory rides a motorbike, and it is the motorbike's own
+        # row that dispatch reads now — not the global one.
+        Setting.find_or_initialize_by(key: "dispatch_max_offer_radius_km_motorbike")
                .update!(value: "50", value_type: :decimal)
 
         expect(eligibility.reason).to be_nil
+      end
+
+      # ── ONE CEILING PER VEHICLE ───────────────────────────────────────────
+      #
+      # Hamma9900's ask, stated as the thing that used to be impossible: a
+      # motorbike should not be offered a pickup a car would happily take. The
+      # two couriers below are identical in every other respect and stand in
+      # the SAME PLACE, so the vehicle is the only thing that can decide it.
+      context "per vehicle" do
+        let(:driver) { create(:user, :courier) }
+
+        before do
+          Setting.find_or_initialize_by(key: "dispatch_max_offer_radius_km_motorbike")
+                 .update!(value: "4", value_type: :decimal)
+          Setting.find_or_initialize_by(key: "dispatch_max_offer_radius_km_car")
+                 .update!(value: "12", value_type: :decimal)
+
+          driver.courier_profile.update!(is_available: true, vehicle_type: :car,
+                                         last_latitude: courier.courier_profile.last_latitude,
+                                         last_longitude: courier.courier_profile.last_longitude,
+                                         location_updated_at: Time.current)
+          driver.courier_wallet.update!(balance: 1_000, credit_line: 500)
+        end
+
+        it "refuses the motorbike and asks the car, from the same spot" do
+          put_courier_km_away(8)
+          driver.courier_profile.update!(
+            last_latitude: courier.courier_profile.reload.last_latitude,
+            last_longitude: courier.courier_profile.last_longitude,
+            location_updated_at: Time.current
+          )
+
+          expect(eligibility.reason).to eq(:too_far)
+          expect(eligibility(order, for_courier: driver).reason).to be_nil
+        end
+
+        # The ceiling still works as a ceiling per vehicle — a car 20 km out is
+        # refused by its own row, not waved through because it is a car.
+        it "still refuses the car beyond the car's own ceiling" do
+          put_courier_km_away(20)
+          driver.courier_profile.update!(
+            last_latitude: courier.courier_profile.reload.last_latitude,
+            last_longitude: courier.courier_profile.last_longitude,
+            location_updated_at: Time.current
+          )
+
+          expect(eligibility(order, for_courier: driver).reason).to eq(:too_far)
+        end
+      end
+
+      # ── A KNOB AT REST ────────────────────────────────────────────────────
+      #
+      # Correction 13's pattern: ship the tuning surface with defaults that
+      # change nothing, so the day it lands there is nothing to verify in
+      # production. If this goes red, somebody gave one vehicle a different
+      # starting ceiling and dispatch quietly changed shape.
+      it "starts every vehicle at the old global value, so landing it moves nothing" do
+        VehicleTypes::ALL.each_key do |vehicle|
+          expect(Dispatch::OfferRadius.km(vehicle))
+            .to eq(BigDecimal(Setting::DEFAULT_OFFER_RADIUS_KM)),
+                "#{vehicle} did not start at the old global ceiling"
+        end
       end
 
       # ── ORDERED AFTER FRESHNESS, AND THAT ORDER IS LOAD-BEARING ───────────
