@@ -326,8 +326,15 @@ hatiwal-api generates OpenAPI from rswag request specs and serves it at
 RSpec rather than the rswag DSL.
 
 This is a genuine gap and it is deliberately deferred rather than forgotten.
-The cost is rewriting ~200 request examples into the rswag DSL; the benefit is
-browsable docs. It matters most at the moment a second person writes a client —
+The cost is rewriting the request examples into the rswag DSL; the benefit is
+browsable docs.
+
+**MEASURED 2026-09-17, because the estimate here was wrong: it is 423
+examples, not ~200** — across 20 files, 70 API routes and 25 controllers. A
+figure written from memory in a paragraph arguing for deferral is the kind that
+gets believed by whoever finally picks the work up, a third of the way in. It
+is days rather than hours, and every one of those examples is a working test
+that would be rewritten into a less readable form to produce a web page. It matters most at the moment a second person writes a client —
 and right now the only client is being written in this same session, against
 the controllers directly.
 
