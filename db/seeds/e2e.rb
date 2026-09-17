@@ -282,6 +282,7 @@ end
 seed_section "e2e live order" do
   customer = User.find_by!(phone: E2E[:customer])
   merchant = Merchant.find_by!(phone: "+93700000804")
+  courier  = User.find_by!(phone: E2E[:courier])
   item = merchant.catalog_items.first
 
   # ONE live order, in `ready` — the state where the most screens have
@@ -322,6 +323,37 @@ seed_section "e2e live order" do
     # number of days old — and the live order eventually sinks beneath them.
     created_at: 20.minutes.ago
   )
+  # ── A COURIER IS ASSIGNED, AND THE STATUS STAYS `ready` ────────────────────
+  #
+  # This is what the domain actually does: `offers_controller#accept` runs
+  # `job.update!(courier: current_user)` and **touches no status** — a courier
+  # is attached at accept and the order stays `ready` until pickup. So a
+  # `ready` order WITH a courier is not a contrivance, it is the normal state
+  # between dispatch and the door.
+  #
+  # ── WHY THIS MATTERS MORE THAN THE REST OF THIS FILE ──────────────────────
+  #
+  # `AFGHAN_UX.md` §6: once there is a courier, HIS number replaces support on
+  # the customer's status screen, so the customer — in the doc's own words,
+  # *"especially a woman expecting a stranger at the door"* — can reach him
+  # first. **That is the one requirement in this app where being wrong has a
+  # consequence outside the app**, and it had never been seen on a device:
+  # `Customers::OrderSerializer`'s `courier` field returns `nil` unless
+  # `order.courier` is set, and no fixture ever set it for this customer.
+  #
+  # ── AND THE ONE-LIVE-ORDER PREMISE IS UNCHANGED, DELIBERATELY ─────────────
+  #
+  # The alternative was a SECOND live order in `picked_up`. That would have
+  # broken this file's premise — one live order for the rig customer, which is
+  # what makes the status screen, the merchant board and the map all point at
+  # the same thing — and the status screen renders the NEWEST live order, so a
+  # second one would silently move every assertion about this one onto it. I
+  # did exactly that with `KQA00003` earlier today and the seed spec caught it.
+  #
+  # Attaching the courier here changes ONE field, keeps the count at one, and
+  # keeps `ready` — so the merchant board still has its card, the timeline
+  # still has its stamps, and the map still has two points.
+  order.courier = courier
   order.save!
 
   if order.order_items.empty?

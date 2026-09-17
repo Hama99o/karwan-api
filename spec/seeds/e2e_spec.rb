@@ -168,6 +168,54 @@ RSpec.describe "db/seeds/e2e.rb" do
       expect(order.customer_total).to eq(order.items_total + order.delivery_fee)
     end
 
+    # ── §6: THE COURIER'S NUMBER, AND WHY THIS IS THE GATE THAT MATTERS ────
+    #
+    # `AFGHAN_UX.md` §6: once there is a courier, HIS number replaces support on
+    # the customer's status screen, so the customer — in the doc's own words,
+    # *"especially a woman expecting a stranger at the door"* — can reach him
+    # first. **That is the one requirement in this app whose failure has a
+    # consequence outside the app**, and it had never been exercised anywhere:
+    # `Customers::OrderSerializer`'s `courier` field returns nil unless
+    # `order.courier` is set, and no fixture set it for this customer.
+    #
+    # `ready` WITH a courier is not a contrivance — it is what the domain does.
+    # `offers_controller#accept` runs `job.update!(courier: current_user)` and
+    # touches no status, so this is the normal state between dispatch and the
+    # door.
+    it "has a courier, so the customer can ring the person coming to the door" do
+      expect(order.courier).to be_present
+      expect(order.courier.phone).to eq("+93700000803")
+      # A phone the app can actually dial. A courier row with no number is the
+      # same silence as no courier at all.
+      expect(order.courier.phone).to match(/\A\+93\d{9}\z/)
+    end
+
+    # The serializer is what the SCREEN reads, so assert through it rather than
+    # off the model — the field is inside `view :detailed` and a `list` render
+    # does not carry it, which is exactly the kind of gap a model assertion
+    # would miss.
+    it "serialises the courier to the customer, first name and number" do
+      rendered = Customers::OrderSerializer.render_as_hash(order, view: :detailed)
+
+      expect(rendered[:courier]).to be_present
+      expect(rendered[:courier][:phone]).to eq("+93700000803")
+      # FIRST NAME ONLY — the customer needs to know who is knocking, not who
+      # the courier is. The serializer's own comment says so.
+      expect(rendered[:courier][:name]).to eq("QA")
+    end
+
+    # ── THE PREMISE IS UNCHANGED, AND THAT WAS THE POINT ───────────────────
+    #
+    # The alternative was a SECOND live order in `picked_up`, which would have
+    # broken the one-live-order premise — and the status screen renders the
+    # NEWEST live order, so a second would silently move every assertion about
+    # this one onto it. I did exactly that with `KQA00003` earlier and this file
+    # caught it. Attaching the courier changes one field and keeps the count.
+    it "still leaves the rig customer exactly ONE live order" do
+      expect(customer.orders.reject(&:terminal?).count).to eq(1)
+      expect(order.status).to eq("ready")
+    end
+
     # Without the transition rows the customer's five steps render as five
     # pending ones for an order that is nearly there.
     it "carries the timeline the customer's steps are stamped from" do

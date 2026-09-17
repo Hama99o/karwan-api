@@ -1906,3 +1906,41 @@ says ("pay 300", not "pay 250"), and it makes a whole category of
 `wallet_entries` obsolete on the food side while leaving it live on the ride side.
 
 **It needs one sentence from Hamma9900 and then it is an afternoon.**
+
+## OBSERVED ONCE: an order-dependent failure in `couriers/wallet_spec.rb`
+
+**Recorded because it passed on the retry, which is exactly why it would
+otherwise be forgotten.**
+
+On 2026-09-17, a full-suite run failed one example:
+
+```
+rspec ./spec/requests/api/v1/couriers/wallet_spec.rb:182
+  GET /api/v1/courier/wallet/entries never shows another courier's entries
+```
+
+It then passed in all three of: that file alone (20 examples), that file paired
+with `spec/seeds/e2e_spec.rb` (68 examples), and a second full run (**1849
+examples, 0 failures**).
+
+`spec/spec_helper.rb:91` sets `config.order = :random`, so **this is an
+order dependency rather than flakiness** — a different permutation surfaced it
+and the next one hid it. I did not capture the seed, which is the mistake:
+RSpec prints `Randomized with seed NNNN` and that number is the only way back
+to the failing permutation.
+
+**What it is probably about, stated as a hypothesis and not a finding:** the
+example asserts isolation — one courier must not see another's ledger. The e2e
+seed now creates **five wallet entries** for `E2E[:courier]`, and if some
+permutation leaves those rows visible to that example, the isolation assertion
+sees entries it did not create. Every write in that seed is inside the
+per-example transaction, so this should not happen; that it apparently did once
+is the part worth someone's attention.
+
+**If it recurs:** capture the seed from the run's output and
+`bundle exec rspec --seed NNNN --bisect`, which reduces it to the minimal pair
+of examples. Do not re-run hoping for green — a passing retry of an
+order-dependent failure is the "run it twice" rule giving the wrong answer,
+because the second run is a different experiment rather than a repeat of the
+first.
+
