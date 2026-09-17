@@ -170,6 +170,35 @@ else
   note "bin/rails db:seed"
 fi
 
+# ── CAN ANYBODY ACTUALLY OPEN THE CONSOLE? ────────────────────────────────
+#
+# Found by booting the production image on 2026-09-17: the seed ran, settings
+# appeared, and `admin_users` was ZERO. `AdminUser` was created only in the
+# sample and e2e seeds, both skipped in production, so a first deploy produced
+# a working API with an ops console nobody could log into — and `deploy.yml`'s
+# `admin` alias only COUNTS them.
+#
+# `db/seeds/reference.rb` now seeds one from `ADMIN_PASSWORD` and refuses to
+# default it in production. This is the second line of defence: if the seed was
+# skipped, or somebody ran `db:prepare` against a database that already
+# existed, the console is unreachable and nothing else says so.
+step "Ops console"
+ADMINS=$(bin/rails runner 'print AdminUser.count' 2>/dev/null)
+
+if [ "$ADMINS" = "0" ]; then
+  if [ -n "${APP_BASE_URL:-}${KAMAL_HOST:-}" ] || [ "${RAILS_ENV:-development}" = "production" ]; then
+    bad "no admin user exists — the ops console cannot be opened by anybody."
+    note "set ADMIN_PASSWORD in .env.production, then: bin/rails db:seed"
+  else
+    say "  · no admin user yet — /admin cannot be opened."
+    note "bin/rails db:seed   (creates ops@karwan.af)"
+  fi
+elif [ -z "$ADMINS" ]; then
+  say "  · could not ask Rails how many admins exist."
+else
+  ok "$ADMINS admin user(s) can open the console"
+fi
+
 # ── A warning, not a failure: SMTP ────────────────────────────────────────
 # THE SECOND GATEWAY, and it was invisible until docs/NOTES.md went looking.
 # `Users::PasswordResetService` picks its channel from the SHAPE of what was

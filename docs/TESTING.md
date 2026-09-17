@@ -339,6 +339,32 @@ The fix was to assert the page he opens (`GET .../edit` contains
 never calls is not the surface; the form is.** Ask what the person actually
 does, and drive that.
 
+### WHEN A FAILURE LOOKS LIKE ANOTHER SESSION'S, RUN IT BOTH WAYS FIRST
+
+**Revert your change, run the example, restore it, run it again.** Ninety
+seconds, and it is cheaper than the message you were about to send — and far
+cheaper than the hour the other session spends hunting a bug in its own work
+that you planted.
+
+Earned on 2026-09-17. A seed change of mine broke `spec/seeds/e2e_spec.rb`, and
+every piece of circumstantial evidence pointed away from me: that file and its
+spec were **uncommitted in the other session's working tree**, and the last
+commit touching either was **theirs**. The message was drafted.
+
+Run both ways, it passed without my file and failed with it. The mechanism was
+invisible in both diffs: `e2e.rb` resolves its approver with
+`find_or_create_by!(email: "ops@karwan.af")`, found the account my seed had
+just created, and **skipped its own block** — so their fixture quietly lost the
+attributes it depended on.
+
+**The trap is that the story was TIDY.** Uncommitted files, their commit, their
+area — an explanation that accounts for everything is exactly when nobody spends
+the ninety seconds. Every confident wrong attribution has that shape, including
+the four corrected in the other direction the same day.
+
+> Circumstantial evidence about **who** is not evidence about **what**. The repo
+> can answer the second question exactly, and the answer is cheap.
+
 ### A CHECK NOBODY RUNS IS INDISTINGUISHABLE FROM A CHECK NOBODY WROTE
 
 The five shapes are about instruments that **lie**. This one is about an

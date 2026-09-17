@@ -93,7 +93,14 @@ env:
     # Hamma9900's open decision (chosen on price per message to Afghan
     # networks); the adapter seam is `Notifications::SmsClient`.
     - SMS_PROVIDER
+    # THE FIRST ADMIN'S PASSWORD. `db/seeds/reference.rb` RAISES in production
+    # rather than defaulting it — a console seeded with a known password is
+    # worse than no console. Without this the first deploy fails during
+    # `db:prepare` with the remedy in the message.
+    - ADMIN_PASSWORD
   clear:
+    # Who the ops console belongs to. The password is a secret, above.
+    ADMIN_EMAIL: ops@karwan.af
     DATABASE_HOST: karwan_api-db
     DATABASE_PORT: 5432
     DATABASE_USERNAME: karwan
