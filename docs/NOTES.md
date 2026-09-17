@@ -420,6 +420,53 @@ exactly this reason, and then stopped. A discipline that is applied while it is
 front of mind and dropped when it is not is the same failure as a check nobody
 runs — which is why this is a rule in a file rather than a resolution.
 
+### THE PRODUCTION IMAGE HAD NEVER BEEN BUILT, AND IT SHIPPED AN UNSTYLED CONSOLE
+
+Built for the first time on **2026-09-17**. It builds — exit 0 — and the first
+build found what a first build is for.
+
+**`assets:precompile` was missing from `Dockerfile`, and `hatiwal-api` has it.**
+There was a blank gap where the four lines belong.
+
+Measured in the image rather than reasoned:
+
+- `/rails/public/` contained **only `robots.txt`** — no `public/assets`.
+- **Propshaft's server middleware is not in the production stack** (`[]`); it is
+  development-only. `ActionDispatch::Static` is, and serves from `public/`.
+- `stylesheet_link_tag "administrate/application"` **resolved perfectly** to
+  `/assets/administrate/application-04100076.css`, because propshaft digests
+  from the load path at runtime.
+
+**So the page renders, references a stylesheet, and nothing serves it.** The
+ops console — Hamma9900's only operational surface (correction 16) — would have
+come up unstyled on his first deploy, with every gate in this repo green,
+because nothing in a test suite builds an image.
+
+Fixed by copying `hatiwal-api/Dockerfile:54-57` verbatim, comment included.
+After: `public/assets` holds 45 files including the exact digest the HTML had
+been asking for.
+
+> **A DIVERGENCE FROM THE REFERENCE IS INVISIBLE FROM INSIDE THE FILE.** Nothing
+> about our Dockerfile looked wrong — a missing step has no syntax. It was only
+> findable by building it, or by reading the file it was copied from. Both of
+> today's Dockerfile findings came from Hatiwal rather than from inspection.
+
+### INHERITED: THE PRODUCTION IMAGE SHIPS THE WHOLE TEST TOOLCHAIN
+
+`brakeman`, `rubocop`, `rspec-*`, `factory_bot`, `faker`, `rswag-specs` are all
+in the image — 153 gem directories.
+
+**Cause:** `BUNDLE_WITHOUT="development"` excludes a gem only when **all** its
+groups are excluded, and the Gemfile has `group :development, :test` plus a
+separate `group :test`. Nothing in either group is dropped.
+
+**NOT OURS AND NOT FIXED HERE.** `hatiwal-api` has the identical Dockerfile line
+and the identical Gemfile shape, so its production image ships them too — and
+it launches first. The fix is `BUNDLE_WITHOUT="development:test"`, one word, but
+it diverges from the reference on a pattern the shipping app shares, so it went
+to Hamma9901 as a finding rather than being taken unilaterally. Bloat and dev
+tooling on a server rather than a break.
+
 ### READING THE PRECEDENT CORRECTED A CLAIM ABOUT OUR OWN REPO
 
 Correction 15 says copy Hatiwal and name the file you read. It is written as

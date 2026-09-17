@@ -51,7 +51,25 @@ COPY . .
 # -j 1 disable parallel compilation to avoid a QEMU bug: https://github.com/rails/bootsnap/issues/495
 RUN bundle exec bootsnap precompile -j 1 app/ lib/
 
-
+# ── PRECOMPILE ASSETS, OR THE OPS CONSOLE SHIPS UNSTYLED ────────────────────
+#
+# COPIED FROM hatiwal-api/Dockerfile, which carries this step and the reason
+# for it (correction 15). Karwan had dropped the line, and there was a blank
+# gap where it belongs — found by building this image for the first time on
+# 2026-09-17.
+#
+# Administrate is served by propshaft. Measured in the image built WITHOUT this
+# step: `/rails/public/` contained only `robots.txt`, Propshaft's server
+# middleware is **not** in the production stack (it is development-only), and
+# `ActionDispatch::Static` serves from `public/`. So the console's HTML
+# referenced `/assets/administrate/application-04100076.css` — resolved fine,
+# because propshaft digests from the load path at runtime — and **nothing
+# would have served it.** The admin console, which is Hamma9900's only
+# operational surface (correction 16), would have rendered unstyled with every
+# gate green.
+#
+# SECRET_KEY_BASE_DUMMY lets this run at build time without real credentials.
+RUN SECRET_KEY_BASE_DUMMY=1 ./bin/rails assets:precompile
 
 
 # Final stage for app image
