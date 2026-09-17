@@ -52,7 +52,17 @@ RSpec.describe "Delete in the console means discard", type: :request do
     expect(category.reload).to be_discarded
   end
 
+  # ── THE POSITIVE IS SHOWN FIRST, AND THAT IS THE POINT ──────────────────
+  #
+  # A negative assertion is only meaningful if the positive has been shown to
+  # be possible. Asserting "it is absent from `Merchant.listed`" proves nothing
+  # if `listed` is empty for some unrelated reason — a broken scope would pass
+  # this exactly as a working discard does. That is the fifth shape wearing a
+  # negation, and the first version of this example had it.
   it "takes it off the customer's list" do
+    expect(Merchant.listed).to include(merchant), "not listed to begin with — the check below is vacuous"
+    expect(CatalogItem.kept).to include(item), "not kept to begin with — the check below is vacuous"
+
     delete "/admin/merchants/#{merchant.id}"
 
     expect(Merchant.listed).not_to include(merchant)
@@ -87,6 +97,8 @@ RSpec.describe "Delete in the console means discard", type: :request do
   it "discards a merchant that has traded, and leaves its history resolvable" do
     traded = create(:merchant, latitude: 34.5553, longitude: 69.2075)
     order = create(:order, merchant: traded)
+
+    expect(Merchant.listed).to include(traded), "not listed to begin with — the check below is vacuous"
 
     delete "/admin/merchants/#{traded.id}"
 

@@ -14,6 +14,38 @@ convention as `hatiwal-api` and `edu-safi`.)
 
 ---
 
+## BEFORE YOU WRITE A GATE: `bin/gates`
+
+```
+bin/gates            # every spec file and what it asserts, grouped by directory
+bin/gates admin      # filtered by path
+```
+
+**Run it first. The gate you are about to write may already exist.**
+
+On 2026-09-17 a session built a spec driving index, search and show for every
+console resource — derived from the router, planted red, the lot.
+`spec/requests/admin/dashboards_spec.rb` had done the index and show half since
+before that day **and had already caught the thing it was built for**:
+`users.active_role` renamed to `users.last_active_role`, 1,078 examples green
+while `/admin/users` would have died on its first request.
+
+The duplicate was found three hours later, by accident, while listing spec
+constants for an unrelated sweep. **The question "does a gate for this already
+exist?" had no cheap answer, so it was answered by writing the gate.** This is
+the cheap answer, and it is derived from the tree so it cannot go stale the way
+a hand-written index would.
+
+It is also the practical antidote to the eighth shape below: an instrument whose
+DOMAIN was chosen somewhere else is far easier to notice when every domain in
+the suite is on one screen.
+
+`spec/config/gates_listing_spec.rb` asserts it speaks for **every** spec file,
+because a listing that silently omits one is worse than no listing — it answers
+"no such gate" with authority.
+
+---
+
 ## What must exist, per thing you change
 
 | You changed | The spec that must exist |
@@ -382,6 +414,44 @@ deprecation on the paths the suite covers"*, and only the second is true.
 The floor it produced: `spec/requests/admin/every_console_page_opens_spec.rb`,
 which drives index, search and show for every routed console resource — because
 the reason search was dark is that nothing opened the ordinary pages.
+
+### A NEGATIVE ASSERTION NEEDS ITS POSITIVE SHOWN FIRST
+
+**"X is absent" proves nothing unless X could have been present.** Otherwise it
+is the fifth shape wearing a negation: a green with no subject, and the
+assertion passes for a reason that has nothing to do with the behaviour.
+
+Found in this repo on 2026-09-17, in a file written the same day:
+
+```ruby
+delete "/admin/merchants/#{merchant.id}"
+expect(Merchant.listed).not_to include(merchant)   # passes if `listed` is empty
+```
+
+A broken `listed` scope passes that exactly as a working discard does. The fix
+is one line above the action:
+
+```ruby
+expect(Merchant.listed).to include(merchant), "not listed to begin with — the check below is vacuous"
+```
+
+**The general form**, which came from the rig finding the same shape in a
+Maestro flow — `assertNotVisible: route-marker-courier` on a screen where **no
+marker is ever in the tree**, so the flow's central claim asserted nothing:
+
+> Every "this is absent" needs a paired case where that same subject **does**
+> appear. If nobody has demonstrated the positive, the negative is decoration.
+
+**A cheap sweep for it**, since the suite has 240 negative assertions:
+
+```
+# not_to include(X) where nothing in the same file ever asserts X present
+```
+
+Most hits are legitimate — `not_to include("updated_at")` in an audit-values
+test is a subject that must never appear by design. The ones worth reading are
+where the SUBJECT ITSELF might never exist: a scope that could be empty, a
+record that might not have been created, an element never rendered.
 
 ### A CONSTANT IN AN `RSpec.describe` BLOCK IS GLOBAL
 

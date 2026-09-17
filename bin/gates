@@ -1,0 +1,77 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# WHAT DOES THIS SUITE ALREADY ASSERT, AND WHERE?
+#
+# ── Why this exists ────────────────────────────────────────────────────────
+#
+# On 2026-09-17 a session built `every_console_page_opens_spec.rb` — index,
+# search and show for every console resource, derived from the router, planted
+# red. `spec/requests/admin/dashboards_spec.rb` had done the index/show half
+# since before that day, **and had already caught the thing it was built for**:
+# `users.active_role` renamed to `users.last_active_role`, 1,078 examples green
+# while `/admin/users` would have died on its first request.
+#
+# The duplicate was found by accident, three hours later, while listing spec
+# constants for an unrelated sweep. **The question "does a gate for this already
+# exist?" had no cheap answer, so it got answered by writing the gate.**
+#
+# This is the cheap answer. It is deliberately dumb: no coverage percentage, no
+# analysis, no hand-written index that would rot. It reads the tree and prints
+# what each file says it is about, which is the one thing you need before
+# writing a new one.
+#
+# It is also the antidote to the eighth shape in docs/TESTING.md — an instrument
+# whose DOMAIN was chosen somewhere else is far easier to notice when every
+# domain is listed on one screen.
+#
+#   bin/gates            # everything, grouped by directory
+#   bin/gates admin      # only paths matching a filter
+#
+SPEC_ROOT = File.expand_path("../spec", __dir__)
+
+# The first `RSpec.describe` in a file: its subject is what the file claims to
+# be about. Handles a string, a constant, and either followed by metadata.
+def subject_of(path)
+  File.foreach(path) do |line|
+    match = line.match(/^\s*RSpec\.describe\s+(?:"([^"]+)"|'([^']+)'|([A-Z][\w:]*))/)
+    next unless match
+
+    return match[1] || match[2] || match[3]
+  end
+  nil
+end
+
+filter = ARGV.first
+files = Dir.glob(File.join(SPEC_ROOT, "**", "*_spec.rb")).sort
+files.select! { |f| f.include?(filter) } if filter
+
+if files.empty?
+  warn(filter ? "No spec files match #{filter.inspect}." : "No spec files found — is this the right directory?")
+  exit 1
+end
+
+grouped = files.group_by { |path| File.dirname(path.sub("#{SPEC_ROOT}/", "")) }
+undescribed = []
+
+puts
+puts "WHAT THIS SUITE ASSERTS — #{files.size} spec files"
+puts "Run this BEFORE writing a new gate. The one you want may exist."
+puts
+
+grouped.sort.each do |dir, paths|
+  puts "#{dir}/"
+  paths.sort.each do |path|
+    name = File.basename(path)
+    subject = subject_of(path)
+    undescribed << path if subject.nil?
+    puts format("  %-46s %s", name, subject || "(no RSpec.describe found)")
+  end
+  puts
+end
+
+unless undescribed.empty?
+  puts "#{undescribed.size} file(s) with no readable `RSpec.describe` — this listing cannot speak for them:"
+  undescribed.each { |path| puts "  #{path.sub("#{SPEC_ROOT}/", '')}" }
+  puts
+end
