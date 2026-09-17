@@ -75,6 +75,28 @@ RSpec.describe "bin/preflight" do
     expect(source).to include('[ -n "${APP_BASE_URL:-}${KAMAL_HOST:-}" ]')
   end
 
+  # ── THE CONFIG SCREEN, which is correction 13's whole premise ────────────
+  #
+  # `Setting.fetch` falls back to a definition's default when no row exists, so
+  # an unseeded database runs perfectly and shows Hamma9900 a Config screen
+  # that is merely SHORT — no error, and "he retunes weekly with no deploy"
+  # quietly stops being true. `deploy.yml` puts `seed` under `aliases:`, a
+  # shortcut somebody types, and hatiwal-api is the same — so this does not
+  # fight the practice, it makes FORGETTING visible.
+  #
+  # All three branches were RUN when this landed, and the check found two real
+  # missing rows on this box on its first execution:
+  #   all present            → ✓, exit 0
+  #   missing, local         → ·, exit 0
+  #   missing, APP_BASE_URL  → ✗, exit 1
+  it "checks that every setting has a row he can edit" do
+    expect(source).to include("Setting::DEFINITIONS.keys - Setting.pluck(:key)")
+  end
+
+  it "FAILS rather than warns about missing rows once the box looks deployed" do
+    expect(source).to match(/bad "\$MISSING_COUNT setting\(s\) have no row on a DEPLOYED box/)
+  end
+
   it "starts nothing — a QA run may own the server" do
     expect(source).to include("READ-ONLY")
     expect(source).not_to match(/^\s*(bin\/rails s|docker compose up|rails server)/)

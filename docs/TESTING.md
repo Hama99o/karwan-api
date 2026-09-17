@@ -325,6 +325,20 @@ the total, asserting the sum proves only that subtraction works.
 **2 · Say the limit in the file.** The next person to read a green suite should
 learn what it did not check from the suite itself, not from whoever wrote it.
 
+**3 · TEST THE SURFACE THE PERSON TOUCHES, NOT THE ONE THE CODE EXPOSES.** The
+config audit asserted that every setting could be PATCHed — and
+`Admin::SettingsController#update` permits `:value` itself, so the PATCH
+succeeds whatever the console renders. Emptying `SettingDashboard::FORM_ATTRIBUTES`
+left **every example green while the edit page had no input to type in.** The
+file's own header describes that exact failure — "a row that exists but is
+absent from the dashboard's form is as untunable as one that does not exist" —
+and the file did not test it.
+
+The fix was to assert the page he opens (`GET .../edit` contains
+`setting[value]`) rather than the request a test can make. **An API a human
+never calls is not the surface; the form is.** Ask what the person actually
+does, and drive that.
+
 ### A CHECK NOBODY RUNS IS INDISTINGUISHABLE FROM A CHECK NOBODY WROTE
 
 The five shapes are about instruments that **lie**. This one is about an
@@ -344,6 +358,15 @@ The fourth is the instructive one, because the check was not merely present —
 it was *good*. It fails closed, it asks Rails rather than `psql`, and its
 comment records a previous bug in itself. None of that mattered for one hour of
 three sessions' time.
+
+**A THIRD INSTANCE, 2026-09-17, in a different costume.**
+`spec/requests/admin/config_reachability_spec.rb` proves every one of the 42
+`Setting` definitions materialises as a row Hamma9900 can edit. It is a good
+check and it passes. **It does not prove anybody runs the seed** — and
+`config/deploy.yml` puts `db:seed` under `aliases:`, a shortcut a person types,
+with no `.kamal/hooks/` anywhere. So the code is proven and the deploy does not
+call it, and the symptom would be a Config screen that is merely *short*, on an
+app that works perfectly on defaults nobody can see.
 
 **So a check earns its place only with a trigger**, and "somebody will run it"
 is not one. A trigger is CI, a git hook, a pre-deploy step, a startup
@@ -461,6 +484,26 @@ have measured something true and learned nothing.
 2. **A run that reports zero examples is reported as an ERROR** — never as a
    pass, never as a fail, and never as a plant confirmed. Re-run it on your own
    database and believe the second result.
+
+   **AND THE COLLISION DAMAGES BOTH RUNS, NOT ONLY THE ONE THAT REPORTS ZERO.**
+   Learned the hard way on 2026-09-17, after this rule was already written:
+   starting a small plant run while a full suite was still in flight — both on
+   `karwan_test_99`, both mine — gave the plant the familiar `0 examples, 1
+   error` deadlock **and gave the full suite one unrelated failing example**, in
+   an auth spec nothing had touched. The zero-example run announces itself; the
+   other one just looks like a regression, and costs an hour of bisecting a bug
+   that does not exist.
+
+   So the rule is stronger than "own your database": **one rspec process per
+   database at a time, including your own second one.** Before starting a run,
+   check nothing else is running — `ps -eo args | grep -c '[r]spec'` — and if a
+   suite is in flight, wait for it rather than opening a second front on the
+   same rows.
+
+   The diagnosis that settles it, for next time: a failure that **does not
+   reproduce in any subsequent run** and appeared while another process shared
+   the database is the collision, not a flake in the code. Three clean full runs
+   afterwards is what confirmed it here.
 3. **A count is part of a green claim.** "0 failures" without the example count
    beside it is not a result, which is why every commit message here carries
    the number. `1,523 examples, 0 failures` says something; `0 failures` says

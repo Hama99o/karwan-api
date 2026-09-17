@@ -134,6 +134,42 @@ else
   ok "SMS_PROVIDER=$SMS_PROVIDER"
 fi
 
+# ── THE CONFIG SCREEN HAMMA9900 TUNES FROM ────────────────────────────────
+#
+# Correction 13's whole premise is that he retunes prices weekly from the
+# console **with no deploy**. The console lists `settings` ROWS, not
+# `Setting::DEFINITIONS` — and `Setting.fetch` falls back to a definition's
+# default when no row exists. So a database that has never been seeded runs
+# perfectly, prices orders correctly, and shows him a Config screen that is
+# simply SHORT. There is no error anywhere, and the premise quietly does not
+# hold.
+#
+# `config/deploy.yml` puts `seed` under `aliases:` — a shortcut somebody types,
+# not a hook — and there is no `.kamal/hooks/`. hatiwal-api is the same, so
+# manual is the established practice here and this check does not fight it: it
+# makes FORGETTING VISIBLE, which is the actual defect.
+#
+# It also catches the likelier future version: a definition added in a later
+# release and never seeded on the running server.
+step "Config rows"
+MISSING=$(bin/rails runner '
+  missing = Setting::DEFINITIONS.keys - Setting.pluck(:key)
+  print missing.join(" ")
+' 2>/dev/null)
+MISSING_COUNT=$(printf "%s" "$MISSING" | wc -w | tr -d " ")
+
+if [ "$MISSING_COUNT" = "0" ]; then
+  ok "every setting has a row he can edit"
+elif [ -n "${APP_BASE_URL:-}${KAMAL_HOST:-}" ] || [ "${RAILS_ENV:-development}" = "production" ]; then
+  bad "$MISSING_COUNT setting(s) have no row on a DEPLOYED box — he cannot tune them."
+  note "missing: $MISSING"
+  note "bin/rails db:seed   (reference data only in production; never overwrites a tuned value)"
+else
+  say "  · $MISSING_COUNT setting(s) have no row yet — the Config screen would be short."
+  note "missing: $MISSING"
+  note "bin/rails db:seed"
+fi
+
 # ── A warning, not a failure: SMTP ────────────────────────────────────────
 # THE SECOND GATEWAY, and it was invisible until docs/NOTES.md went looking.
 # `Users::PasswordResetService` picks its channel from the SHAPE of what was

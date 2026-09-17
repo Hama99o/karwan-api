@@ -225,8 +225,14 @@ defaulted to a container that is up on this box, once per feature.
   DETAIL is the only thing carrying the timeline and the courier's phone. The
   app fetches both. Cheap enough (two tiny responses on a screen the customer
   lives on) that a third shape of the same record is not yet worth the drift
-  risk. **Trigger:** if the status screen ever feels slow on a real Kabul
-  connection, collapse it. **Still true on 2026-09-17:** the `customers`
+  risk. **Trigger — REWRITTEN 2026-09-17, because the old one could never
+  fire.** It read *"if the status screen ever feels slow on a real Kabul
+  connection"*. Nobody on this box has a Kabul connection, and "feels slow" is
+  not a thing anyone records, so it was a deferral wearing a trigger's clothes
+  — the same family as a check nobody runs. It is now: **when the two calls
+  together exceed 1.5s at the 90th percentile on the rig's throttled profile,
+  or when a second screen needs the same pair.** Both are numbers somebody on
+  this box can read. **Still true on 2026-09-17:** the `customers`
   block in `config/routes.rb` carries `index`, `show`, `create`, `quote`,
   `cancel` and `track`, and no `active`.
 - ~~**`Customers::QuoteSerializer#suggested_notes` returns the total
@@ -382,6 +388,55 @@ which is the one claim a list like this cannot support.
 
 ## Solved, with the reasoning
 
+### NOTHING RUNS `db:seed` ON A DEPLOY, SO THE CONSOLE WOULD BE EMPTY
+
+`config/deploy.yml` defines `migrate` and `seed` under **`aliases:`** — they
+are shortcuts a person types, not hooks. There is **no `.kamal/hooks/`
+directory**, so a deploy runs neither.
+
+**The failure is quiet, which is what makes it worth writing down.**
+`Setting.fetch` falls back to the definition's default when no row exists, so
+the app boots, prices orders and delivers food on values nobody can see. The
+console lists **rows**, not definitions — so the Config screen is simply short,
+and correction 13's entire premise ("he retunes numbers weekly from the console
+with no deploy") quietly does not hold. There is no error anywhere.
+
+**Verified 2026-09-17 that the seeding itself is correct**:
+`spec/requests/admin/config_reachability_spec.rb` proves all 42 definitions
+materialise and that each row renders an input he can type into. **That spec
+proves `seed_defaults!` works. It does not prove anybody runs it** — which is
+the exact distinction TESTING.md now carries, arriving from a third direction.
+
+**CLOSED as far as it can be closed here, and the fix is not a hook.**
+
+`hatiwal-api` has the identical gap — `.kamal/hooks/` holds nothing but Kamal's
+untouched `.sample` files, which do not execute, and its `deploy.yml` puts
+`migrate` and `seed` under `aliases:` exactly as ours does. **The app in
+production with real users also runs neither on deploy**, so manual is the
+established practice in this owner's deploys rather than an oversight here.
+
+Two things follow. There is **no Hatiwal mechanism to copy**, so a hook would
+be an invention — correction 15 says an invention comes to Hamma9901 first with
+its cost. And the defect is therefore not "no automation": **it is that
+forgetting is invisible.**
+
+So what shipped is a check in `bin/preflight`, which is verifiable on this box
+and catches the general case rather than one forgotten command: every key in
+`Setting::DEFINITIONS` must have a row, missing ones named, warn locally and
+**fail on a deployed box** — the same split as the SMTP check. **It found two
+genuinely missing rows on this box on its first run**
+(`courier_topup_enabled`, `courier_min_earnings_per_km`, added that afternoon
+and never seeded), which is the failure it was written for, caught live before
+it was committed.
+
+`docs/RUNBOOK.md` now carries `kamal seed` as a numbered step of a first
+deploy, with why forgetting it is silent.
+
+**The hook is still the eventual answer**, with the shape above. **Its trigger
+is the deployment work itself** — it must be written and verified against a
+real deploy, which is the one context that can prove it, and that context is
+definitely coming.
+
 ### THE PREMIUM UPLIFT IS CHARGED AND NEVER COLLECTED — OPEN, HAMMA9900'S
 
 Found by `spec/services/pricing/money_conservation_spec.rb` on its first run.
@@ -416,6 +471,33 @@ to him as one: both are *where does platform revenue get collected in a cash
 model where the courier physically holds every note*. §2's answer — the
 restaurant as the single collection point for both sides — would answer this
 one too. Answering them separately is how a third inconsistency appears.
+
+### A TRIGGER NOBODY CAN OBSERVE IS NOT A TRIGGER — SWEPT, ONE FOUND
+
+Every deferral in the docs was re-read on 2026-09-17 against one question: **can
+a person on this box observe the condition that would end it?**
+
+**One failed.** `/customer/orders/active` deferred on *"if the status screen
+ever feels slow on a real Kabul connection"*. Nobody here has one, and "feels
+slow" is not recorded anywhere — so the deferral could never end, by anybody,
+ever. Rewritten to a number the rig can print.
+
+**The rest hold, and are worth naming so nobody re-audits them:**
+
+- `REALTIME_AND_SCALE.md` §2 — switch to ActionCable at p95 > 200ms, sustained
+  load > 40% of capacity, ~5,000 concurrent jobs, or contention on
+  `courier_profiles`. Not observable today because nothing is deployed, but
+  each is a number that exists the moment it is, and the doc says "do not do it
+  before the numbers say so".
+- `SERVICE_TIERS_AND_BATCHING.md` — paid placement revisited "when the list no
+  longer fits on one screen". Observable by opening the app.
+- The OpenAPI deferral — "a consumer outside this repo needs to call the API".
+  An event, not a measurement, and an unmissable one.
+
+**The distinction the sweep produced**, which is the transferable part: *waiting
+on production* is honest and ends by itself, because the numbers arrive with the
+traffic. *Waiting on a condition nobody records* never ends. Both look identical
+in a document. Ask who would notice, and when.
 
 ### CONSERVATION IS NOT ATTRIBUTION, AND A RESIDUAL CANNOT FAIL
 

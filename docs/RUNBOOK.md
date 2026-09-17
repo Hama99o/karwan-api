@@ -180,3 +180,38 @@ and is asserted by a spec.
 about the app rendering, the map painting, RTL layout, or 360dp — those are four
 different claims and only a device answers them. `qa/QA_HANDBOOK.md` is explicit
 about that distinction and it is the reason the first boot found what it did.
+
+---
+
+## Deploying — `kamal seed` is a STEP, not an alias somebody may type
+
+`config/deploy.yml` defines `migrate` and `seed` under **`aliases:`**. Aliases are
+shortcuts a person types; they are not hooks, and there is no `.kamal/hooks/`
+directory, so **a deploy runs neither.** `hatiwal-api` is the same, so this is
+the established practice in this owner's deploys rather than an oversight — but
+it only works while somebody remembers.
+
+**A first deploy, in order:**
+
+```
+kamal deploy
+kamal migrate        # bin/rails db:prepare — creates cache/queue/cable too
+kamal seed           # bin/rails db:seed — reference data only in production
+```
+
+**Step 3 is the one that gets forgotten, and forgetting it is silent.**
+`Setting.fetch` falls back to each definition's default when no row exists, so
+the app boots, prices orders and delivers food perfectly — on values **nobody
+can see or change**. The console lists `settings` ROWS, not definitions, so the
+Config screen is simply short. Correction 13's whole premise, that Hamma9900
+retunes prices weekly from the console with no deploy, quietly stops being true
+and nothing reports an error.
+
+**`bin/preflight` now catches it** — it lists the missing keys by name, warns
+locally and **fails on a deployed box**. Run it against the deployed
+environment after `kamal seed`, not only locally.
+
+**`kamal seed` is safe on EVERY deploy**, not just the first: `db/seeds.rb`'s
+reference half is idempotent, refuses sample data in production, and
+`Setting.seed_defaults!` only writes a value when the row has none — so a
+number Hamma9900 has tuned is never overwritten.
