@@ -478,6 +478,83 @@ test is a subject that must never appear by design. The ones worth reading are
 where the SUBJECT ITSELF might never exist: a scope that could be empty, a
 record that might not have been created, an element never rendered.
 
+#### The loophole that reads like the positive: `expect(collection).to all(...)`
+
+`all` is the matcher most likely to be mistaken for the paired positive it is
+standing in for, because it *reads* as one:
+
+```ruby
+expect(entries).to all(have_key("currency"))     # green on `[]`
+```
+
+**`all` is vacuously true on an empty collection.** It asserts "nothing in here
+violates the rule", and nothing violates a rule in an empty room. So a sweep
+written as `expect(everything).to all(be_correct)` reports green in exactly the
+two cases worth knowing about: the scope broke, or the fixture never built.
+
+This is not matcher trivia — it is the fifth shape (a measurement that never
+ran) in the one syntax that looks like a measurement of everything. The same
+holds for `none`, `all(be_valid)` over a `where` that returns nothing, and any
+`each` loop whose body contains the only expectations in the example.
+
+**The rule:** an `all` needs the room proved non-empty on the line above — a
+count where you know it, `not_to be_empty` where you do not.
+
+```ruby
+expect(entries).not_to be_empty, "no entries — the assertion below is vacuous"
+expect(entries).to all(have_key("currency"))
+```
+
+**A guard that fails on empty already counts**, and most legitimate uses have
+one without meaning to: `expect(sources.uniq).to eq(["osrm"])` on the line above
+cannot pass on `[]`, so the `all` beneath it is covered. The sweep for this shape
+found 14 `all` matchers in this suite, **4 already guarded that way, 5 genuinely
+vacuous, 2 in another session's file, and 3 false positives** — including
+`all(be_present)` over a four-element array literal, which can never be empty.
+Read each one; do not patch on the grep.
+
+The derived specs in this repo do this deliberately — `bin/gates`'s listing spec
+compares against a count taken from the filesystem, and the authorisation sweep
+opens with "found the routes to sweep" — because a route-derived example group
+that derives **zero** routes is a green suite asserting nothing at all.
+
+#### AND THE SUBJECT MUST BE AN IDENTITY, NOT A VALUE SOMEBODY ELSE CAN PRODUCE
+
+A paired positive fixes the empty-room problem. It does **not** fix a positive
+that the wrong row can satisfy.
+
+Found on the evening of 2026-09-17, in an example hardened that same morning:
+
+```ruby
+amounts = json["wallet_entries"].map { |e| e["amount"].to_f }
+expect(amounts).to include(500.0)          # whose 500?
+expect(amounts).not_to include(777.0)      # whose 777?
+```
+
+Both halves are keyed on an **amount**, and an amount is not a name. A seed, a
+factory default, or another session writing into the same fixture from the other
+end can produce 500 or 777 — satisfying the positive without the subject's own
+row being present, or contradicting the exclusion without anything having
+leaked. It failed once under `config.order = :random`, passed on every rerun,
+and the mechanism was never proven because the seed was not captured.
+
+```ruby
+ids = json["wallet_entries"].map { |e| e["id"] }
+expect(ids).to include(mine.id)
+expect(ids).not_to include(theirs.id)
+```
+
+> A tenancy assertion keyed on a value is answering "is a row like this one
+> here?" when the question is "is *this row* here?"
+
+**And note which direction the lesson runs.** That example was one of the two
+vacuous assertions found by the negation sweep hours earlier. **A vacuous
+assertion cannot have an order dependency — it passes regardless.** Hardening it
+is what gave it the capacity to fail, and the failure is the first thing in the
+suite to notice that two sessions were writing into one fixture from opposite
+ends. An instrument that starts failing after you sharpen it is the instrument
+working.
+
 ### A CONSTANT IN AN `RSpec.describe` BLOCK IS GLOBAL
 
 `ROUTED = ...` written inside `RSpec.describe` is **not scoped to the example
@@ -529,6 +606,31 @@ the four corrected in the other direction the same day.
 
 > Circumstantial evidence about **who** is not evidence about **what**. The repo
 > can answer the second question exactly, and the answer is cheap.
+
+#### THE BOUNDARY, because this rule was handed over unbounded
+
+**Running it both ways settles whether YOUR CHANGE caused a failure. It does not
+settle whether a FAILURE IS REAL.** Those are different questions and the rule
+only answers the first.
+
+Under `config.order = :random`, the second run **is a different experiment, not
+a repeat of the first** — a different permutation, a different set of rows
+already written. So a passing retry of an order-dependent failure is this rule
+giving a confident wrong answer: it says "not mine, and not there", when what
+happened is "not that permutation".
+
+> Revert-and-restore is a controlled experiment **only when the order is held
+> fixed**. Without `--seed`, a rerun changes two variables and attributes the
+> result to one.
+
+**So the seed is the experiment, and the retry is a new one.** Reproduce with
+`--seed N` before concluding anything from a rerun; if the seed was not
+captured, say the mechanism is unproven rather than picking the tidy story —
+and fix the example's *shape*, which needs no permutation to see.
+
+This repo now announces the seed **before** the first example and appends it to
+`tmp/rspec-seeds.log` (`spec/rails_helper.rb`), because RSpec prints it only in
+the summary and a run killed by the OOM killer never reaches the summary.
 
 ### A CHECK NOBODY RUNS IS INDISTINGUISHABLE FROM A CHECK NOBODY WROTE
 
@@ -731,6 +833,37 @@ evidence, pointing at a real person's real uncommitted file, does not — it get
 sent. **Both yield to exactly one thing: running it twice.** Not reading it
 again, not reasoning about it more carefully. Running it.
 
+#### THE BOUNDARY, because this rule was handed over unbounded
+
+*Running it twice* settles **whether your change caused a failure.** It does
+**not** settle **whether a failure is real.**
+
+`spec/spec_helper.rb` sets `config.order = :random`, so a second full run is a
+**different experiment, not a repeat of the first** — a different permutation,
+with different state reaching each example. A green on the retry therefore
+means "not reproducible under this permutation", which is a much weaker claim
+than "not a bug".
+
+It cost a real result the same afternoon the rule was written.
+`couriers/wallet_spec.rb:182` — *"never shows another courier's entries"* —
+failed one full run and passed three later ones, including a full 1849/0. Under
+`--order defined` that would have been a fix confirmed. Under random order it is
+an **order dependency that is still there**, and the retry hid it.
+
+**So, for a failure you did not expect:**
+
+1. **Capture the seed before anything else.** RSpec prints
+   `Randomized with seed NNNN` and it is the only route back to the
+   permutation. Losing it — which I did — makes the failure unreachable.
+2. **`--seed NNNN --bisect`** reduces it to the minimal pair of examples.
+3. **Only then re-run**, and re-run with that seed, so the second run is
+   actually the same experiment.
+
+**The general form:** a repeat is only a repeat if the conditions are held. If
+anything between the two runs is randomised, generated, timestamped or shared
+with another session, the second run answers a different question — and
+`docs/NOTES.md` records this instance so nobody re-derives it.
+
 ### THE RULE — one test database per session
 
 **Binding, not a tip.** When more than one session is up on this box:
@@ -824,6 +957,41 @@ of guesses.
 | Service | RSpec | the multi-step operation and its rollback | **now** |
 | Mobile E2E | Maestro | the feature works on a device | **later** — see below |
 | QA sweep | the `qa-sweep` skill + a rig | the screens are not just present but right | **later** |
+
+### A SERIALIZER FIELD INSIDE A `view` IS NOT PROVEN BY A MODEL ASSERTION
+
+The layer you assert at IS the claim you are making, and one line separates a
+real verification from a green that says nothing about the screen.
+
+Verifying `AFGHAN_UX.md` §6 — the courier's number reaching the customer's
+status screen — the obvious assertion was the model:
+
+```ruby
+expect(order.courier).to be_present           # true, and proves nothing
+```
+
+`Customers::OrderSerializer` puts `courier` **inside `view :detailed`**. A
+`view :list` render does not carry it. So the model assertion passes on a
+record whose customer-facing payload is missing the field entirely, and the
+screen gets nothing. What the screen reads is the serializer, so that is where
+the claim belongs:
+
+```ruby
+rendered = Customers::OrderSerializer.render_as_hash(order, view: :detailed)
+expect(rendered[:courier][:phone]).to eq("+93700000803")
+expect(rendered[:courier][:name]).to eq("QA")     # first name only, by design
+```
+
+**This is the same family as CLAUDE.md's *"a typed `http.get<T>` is a cast, not
+a validation"*** — there the type agreed with the code while the code was
+wrong; here the model agrees with the intent while the payload is empty. Both
+are an assertion made one layer away from the thing that matters, and both
+produce a confident green.
+
+**The rule:** assert a serializer's output through the serializer, **with the
+view the caller actually uses**. Grep the mobile client for which view it
+requests if you are unsure — the client is the authority on what it receives,
+not the model.
 
 ### Report the layer, not the word "tested"
 
