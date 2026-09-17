@@ -516,28 +516,54 @@ a migration. `spec/config/entrypoint_migration_spec.rb` reads both files and
 **executes the real condition against the real arguments**, so a change to
 either side goes red.
 
-### ADMINISTRATE'S SEARCH BREAKS ON RAILS 8.2 — dependency, with a trigger
+### THE DEPRECATION CATALOGUE — 2026-09-17: ONE, ZERO OURS, RAILS 8.2
 
-Surfaced while driving the ops console on 2026-09-17. Every console search
-emits:
+Measured across the whole suite with stderr captured (`config.active_support.
+deprecation = :stderr` in test), plus a `zeitwerk:check` boot and a grep of our
+own source for the classic removed APIs.
 
-```
-DEPRECATION WARNING: String#mb_chars is deprecated and will be removed in
-Rails 8.2. Use normal string methods instead.
-```
+| | Count |
+|---|---|
+| Deprecation warnings emitted | **12 lines** |
+| **Distinct root causes** | **1** |
+| **Ours** | **0** |
+| In a dependency we ship | **1** — `administrate` |
+| Removed by | **Rails 8.2** |
 
-from **`administrate-1.0.0/lib/administrate/search.rb:114`** —
-`["%#{term.mb_chars.downcase}%"] * fields_count`. Not our code, and not
-fixable in our code.
+The single cause is `administrate-1.0.0/lib/administrate/search.rb:114` —
+`["%#{term.mb_chars.downcase}%"] * fields_count` — which emits both the
+`String#mb_chars` and the `ActiveSupport::Multibyte::Chars` warnings from one
+call. **Trigger: upgrade Administrate BEFORE Rails 8.2, not during**, and check
+a fixed Administrate exists before the upgrade is attempted rather than
+half-way through it.
 
-**It is the most-used feature of the surface Hamma9900 says matters most**:
-finding an order by the code a customer reads out is the thousand-times-a-day
-action, and it goes through that line.
+Two other users of `mb_chars` exist in the gemset and **neither reaches us**:
+`activerecord` itself, which is Rails' to fix before it removes the method, and
+`annotaterb`, which is another project's gem in this shared RVM gemset and is
+not in our `Gemfile`. Checked rather than assumed.
 
-**Trigger: the Rails 8.2 upgrade.** At that point Administrate must be upgraded
-first, or console search raises `NoMethodError` on every query. Worth checking
-whether Administrate has released a fix before the upgrade is attempted rather
-than during it.
+Our own code uses none of the classic removed APIs (`mb_chars`, `Multibyte`,
+`update_attributes`, `render :text`, `before_filter`), and `zeitwerk:check`
+eager-loads the whole app with no deprecation at all.
+
+#### TWO THINGS ABOUT THE METHOD, AND THE FIRST ONE BOUNDS THE RESULT
+
+**1 · A deprecation catalogue from a test suite is only as complete as the
+suite's coverage.** Before `spec/requests/admin/operator_can_do_the_job_spec.rb`
+existed, the full suite emitted **ZERO** deprecations — not because the app was
+clean, but because **nothing exercised Administrate's search.** The most-used
+feature of the console was invisible to the instrument until a spec drove it.
+
+So this table means "one deprecation on the paths the suite covers", and the
+honest way to widen it is to widen coverage. **Any path with no spec is a path
+with no deprecation report**, which is the same shape as every other silence in
+this file.
+
+**2 · Rails reports the CALLER, not the emitter.** All six "called from"
+locations were lines in my own spec file. Deduplicating by the reported source
+gives **six** entries for **one** emitting site; deduplicating by the library
+line gives the right answer. The key is where the deprecated call lives, not
+where the request came from.
 
 ### THE OPS CONSOLE IS OPERABLE — five real tasks, driven, all possible
 
