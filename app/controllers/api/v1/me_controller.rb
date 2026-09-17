@@ -89,4 +89,39 @@ class Api::V1::MeController < Api::V1::BaseController
 
     head :no_content
   end
+
+  private
+
+  # ── WHAT A PERSON MAY CHANGE ABOUT THEMSELVES ─────────────────────────────
+  #
+  # `name` and `locale`, and nothing else.
+  #
+  # **This method did not exist.** `update` above has called it since it was
+  # written, so `PATCH /api/v1/me` answered 500 with
+  # `undefined local variable or method 'profile_params'` for its whole life —
+  # a declared endpoint that had never once worked, with no request spec to say
+  # so. Found while building the Profile screen, which is its first caller.
+  #
+  # ── THE TWO FIELDS THAT ARE NOT HERE, AND WHY ────────────────────────────
+  #
+  # **The phone.** It is the identity — NOT NULL, unique, normalised, and the
+  # number a courier rings from outside the gate. Changing it is an identity
+  # change and would need a verification step this platform deliberately does
+  # not have (`docs/IDENTITY_AND_ROLES.md` §1, Hamma9900: *"For now no
+  # authentication."*).
+  #
+  # **The email, and this one is less obvious.** It is the additional
+  # identifier AND a password-reset channel. With no verification, letting a
+  # session add an address would let somebody holding a BORROWED PHONE add
+  # their own and then reset the password — and `AFGHAN_UX.md` §7 is explicit
+  # that shared handsets are normal here rather than hypothetical. So adding or
+  # changing an email is a support action until the address can be proven.
+  #
+  # `locale` is included on purpose: `AFGHAN_UX.md` §8 wants the language
+  # remembered per PERSON rather than per device, precisely because phones are
+  # shared. An invalid value is refused by the model's own validation rather
+  # than filtered here, so the client gets told which field was wrong.
+  def profile_params
+    params.permit(:name, :locale)
+  end
 end

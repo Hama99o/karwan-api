@@ -28,6 +28,90 @@ RSpec.describe "Api::V1::Me", type: :request do
     end
   end
 
+  # ── EDITING YOUR OWN RECORD, WHICH HAD NEVER WORKED ───────────────────────
+  #
+  # `update` has called a `profile_params` that did not exist since it was
+  # written, so this endpoint answered 500 with `undefined local variable or
+  # method 'profile_params'` for its whole life. No request spec covered it,
+  # which is why nothing said so. Found while building the Profile screen —
+  # its first caller.
+  describe "PATCH /api/v1/me" do
+    it "changes the name" do
+      patch "/api/v1/me", params: { name: "احمد شاه" }, headers: auth
+
+      expect(response).to have_http_status(:ok)
+      expect(json.dig("user", "name")).to eq("احمد شاه")
+      expect(user.reload.name).to eq("احمد شاه")
+    end
+
+    # AFGHAN_UX.md §8 wants the language remembered per PERSON rather than per
+    # device, precisely because phones are shared — so this belongs on the user
+    # row and not only in the app's storage.
+    it "changes the language, because a shared phone is not one person" do
+      patch "/api/v1/me", params: { locale: "fa" }, headers: auth
+
+      expect(user.reload.locale).to eq("fa")
+    end
+
+    it "refuses a language the app does not have" do
+      patch "/api/v1/me", params: { locale: "de" }, headers: auth
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(user.reload.locale).not_to eq("de")
+    end
+
+    # ── THE PHONE IS THE IDENTITY AND MAY NOT BE EDITED HERE ────────────────
+    #
+    # NOT NULL, unique, normalised, and the number a courier rings from outside
+    # the gate. Changing it is an identity change and needs a verification step
+    # this platform deliberately does not have.
+    it "IGNORES an attempt to change the phone" do
+      patch "/api/v1/me", params: { name: "احمد شاه", phone: "+93700009999" }, headers: auth
+
+      expect(response).to have_http_status(:ok)
+      # The permitted field still applied — a filtered param is not an error.
+      expect(user.reload.name).to eq("احمد شاه")
+      expect(user.phone).not_to eq("+93700009999")
+    end
+
+    # ── AND THE EMAIL, WHICH IS THE LESS OBVIOUS ONE ────────────────────────
+    #
+    # It is also a PASSWORD RESET CHANNEL. With no verification step, a session
+    # that could add an address would let somebody holding a borrowed phone add
+    # their own and then reset the password — and AFGHAN_UX.md §7 says shared
+    # handsets are normal here, not hypothetical.
+    it "IGNORES an attempt to add or change the email" do
+      patch "/api/v1/me", params: { email: "attacker@example.com" }, headers: auth
+
+      expect(response).to have_http_status(:ok)
+      expect(user.reload.email).not_to eq("attacker@example.com")
+    end
+
+    it "does not let anyone change somebody else's record" do
+      other = create(:user, :customer, name: "بل سوک")
+
+      patch "/api/v1/me", params: { name: "Changed" }, headers: auth
+
+      expect(other.reload.name).to eq("بل سوک")
+    end
+
+    it "refuses without a token" do
+      patch "/api/v1/me", params: { name: "Nobody" }
+
+      expect(response).to have_http_status(:unauthorized)
+    end
+
+    # An empty body is a no-op rather than a 400: nothing here is destructive,
+    # and a client that sends only the field it changed should not have to wrap
+    # it in a root key.
+    it "tolerates a body with nothing in it" do
+      patch "/api/v1/me", params: {}, headers: auth
+
+      expect(response).to have_http_status(:ok)
+      expect(user.reload.name).to eq("احمد کریمی")
+    end
+  end
+
   describe "POST /api/v1/me/switch_role" do
     # ONE ACCOUNT, SEVERAL ROLES, ONE DEVICE AT A TIME.
     it "switches to a role the person holds" do
