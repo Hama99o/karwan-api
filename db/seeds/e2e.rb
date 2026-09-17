@@ -219,7 +219,24 @@ end
 seed_section "e2e saved addresses" do
   customer = User.find_by!(phone: E2E[:customer])
 
-  [
+  # ── KEYED ON THE PIN, NOT ON THE LABEL, AND THAT WAS A REAL DEFECT ──────
+  #
+  # The first version of this keyed `find_or_initialize_by(label:)`. **The
+  # Profile flow renames a place**, so a run left `کور` as `کور نوی`, the next
+  # re-seed found no `کور` and created a fourth row, and the run after that
+  # asserted against a five-row list. Measured, not imagined: 3 → 5 in two
+  # re-seeds. A flow that degrades the fixture it tests is worse than no flow.
+  #
+  # The pin is the right key because **in this product the pin IS the identity
+  # of a place** — there is no street address, by design (CLAUDE.md, "the
+  # address problem") — and the label is the mutable human name for it. So a
+  # rename is self-healing: the same pin is found and its label reset.
+  # A LOCAL, not a constant. This file is re-loadable by design — the rig
+  # re-seeds between runs and a spec loads it twice to prove idempotence — and
+  # a constant assigned in here warns `already initialized constant FIXTURES`
+  # on every reload. The file's own header says `||=` for exactly that reason;
+  # a local needs no such dodge, because nothing outside this block wants it.
+  fixtures = [
     { label: "کور", landmark_note: "شین دروازه، دویم پوړ", phone: customer.phone,
       latitude: 34.5400, longitude: 69.1750, is_default: true },
     { label: "د مور کور", landmark_note: "د پارک مخې ته، سره دروازه", phone: "+93700000901",
@@ -227,14 +244,31 @@ seed_section "e2e saved addresses" do
     # NO landmark and NO phone: the not-navigable case.
     { label: "دفتر", landmark_note: nil, phone: nil,
       latitude: 34.5460, longitude: 69.1820, is_default: false }
-  ].each do |fixture|
-    # Keyed on the LABEL, so a re-seed updates the same three rows rather than
-    # growing the list on every run — this file is re-loadable by design and a
-    # spec loads it twice to prove it.
-    address = customer.addresses.find_or_initialize_by(label: fixture[:label])
+  ].freeze
+
+  kept_ids = fixtures.map do |fixture|
+    address = customer.addresses.find_or_initialize_by(
+      latitude: fixture[:latitude], longitude: fixture[:longitude]
+    )
     address.assign_attributes(fixture)
     address.save!
+    address.id
   end
+
+  # ── THIS SEED OWNS THE LIST, so it reconciles rather than only adding ────
+  #
+  # The flow CREATES places (the cart's path) and DELETES them, and a soft
+  # delete leaves the row in the table — so without this, every run would add
+  # to a list the specs assert the size of. This file's own header says it
+  # makes "a SMALL, FIXED, NAMED set that automated flows assert against by
+  # value"; that is only true if the set is exactly this set afterwards.
+  #
+  # A HARD delete, and only here: this is a fixture file that `db/seeds.rb`
+  # refuses to load in production, and an order SNAPSHOTS its delivery address
+  # rather than joining to this table (one-way door 1), so removing a fixture
+  # row cannot rewrite anybody's history. Verified against the live API — order
+  # KQA00011 still reported its own landmark after its address was deleted.
+  customer.addresses.where.not(id: kept_ids).destroy_all
 end
 
 seed_section "e2e live order" do

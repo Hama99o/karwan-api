@@ -372,12 +372,52 @@ RSpec.describe "db/seeds/e2e.rb" do
       expect(office).not_to be_navigable
     end
 
-    # Keyed on the label rather than created blind: this file is re-loadable by
+    # Keyed on the PIN rather than created blind: this file is re-loadable by
     # design and the rig re-seeds between runs, so a bare `create!` would grow
     # the list by three every time and the flow would act on row 1 of 30.
     it "does not add three more when the seed runs again" do
       expect { load Rails.root.join("db/seeds/e2e.rb") }
         .not_to change { customer.reload.addresses.count }
+    end
+
+    # ── THE CASE THAT CAUGHT A REAL DEFECT IN THIS SEED ────────────────────
+    #
+    # The first version keyed on the LABEL. The Profile flow renames a place,
+    # so a run left `کور` as `کور نوی`, the next re-seed found no `کور` and
+    # made a fourth row, and the run after that asserted against five. Measured
+    # against the live API before this was written: 3 → 5 in two re-seeds.
+    #
+    # Keying on the pin makes a rename SELF-HEALING, which is the property the
+    # rig needs — and it is also the right model, because in this product the
+    # pin IS the identity of a place and the label is only its human name.
+    it "restores a renamed label instead of adding a fourth row" do
+      home = customer.addresses.find_by!(is_default: true)
+      home.update!(label: "کور نوی")
+
+      expect { load Rails.root.join("db/seeds/e2e.rb") }
+        .not_to change { customer.reload.addresses.count }
+      expect(home.reload.label).to eq("کور")
+    end
+
+    # The flow also CREATES places (the cart's path) and soft-deletes them,
+    # which leaves the row in the table. So the seed reconciles rather than
+    # only adding — otherwise the fixed set this file promises is only fixed
+    # until the first run.
+    it "removes a place the rig left behind, so the set stays exactly three" do
+      customer.addresses.create!(label: "leftover", latitude: 34.99, longitude: 69.99)
+
+      expect { load Rails.root.join("db/seeds/e2e.rb") }
+        .to change { customer.reload.addresses.count }.from(4).to(3)
+    end
+
+    # And a demoted default is restored too: the flow taps "make this the usual
+    # one" on another row, which the server demotes this one for.
+    it "restores the default after the flow has moved it" do
+      customer.addresses.find_by!(label: "د مور کور").update!(is_default: true)
+
+      load Rails.root.join("db/seeds/e2e.rb")
+
+      expect(customer.reload.addresses.find_by(is_default: true).label).to eq("کور")
     end
   end
 end
