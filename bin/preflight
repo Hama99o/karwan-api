@@ -134,6 +134,33 @@ else
   ok "SMS_PROVIDER=$SMS_PROVIDER"
 fi
 
+# ── A warning, not a failure: SMTP ────────────────────────────────────────
+# THE SECOND GATEWAY, and it was invisible until docs/NOTES.md went looking.
+# `Users::PasswordResetService` picks its channel from the SHAPE of what was
+# typed, so anyone who signs in with an email resets over SMTP rather than SMS.
+#
+# It fails more quietly than the SMS one and that is the whole reason this
+# check exists: `UserMailer#password_reset` is `deliver_later`, so an unset
+# host does not fail the request. The endpoint answers 200, the app says
+# "check your email", and the code dies in a job nobody is watching. The SMS
+# path at least logs the code where somebody can read it.
+# WARNS LOCALLY, FAILS ON A DEPLOYED BOX. A laptop has no business holding mail
+# credentials and every local run would stop dead if this were a hard failure —
+# but on a box with a real hostname, an unset mail host is a password reset that
+# answers 200 and goes nowhere. Same signal `APP_BASE_URL` uses above to tell
+# "fine locally" from "somebody will actually hit this".
+step "SMTP"
+if [ -n "${SMTP_ADDRESS:-}" ]; then
+  ok "SMTP_ADDRESS=$SMTP_ADDRESS"
+elif [ -n "${APP_BASE_URL:-}${KAMAL_HOST:-}" ] || [ "${RAILS_ENV:-development}" = "production" ]; then
+  bad "SMTP_ADDRESS is unset on a DEPLOYED box — email password reset would post to localhost."
+  note "it fails silently: deliver_later answers the request 200 and the code dies in a job."
+  note "Hamma9900 supplies the host, or the reset path ships SMS-only. Do not deploy without one."
+else
+  say "  · SMTP_ADDRESS is unset — fine locally; a deployed box fails this check."
+  note "only reached by an EMAIL reset; a phone reset goes by SMS."
+fi
+
 # ── Handover ──────────────────────────────────────────────────────────────
 say ""
 if [ "$FAILED" = 0 ]; then

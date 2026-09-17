@@ -49,6 +49,32 @@ RSpec.describe "bin/preflight" do
     expect(source).to match(/no merchants/)
   end
 
+  # ── THE SECOND GATEWAY ────────────────────────────────────────────────────
+  #
+  # SMS had a warning and SMTP had none, so the quieter of the two failures was
+  # the unwatched one: `UserMailer#password_reset` is `deliver_later`, so an
+  # unset host still answers the request 200 and the app still says "check your
+  # email". The SMS path at least writes the code somewhere readable.
+  #
+  # Asserted as SOURCE SHAPE for the same reason as everything else in this
+  # file — a spec must not need a live server. **All three branches were run
+  # for real** when this landed, which a grep cannot do:
+  #   unset, local         → warning, exit 0
+  #   unset, APP_BASE_URL  → ✗ and exit 1
+  #   SMTP_ADDRESS set     → ✓ and exit 0
+  it "checks for a mail host" do
+    expect(source).to include("SMTP_ADDRESS")
+  end
+
+  # The distinction that makes the check usable: a laptop has no business
+  # holding mail credentials, so warning locally is right — but on a box with a
+  # real hostname an unset host is a reset that answers 200 and goes nowhere,
+  # and `bad` is what makes preflight exit non-zero.
+  it "FAILS rather than warns once the box looks deployed" do
+    expect(source).to match(/bad "SMTP_ADDRESS is unset on a DEPLOYED box/)
+    expect(source).to include('[ -n "${APP_BASE_URL:-}${KAMAL_HOST:-}" ]')
+  end
+
   it "starts nothing — a QA run may own the server" do
     expect(source).to include("READ-ONLY")
     expect(source).not_to match(/^\s*(bin\/rails s|docker compose up|rails server)/)
