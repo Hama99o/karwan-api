@@ -444,4 +444,58 @@ RSpec.describe "db/seeds/e2e.rb" do
       expect(customer.reload.addresses.find_by(is_default: true).label).to eq("کور")
     end
   end
+  # ── THE OFFER AND THE LEDGER, WHICH EXIST TO STOP TWO EMPTY FIXTURES ─────
+  #
+  # `karwan-mobile`'s contract suite had `{"offer": null}` and zero ledger rows,
+  # so the offer card's money and an entry's shape had never met a parser. These
+  # assert the fixture is POPULATED, because an empty one passes every contract
+  # test while proving nothing — `docs/TESTING.md`'s empty-subject shape.
+  describe "the courier's pending offer" do
+    let(:courier) { User.find_by(phone: "+93700000803") }
+    let(:offer)   { Offer.pending.find_by(courier: courier) }
+
+    it "is PENDING, not merely present — an expired offer serialises as nothing" do
+      expect(offer).to be_present
+      expect(offer.status).to eq("offered")
+      expect(offer.expires_at).to be > Time.current
+    end
+
+    # The rig's own customer must keep exactly ONE live order: that is what
+    # makes the status screen, the merchant board and the map point at the same
+    # thing. The first version of this fixture put the offer's order on that
+    # account and gave it two, which the list-ordering example caught.
+    it "belongs to a DIFFERENT customer than the rig's own" do
+      expect(offer.offerable.customer.phone).to eq("+93700000805")
+      expect(customer.orders.where(status: :ready).count).to eq(1)
+    end
+
+    it "has the money a courier decides on, so the offer card is not blank" do
+      job = offer.offerable
+      expect(job.items_total).to be > 0
+      expect(job.courier_fee).to be > 0
+      expect(job.merchant_payout).to eq(job.items_total - job.commission)
+    end
+  end
+
+  describe "the courier's wallet ledger" do
+    let(:wallet) { User.find_by(phone: "+93700000803").courier_wallet }
+
+    it "has more than one KIND, so a parser meets more than a top-up" do
+      kinds = wallet.wallet_entries.pluck(:kind).uniq
+      expect(kinds.size).to be > 1
+      expect(kinds).to include("top_up", "commission")
+    end
+
+    # A balance can be recomputed from entries; entries can never be
+    # reconstructed from a balance (CLAUDE.md, one-way door 4). So the running
+    # total has to be consistent or the fixture teaches a wrong ledger.
+    it "keeps balance_after consistent with the running total" do
+      running = 0
+      wallet.wallet_entries.chronological.each do |entry|
+        running += entry.amount
+        expect(entry.balance_after).to eq(running)
+      end
+      expect(wallet.balance).to eq(running)
+    end
+  end
 end

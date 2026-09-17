@@ -39,7 +39,15 @@
 E2E ||= {
   customer: "+93700000801",
   merchant_owner: "+93700000802",
-  courier: "+93700000803"
+  courier: "+93700000803",
+  # A SECOND customer, whose only job is to own the order the courier is
+  # OFFERED. It exists so the rig's own customer keeps exactly ONE live order —
+  # this file's premise, and what makes the status screen, the merchant board
+  # and the map all point at the same thing. A courier is offered any
+  # customer's order and pre-accept does not see whose it is, so tying the
+  # offer to the rig's account was a coincidence pretending to be a
+  # relationship.
+  offer_customer: "+93700000805"
 }.freeze
 
 # ONE PASSWORD FOR EVERY FIXTURE ACCOUNT, and deliberately an obvious one: it
@@ -448,22 +456,44 @@ end
 # fixture that teaches the wrong thing. It also means capturing this payload
 # needs the COURIER account's token, which the runbook spells out.
 seed_section "e2e courier offer and wallet ledger" do
-  customer = User.find_by!(phone: E2E[:customer])
-  courier  = User.find_by!(phone: E2E[:courier])
-  merchant = Merchant.find_by!(phone: "+93700000804")
-  item     = merchant.catalog_items.first
+  rig_customer = User.find_by!(phone: E2E[:customer])
+  courier      = User.find_by!(phone: E2E[:courier])
+  merchant     = Merchant.find_by!(phone: "+93700000804")
+  item         = merchant.catalog_items.first
 
-  # A separate order from the live one and the courier's job, in `ready` —
-  # which is the state dispatch offers FROM.
+  # ── THE OFFER TARGET BELONGS TO A DIFFERENT CUSTOMER, AND THAT IS A FIX ──
+  #
+  # The first version put this order on the RIG's customer, which gave that
+  # account **two live orders** — `spec/seeds/e2e_spec.rb` caught it
+  # immediately on `expect(first.code).to eq("KQA00001")`, because a second
+  # `ready` order sorts newest and takes the top of the list.
+  #
+  # Moving it is the right fix rather than renumbering the assertion, for two
+  # reasons. This file's own premise is **ONE live order** for the rig customer
+  # — that is what makes the status screen, the merchant board and the map all
+  # point at the same thing. And it is truer to the domain: **a courier is
+  # offered any customer's order**, and pre-accept they do not see whose it is
+  # at all, so tying an offer to the rig's own account was a coincidence
+  # pretending to be a relationship.
+  # CREATED HERE, not borrowed from `sample.rb`. The first version of this
+  # reached for a sample-data customer and `spec/seeds/e2e_spec.rb` failed with
+  # `Couldn't find User` — because that spec deliberately loads only
+  # `reference.rb` and `e2e.rb`, "so a broken sample.rb cannot fail this spec
+  # for an unrelated reason". Its own header says so, and this file has to be
+  # self-contained for that to hold.
+  offer_customer = e2e_user!(E2E[:offer_customer], name: "QA Offer Customer", role: :customer,
+                             email: "qa.offer.customer@karwan.af")
+
+  # In `ready` — the state dispatch offers FROM.
   order = Order.find_or_initialize_by(code: "KQA00003")
   order.assign_attributes(
-    customer: customer, merchant: merchant, status: :ready,
+    customer: offer_customer, merchant: merchant, status: :ready,
     items_total: 260, delivery_fee: 100, commission: 35, courier_fee: 100,
     merchant_payout: 225, customer_total: 360, currency: "AFN",
     payment_method: :cash, payment_status: :pending,
     delivery_latitude: 34.5290, delivery_longitude: 69.1610,
     delivery_landmark_note: "QA fixture — offer target, green door",
-    customer_phone: customer.phone,
+    customer_phone: offer_customer.phone,
     placed_at: 8.minutes.ago, accepted_at: 7.minutes.ago,
     preparing_at: 5.minutes.ago, ready_at: 1.minute.ago,
     created_at: 8.minutes.ago
@@ -499,7 +529,7 @@ seed_section "e2e courier offer and wallet ledger" do
       running += e[:amount]
       wallet.wallet_entries.create!(
         kind: e[:kind], amount: e[:amount], balance_after: running,
-        currency: "AFN", note: e[:note], recorded_by: customer
+        currency: "AFN", note: e[:note], recorded_by: rig_customer
       )
     end
     wallet.update!(balance: running)
