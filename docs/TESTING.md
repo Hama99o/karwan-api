@@ -163,6 +163,43 @@ you, which is that the code under test leaves work running after the assertion
 passed. In an app that is a timer nobody cancels; in a test it is six hundred
 seconds of somebody's afternoon.
 
+### And there is a SECOND timer, in the mutation cache, that `clear()` cannot remove
+
+Found on 17 Sept 2026 building the Profile screen, and worth writing down
+because the obvious fix above is not enough and the reason is in the library
+rather than in our code.
+
+`cancelQueries()` + `clear()` was applied, and the suite still would not exit.
+Only the tests that fired a **succeeding** mutation held the worker; the ones
+that never reached the server were clean. Unmounting runs
+`MutationObserver.onUnsubscribe` → `Mutation.removeObserver` →
+`Removable.scheduleGc`, which installs a **300,000 ms** timeout, because
+mutations default to a five-minute `gcTime`. And
+`@tanstack/query-core/src/mutationCache.ts:190` — read it — deletes the entries
+from its Map and notifies observers but **never calls `mutation.destroy()`**,
+which is the only thing that clears that timer.
+
+So `queryClient.clear()` cannot remove it. Calling `clear()` twice does not
+either; both were tried and measured before the cause was understood.
+`karwan-mobile/src/__tests__/queryTeardown.ts` is the three-line teardown every
+suite with a `QueryClient` should call, and its header carries this reasoning.
+
+**The technique is the transferable part, because `--detectOpenHandles` named
+nothing here either.** Two steps, both cheap:
+
+1. **Bisect by test**, not by suite. Run each `it` alone and see which ones
+   hang. The pattern — "only the ones whose mutation succeeded" — was the whole
+   diagnosis.
+2. **Then ask the process what is still alive.** `process.getActiveResourcesInfo()`
+   in an `afterAll` said `["PipeWrap","PipeWrap","Timeout","Timeout","Timeout"]`,
+   which proved it was a timer and not a socket. Wrapping `global.setTimeout` to
+   record `(delay, stack)` and printing the survivors then named the line
+   exactly, with its 300000 ms delay and its call into `Mutation.scheduleGc`.
+
+That second step took one edit and answered in one run, after two wrong
+hypotheses had each cost a full suite run. **Reach for it before the third
+guess, not after it.**
+
 ## THE FOUR SHAPES OF A LYING INSTRUMENT
 
 All four came out of **one bug in one week** — F-21 — and every one was caught

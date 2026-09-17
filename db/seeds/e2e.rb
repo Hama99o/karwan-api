@@ -191,6 +191,52 @@ seed_section "e2e accounts" do
   end
 end
 
+# ── THE CUSTOMER'S SAVED PLACES ───────────────────────────────────────────
+#
+# Seeded because **the rig could not reach this feature at all without them.**
+# `addresses` had a table, five endpoints, policies and a serializer, and the
+# app rendered the list nowhere but the cart's destination picker — so a
+# customer could save a place and never see it again. The Profile screen is now
+# its second consumer and the first one that can rename, remove, or choose a
+# default, and a flow cannot exercise any of those against an empty list.
+#
+# THREE, and each one is a different case rather than padding:
+#
+#   1. `کور` — the DEFAULT. Proves the "· the usual one" marker renders and
+#      that `make_default` on another row demotes this one, which is a
+#      server-side demotion the client can only be shown by refetching.
+#   2. `د مور کور` — a place with SOMEBODY ELSE'S PHONE. This is the case the
+#      whole feature exists for (`AFGHAN_UX.md` §7: one person with a
+#      smartphone books for a whole family), and the number the courier rings
+#      is this one rather than the account holder's.
+#   3. `دفتر` — a BARE PIN, no landmark and no voice note, so `navigable?` is
+#      false and the "a courier may not find this from the pin alone" warning
+#      has something to render on. Without it that branch is unreachable on a
+#      device.
+#
+# Labels are in Pashto on purpose: the rig runs in Pashto, and a Latin label
+# would not prove the row renders an Afghan script at all.
+seed_section "e2e saved addresses" do
+  customer = User.find_by!(phone: E2E[:customer])
+
+  [
+    { label: "کور", landmark_note: "شین دروازه، دویم پوړ", phone: customer.phone,
+      latitude: 34.5400, longitude: 69.1750, is_default: true },
+    { label: "د مور کور", landmark_note: "د پارک مخې ته، سره دروازه", phone: "+93700000901",
+      latitude: 34.5320, longitude: 69.1680, is_default: false },
+    # NO landmark and NO phone: the not-navigable case.
+    { label: "دفتر", landmark_note: nil, phone: nil,
+      latitude: 34.5460, longitude: 69.1820, is_default: false }
+  ].each do |fixture|
+    # Keyed on the LABEL, so a re-seed updates the same three rows rather than
+    # growing the list on every run — this file is re-loadable by design and a
+    # spec loads it twice to prove it.
+    address = customer.addresses.find_or_initialize_by(label: fixture[:label])
+    address.assign_attributes(fixture)
+    address.save!
+  end
+end
+
 seed_section "e2e live order" do
   customer = User.find_by!(phone: E2E[:customer])
   merchant = Merchant.find_by!(phone: "+93700000804")

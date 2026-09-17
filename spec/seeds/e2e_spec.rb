@@ -341,4 +341,43 @@ RSpec.describe "db/seeds/e2e.rb" do
         .not_to change { merchant.reload.storefront_photo_attachment.id }
     end
   end
+  # ── THE SAVED PLACES THE PROFILE FLOW ACTS ON ────────────────────────────
+  #
+  # Three rows, three different cases, and the flow taps rename / remove /
+  # make-default on them. Asserted here because an empty list makes the flow
+  # pass by asserting nothing — the "empty subject" shape in
+  # `docs/TESTING.md`'s four shapes of a lying instrument.
+  describe "the customer's saved places" do
+    it "seeds three, one of them the default" do
+      expect(customer.addresses.count).to eq(3)
+      expect(customer.addresses.where(is_default: true).count).to eq(1)
+      expect(customer.addresses.find_by(is_default: true).label).to eq("کور")
+    end
+
+    # The case the whole feature exists for: a place saved with SOMEBODY
+    # ELSE'S number, which is what the courier rings.
+    it "gives one of them a different phone from the account holder's" do
+      mothers = customer.addresses.find_by(label: "د مور کور")
+
+      expect(mothers.phone).to eq("+93700000901")
+      expect(mothers.phone).not_to eq(customer.phone)
+    end
+
+    # Without this row the "a courier may not find this from the pin alone"
+    # warning is unreachable on a device, so the branch would never be seen.
+    it "leaves one a bare pin, so the not-navigable warning has a subject" do
+      office = customer.addresses.find_by(label: "دفتر")
+
+      expect(office.landmark_note).to be_nil
+      expect(office).not_to be_navigable
+    end
+
+    # Keyed on the label rather than created blind: this file is re-loadable by
+    # design and the rig re-seeds between runs, so a bare `create!` would grow
+    # the list by three every time and the flow would act on row 1 of 30.
+    it "does not add three more when the seed runs again" do
+      expect { load Rails.root.join("db/seeds/e2e.rb") }
+        .not_to change { customer.reload.addresses.count }
+    end
+  end
 end
