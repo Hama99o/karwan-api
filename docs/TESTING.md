@@ -543,6 +543,56 @@ compares against a count taken from the filesystem, and the authorisation sweep
 opens with "found the routes to sweep" — because a route-derived example group
 that derives **zero** routes is a green suite asserting nothing at all.
 
+#### AND ITS PAIR, FROM THE OTHER DIRECTION: WHEN EVERY VALUE IS RIGHT AND THE RESULT IS WRONG
+
+Everything else here runs one way — an instrument reporting a true thing about
+the wrong subject. **This is the opposite**, and it is the one that wastes a
+day, because the code you are staring at is correct.
+
+> **When every value is right and the result is wrong, stop reasoning and
+> RENDER THE VALUE where the failure is.**
+
+Earned three times on a device in one day, none of them reachable by a test:
+
+- A board's gutter needed **1552 px of a 1528 px container**, and three
+  half-width cards stacked **looked deliberate** — which is why nobody reported
+  it. A layout that is wrong and plausible reports nothing.
+- `numColumns` wrapped each row and gave the cells **no width**, so two columns
+  rendered as one **with two columns configured**.
+- `scrollToLocation({ itemIndex: 0 })` targets a section header and the platform
+  **silently no-ops** — no error, no warning, nothing moved.
+
+**In all three the ref, the index and the call were correct.** The failure was
+entirely in what the layer beneath did with a valid instruction. The diagnostic
+that worked every time was putting the value into the view tree as a testID —
+`dbg-cols-2-class-24` — and reading it off the device. Not a log, not a
+breakpoint: **a value rendered at the point of failure.**
+
+**This is not a React Native rule, which is why it is here.** The shape is *"the
+layer beneath you accepted a valid instruction and did nothing"*, and this repo
+is full of the same class:
+
+| Correct code | What the layer beneath did |
+|---|---|
+| `dependent: :destroy` | `delete_all` skips it entirely |
+| `PublicUrl.for(..., variant:)` | fails open to the original, silently, when no processor exists |
+| a `/representations/` URL | 500s only when something actually fetches it |
+| a computed method on a dashboard | Administrate builds SQL `LIKE` over it |
+| `t.time` holding 09:00 | read back through `Time.zone` as 13:30 |
+
+**The Ruby equivalent of rendering the value is asserting the STORED value
+rather than what the round trip returns.** That is what the timezone spec
+ended up doing, and it is the only assertion that could have caught it:
+
+> **An assertion that reads back through the same conversion it wrote through
+> cannot see the conversion.** Type 08:00, store 03:30, read 08:00 — three
+> correct steps and a wrong database.
+
+So when a value is right at every layer you can see and the result is still
+wrong, the next move is not another hypothesis. It is to make the value visible
+one layer down: the stored column, the generated SQL, the rendered tree, the
+actual bytes on the wire.
+
 #### THE UMBRELLA: AN ASSERTION KEYED ON SOMETHING THE SUBJECT ITSELF CONTROLS
 
 Three instances in three days, in three languages, and they are one defect:
