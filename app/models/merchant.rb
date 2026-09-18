@@ -91,6 +91,47 @@ class Merchant < ApplicationRecord
   # paid by every user, not just a large file on our disk.
   validates_attached :logo, :storefront_photo, :license_photo
 
+  # ── WHEN DOES THIS SHOP OPEN NEXT? ──────────────────────────────────────
+  #
+  # The browse card's question, and the reason the list carries this rather
+  # than a week of rows: twenty merchants times seven days is a payload nobody
+  # reads to answer one question.
+  #
+  # NIL HAS TWO MEANINGS AND THE PAYLOAD SEPARATES THEM, because the card says
+  # different things:
+  #
+  #   no hours at all   -> `hours_known: false`  -> "hours not given, ring them"
+  #   inside its hours  -> `hours_known: true`, nil -> nothing to say
+  #   outside its hours -> a time                -> "opens at ۸:۰۰"
+  #
+  # A shop that is MANUALLY closed inside its own opening hours returns nil on
+  # purpose. `is_open` is the authority and hours are advisory, so the schedule
+  # cannot tell us when a shopkeeper who shut early will reopen — and guessing
+  # "tomorrow at 08:00" would be a worse answer than none.
+  #
+  # Returned as a full time rather than "08:00" so the app can render it in the
+  # Shamsi calendar and say "tomorrow" when it is tomorrow — AFGHAN_UX makes
+  # both the client's job, and neither is possible from a bare clock face.
+  def next_opens_at(from = Time.zone.now)
+    rows = opening_hours.to_a
+    return nil if rows.empty?
+    return nil if open_per_schedule?(from, rows)
+
+    8.times do |offset|
+      date = from.to_date + offset
+      rows.select { |hours| hours.day_of_week == date.wday }
+          .map { |hours| Time.zone.local(date.year, date.month, date.day, hours.opens_at.hour, hours.opens_at.min) }
+          .sort
+          .each { |candidate| return candidate if candidate > from }
+    end
+
+    nil
+  end
+
+  def hours_known?
+    opening_hours.any?
+  end
+
   # ASSIGNING AN OWNER IS WHAT GRANTS THE MERCHANT ROLE.
   #
   # It granted nothing. `owner_id` is set through the console's generic form, so
@@ -198,6 +239,19 @@ class Merchant < ApplicationRecord
   end
 
   private
+
+  # Inside a window ACCORDING TO THE SCHEDULE — which is not the same as open.
+  # `is_open` decides whether orders are accepted; this only says whether the
+  # posted hours cover right now.
+  def open_per_schedule?(at, rows)
+    rows.any? do |hours|
+      next false unless hours.day_of_week == at.to_date.wday
+
+      minutes = (at.hour * 60) + at.min
+      minutes >= (hours.opens_at.hour * 60) + hours.opens_at.min &&
+        minutes < (hours.closes_at.hour * 60) + hours.closes_at.min
+    end
+  end
 
   # A merchant that is gone must not leave an orderable menu behind.
   def discard_dependents!

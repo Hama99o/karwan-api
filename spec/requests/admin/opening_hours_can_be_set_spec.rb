@@ -64,6 +64,39 @@ RSpec.describe "an operator can set a shop's opening hours", type: :request do
     expect(hours.first).to include("day_of_week" => 6, "opens_at" => "09:00", "closes_at" => "22:00")
   end
 
+  # ── THE DATABASE MUST HOLD WHAT THE OPERATOR TYPED ──────────────────────
+  #
+  # The console-to-customer round trip above passes under ANY zone handling,
+  # because the write and the read use the same one: type 08:00, store 03:30
+  # UTC, read 08:00. Self-consistent and wrong. So it did not catch the real
+  # defect, which was what the column MEANT.
+  #
+  # Rails puts `:time` in `time_zone_aware_types`, so a `t.time` column is read
+  # through `Time.zone` — right for an instant, wrong for a shop's opening time,
+  # which is a fact about a wall clock in Kabul rather than a moment. Setting
+  # the app zone to Kabul made it visible: rows stored as 09:00 began reading as
+  # **13:30**, telling a customer a shop opens four and a half hours late.
+  #
+  # This asserts the stored value, which is the only assertion that
+  # discriminates — and it is what a SQL report, a raw console query or a second
+  # service would read.
+  it "stores the hour as wall-clock, not shifted into UTC" do
+    post "/admin/merchant_opening_hours", params: {
+      merchant_opening_hour: {
+        merchant_id: merchant.id, day_of_week: 3, opens_at: "08:00", closes_at: "21:00"
+      }
+    }
+
+    row = MerchantOpeningHour.connection.select_one(
+      "SELECT opens_at, closes_at FROM merchant_opening_hours WHERE merchant_id = #{merchant.id}"
+    )
+
+    expect(row["opens_at"].to_s).to start_with("08:00"),
+                                    "the database holds #{row['opens_at']} for an 08:00 opening — " \
+                                    "`:time` is being treated as an instant rather than a wall clock"
+    expect(row["closes_at"].to_s).to start_with("21:00")
+  end
+
   # The model refuses it; the console must refuse it too rather than 500.
   it "refuses hours that close before they open" do
     expect {

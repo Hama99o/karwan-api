@@ -46,7 +46,72 @@ RSpec.describe "Api::V1::Public::Merchants", type: :request do
       end
     end
 
-    describe "what a customer may and may not see" do
+  # ═══ THE BROWSE CARD'S "OPENS AT" ════════════════════════════════════════
+  #
+  # `opening_hours` was detail-only, so a card that wants to say "opens at
+  # ۸:۰۰" would have needed twenty detail fetches to fill twenty cards — the
+  # workaround correction 17 forbids. The list carries the ANSWER instead.
+  describe "when a shop opens next" do
+    let!(:shop) { create(:merchant, name: "Kabab House", is_open: true) }
+
+    def card
+      get "/api/v1/public/merchants"
+      JSON.parse(response.body).fetch("merchants").find { |m| m["name"] == "Kabab House" }
+    end
+
+    # `[]` is the COMMON case and stays so for months — real shops arrive
+    # without hours. It must read as "ring them", never as "closed".
+    it "says plainly when a shop has given no hours" do
+      expect(card["hours_known"]).to be(false)
+      expect(card["next_opens_at"]).to be_nil
+    end
+
+    it "says nothing while the shop is inside its own hours" do
+      travel_to Time.zone.parse("2026-09-18 12:00") do
+        MerchantOpeningHour::DAYS.each do |day|
+          create(:merchant_opening_hour, merchant: shop, day_of_week: day,
+                                         opens_at: "08:00", closes_at: "21:00")
+        end
+
+        expect(card["hours_known"]).to be(true)
+        expect(card["next_opens_at"]).to be_nil, "a shop that is open should not advertise an opening time"
+      end
+    end
+
+    it "carries the next opening when the shop is outside its hours" do
+      travel_to Time.zone.parse("2026-09-18 06:00") do
+        MerchantOpeningHour::DAYS.each do |day|
+          create(:merchant_opening_hour, merchant: shop, day_of_week: day,
+                                         opens_at: "08:00", closes_at: "21:00")
+        end
+
+        expect(card["hours_known"]).to be(true)
+        expect(Time.zone.parse(card["next_opens_at"]).strftime("%H:%M")).to eq("08:00")
+      end
+    end
+
+    # THE DISTINCTION THE CARD IS FOR. Both these shops are unavailable and the
+    # card must say different things about them, so the payload cannot collapse
+    # them into one falsy value.
+    it "distinguishes a shop with no hours from one that is simply shut" do
+      travel_to Time.zone.parse("2026-09-18 06:00") do
+        MerchantOpeningHour::DAYS.each do |day|
+          create(:merchant_opening_hour, merchant: shop, day_of_week: day,
+                                         opens_at: "08:00", closes_at: "21:00")
+        end
+        silent = create(:merchant, name: "No Hours Shop", is_open: true)
+
+        get "/api/v1/public/merchants"
+        cards = JSON.parse(response.body).fetch("merchants").index_by { |m| m["name"] }
+
+        expect(cards["Kabab House"]["hours_known"]).to be(true)
+        expect(cards["No Hours Shop"]["hours_known"]).to be(false)
+        expect(silent.reload.opening_hours).to be_empty
+      end
+    end
+  end
+
+  describe "what a customer may and may not see" do
       it "hides a merchant that is not yet approved" do
         create(:merchant, :pending, name: "Not Approved Yet")
 

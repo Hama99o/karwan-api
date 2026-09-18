@@ -54,8 +54,9 @@ RSpec.describe "payload key sets" do
       get "/api/v1/public/merchants"
 
       expect(keys_of(JSON.parse(response.body)["merchants"])).to eq(%w[
-        accepting_orders categories distance_km distance_source eta_minutes id
-        is_open kind kind_name logo_url name prep_time_minutes storefront_photo_url
+        accepting_orders categories distance_km distance_source eta_minutes
+        hours_known id is_open kind kind_name logo_url name next_opens_at
+        prep_time_minutes storefront_photo_url
       ])
     end
 
@@ -66,9 +67,10 @@ RSpec.describe "payload key sets" do
       get "/api/v1/public/merchants/#{merchant.id}"
 
       expect(keys_of(JSON.parse(response.body)["merchant"])).to eq(%w[
-        accepting_orders categories distance_km distance_source eta_minutes id
-        is_open kind kind_name landmark_note location logo_url name opening_hours
-        phone prep_time_minutes storefront_photo_url
+        accepting_orders categories distance_km distance_source eta_minutes
+        hours_known id is_open kind kind_name landmark_note location logo_url
+        name next_opens_at opening_hours phone prep_time_minutes
+        storefront_photo_url
       ])
     end
 

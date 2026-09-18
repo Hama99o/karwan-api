@@ -78,6 +78,35 @@ module Customers
         travel + (merchant.effective_prep_time_minutes || 0)
       end
 
+      # ── AND THIS IS THE "WHEN IT OPENS AGAIN" THAT COMMENT PROMISED ──────
+      #
+      # The card was blocked on it: `opening_hours` was detail-only, so filling
+      # twenty cards meant twenty detail fetches, which correction 17 forbids.
+      # The list carries the ANSWER rather than the week of rows — twenty
+      # merchants times seven days is a payload nobody reads to learn one thing.
+      #
+      # TWO FIELDS, because the card says three different things and a single
+      # nullable one cannot separate them:
+      #
+      #   hours_known false        -> "hours not given, ring them"
+      #   known, next_opens_at nil -> inside its hours; say nothing
+      #   known, a time            -> "opens at ۸:۰۰"
+      #
+      # `[]` is the COMMON case and will stay so for months — real shops arrive
+      # without hours — so "absent" must not be inferred from a falsy value that
+      # also means "open right now". A shop with no hours must never read as
+      # closed.
+      field :hours_known do |merchant|
+        merchant.hours_known?
+      end
+
+      # A full time, not "08:00", so the app can render it in the Shamsi
+      # calendar and say "tomorrow" when it is tomorrow. Both are the client's
+      # job and neither is possible from a bare clock face.
+      field :next_opens_at do |merchant|
+        merchant.next_opens_at
+      end
+
       # A closed merchant is SHOWN, not hidden — greyed, with when it opens
       # again. Hiding it makes the app look empty at 7am.
       field :accepting_orders do |merchant|

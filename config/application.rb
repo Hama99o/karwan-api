@@ -55,6 +55,24 @@ module KarwanApi
     # stored in UTC either way — this changes what a DAY means, not what is
     # written down.
     config.time_zone = "Kabul"
+
+    # ── AND OPENING HOURS ARE WALL-CLOCK, NOT INSTANTS ──────────────────────
+    #
+    # Rails puts `:time` in `time_zone_aware_types`, so a `t.time` column is
+    # read back through `Time.zone`. That is right for an instant and WRONG for
+    # a shop's opening time: "we open at 09:00" is a fact about a wall clock on
+    # a wall in Kabul, not a moment that moves when a zone changes.
+    #
+    # Setting the zone above made that visible and would have shipped it: a row
+    # stored as 09:00 started reading as **13:30**, so a customer would be told
+    # a shop opens four and a half hours after it does. The only two `t.time`
+    # columns in this schema are `merchant_opening_hours.opens_at` and
+    # `.closes_at`, so this narrows exactly to the case it is wrong for.
+    #
+    # `spec/models/merchant_opening_hour_spec.rb` asserts the round trip an
+    # operator actually performs — type 08:00 in the console, read 08:00 on the
+    # phone — which is the assertion that would have caught it.
+    config.active_record.time_zone_aware_types = [ :datetime, :timestamptz ]
     # config.eager_load_paths << Rails.root.join("extras")
 
     # Only loads a smaller set of middleware suitable for API only apps.
