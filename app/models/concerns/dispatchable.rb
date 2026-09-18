@@ -107,6 +107,25 @@ module Dispatchable
     end
   end
 
+  # ── WAS A PIN OFF THE ROAD NETWORK WHEN THIS WAS ORDERED? ────────────────
+  #
+  # Computed from the snap distances FROZEN on this row at quote time, not from
+  # asking the router again. Re-querying would answer about today's map and
+  # today's pin, and correction 13's frozen-amount discipline is exactly that
+  # every input is written down at the moment it is quoted rather than
+  # recomputed for display.
+  #
+  # `Routing::Route#pin_far_from_road?` asks the same question of a live quote.
+  # This asks it of an order that has already been placed, which is when it
+  # matters: the customer's tracking screen already carries the copy — "a
+  # courier may not find this from the pin alone" — and has never been wired to
+  # the signal.
+  def pin_far_from_road?
+    threshold = Setting.fetch("routing_snap_warning_metres")
+
+    [ origin_snap_metres, destination_snap_metres ].compact.any? { |metres| metres > threshold }
+  end
+
   def terminal?
     self.class::TERMINAL.include?(status.to_sym)
   end

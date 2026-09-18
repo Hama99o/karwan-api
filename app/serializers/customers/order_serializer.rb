@@ -88,6 +88,27 @@ module Customers
         order.merchant.phone if !order.terminal? && order.merchant
       end
 
+      # ── HOW THE FARE WAS MEASURED, AND WHETHER THE PIN IS REACHABLE ──────
+      #
+      # `docs/design/customer/order-tracking/SPEC.md` names both and the payload
+      # carried neither, so the tracking screen was blocked on the API. Found by
+      # pointing the serializer sweep at the design rather than at the code.
+      #
+      # Both are read from what was FROZEN on this order at quote time — the
+      # stored `distance_source` and the stored snap distances — never
+      # recomputed. MAP_AND_ROUTING.md requires a fare be explainable later, and
+      # road pricing and crow-flight pricing differ by 15-20%; an explanation
+      # that re-measures is not an explanation of what was charged.
+      fields :distance_source
+
+      # The copy for this already exists in the app — "a courier may not find
+      # this from the pin alone" — and has never been wired to a signal. An
+      # airport pin snapped 548.9 m to the road network in the measurement that
+      # motivated it.
+      field :pin_far_from_road do |order|
+        order.pin_far_from_road?
+      end
+
       fields :delivery_landmark_note, :customer_phone, :notes
 
       field :delivery_location do |order|

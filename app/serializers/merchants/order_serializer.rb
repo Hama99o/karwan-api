@@ -33,6 +33,37 @@ module Merchants
     view :board do
       fields :placed_at, :accepted_at, :ready_at
 
+      # ── IS A RIDER COMING? ───────────────────────────────────────────────
+      #
+      # The board could not tell. `ready` with nobody assigned and `ready` with
+      # a courier on the way rendered IDENTICALLY — three inert cards in the
+      # tablet screenshot, no action and no state, and the shop with no way to
+      # know which of the two it was looking at.
+      #
+      # That is the difference between a shopkeeper waiting calmly and a
+      # shopkeeper ringing us; and when nobody is coming, WE are the ones who
+      # look bad, so hiding it helps nobody. `minutes_in_state` already answers
+      # "how long" — this answers "whether", and the pair is what makes a
+      # climbing number mean something.
+      #
+      # NIL IS THE MEANINGFUL VALUE: ready + nil is the state that generates the
+      # phone call, and the phone call is the product working.
+      #
+      # WHAT THE SHOP MAY KNOW, and it is deliberately less than we hold: a
+      # first name and a number to ring. Not a surname, not a position. A
+      # courier's live movements on a counter tablet is a person tracked at
+      # work by somebody who is not their employer, and the shop's need —
+      # "who is collecting and can I ring them" — is met without it.
+      #
+      # Moved here from `:detailed` rather than added: the field, the first-name
+      # trim and that privacy line were already written and already correct.
+      # They were simply in the view the board does not read.
+      field :courier do |order|
+        next nil if order.courier.nil?
+
+        { name: order.courier.display_name.to_s.split.first, phone: order.courier.phone }
+      end
+
       # The money, ON THE CARD rather than only on the detail screen.
       # DESIGN.md gives each board card one big figure, and the figure a
       # kitchen cares about is what the courier will hand over at pickup —
@@ -58,14 +89,6 @@ module Merchants
       # commission. Correction 4 — money is shown before it is owed, so the
       # commission is visible here rather than discovered later.
       fields :items_total, :commission, :merchant_payout
-
-      field :courier do |order|
-        next nil if order.courier.nil?
-
-        # The merchant needs to know who is coming to collect and be able to
-        # ring them. Not the courier's full identity.
-        { name: order.courier.display_name.to_s.split.first, phone: order.courier.phone }
-      end
 
       field :paid_at do |order|
         order.merchant_paid_at
