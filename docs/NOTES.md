@@ -815,6 +815,24 @@ orderable until it is picked. One `Setting` row gating the tier would do it, and
 that is a smaller decision than the one above — but still his, since it is the
 product he is about to demonstrate to restaurant owners.
 
+**DONE 2026-09-19: `premium_tier_enabled`, default off**, refusing at the quote
+with `tier_unavailable` rather than downgrading — a silent downgrade would keep
+the gate invisible until the day it flipped. It decides nothing about who bears
+the uplift.
+
+**AND THE RIDE PATH IS NOT GATED, WHICH IS A GAP WAITING RATHER THAN A GAP.**
+`Pricing::RideQuote` takes the same `service_tier` and carries the same
+uncollected uplift, and it is **unreachable today**: there is no route to request
+a trip, `PRODUCT.md:12` says not to build the ride product yet, and
+`spec/integration/full_delivery_flow_spec.rb` asserts that absence deliberately.
+So it is not gated because it cannot be reached, which is a different and weaker
+safety than the delivery side has.
+
+**When rides are built, this gate must be built with them, in the same change.**
+A trip route added without it reopens exactly the hole the delivery gate just
+closed — and it would open it on the demand type where the uplift is larger,
+because a fare is bigger than a delivery fee.
+
 ### OPEN — "RESTAURANT NOT READY" HAS NO PATH, AND IT MUST NOT BE A FAILURE
 
 Found 2026-09-18 walking PRODUCT.md phase 4. **For Hamma9901 / Hamma9900 — not
