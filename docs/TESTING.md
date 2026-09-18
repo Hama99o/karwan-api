@@ -744,6 +744,63 @@ confirmed unreachable method that morning: unwiring it made it appear with 11
 spec refs, wiring it made it vanish. A sweep that cannot find the case that
 motivated it is not ready to report on cases nobody has checked.
 
+### A DOCUMENTED REASON FOR AN EXCLUSION IS A CLAIM WITH A DATE ON IT
+
+The mirror of the rule below. That one is a suite you chose not to run; this is
+a suite that has been **told not to look**, in writing, for a reason that was
+true once.
+
+`tsconfig.app.json` in the mobile repo excluded `**/*.stories.tsx` because
+Storybook *"is not installed here"*. True when written. False when read —
+`@storybook/react` had since been added. Measured: **24 errors → 0**, and the
+fix was not the `npm install` the comment implied. The two types come from
+`@storybook/react`, which was present, rather than from
+`@storybook/react-native`, which was not: **one import path per file, twelve
+files.**
+
+> **A gate that skips a file also stops reporting when the file gets better.**
+> An exclusion silences the signal that would tell you to remove it, so its
+> stated reason must be RE-READ rather than trusted — and the errors behind it
+> are as likely to be its expiry notice as its justification.
+
+**And the phrase it explains, which is the part worth carrying.** That session
+had reported *"24 errors, pre-existing, unchanged"* in every commit for a day —
+its own count, roughly fifteen times, without once asking why a number that
+never moved was acceptable. **They were never pre-existing in the sense that
+mattered. They were UNOWNED**, because the gate that gates `main` excluded
+exactly the files carrying them.
+
+> **A number that never moves is not a stable baseline. It is a number nobody is
+> responsible for.** "Pre-existing" and "unchanged" describe a measurement;
+> neither is a statement that anyone has looked.
+
+**Both sides of the same wall, found the same day.** Here it was
+`registered_devices_summary` — a subset that covered the files I touched, green,
+while the suite was not. There it was a config checking files CI never sees, so
+*"24, unchanged"* described a different build from the one gating `main`. **Two
+sessions, two configs, and each was measuring something its gate was not.**
+
+**APPLIED HERE THE SAME HOUR, AND IT FOUND ONE.** Re-reading this repo's own
+exclusions turned up no stale `Exclude` in `.rubocop.yml` and no filtered specs —
+and then `config/ci.rb`, the file behind `bin/ci`, which ran setup, style and two
+security scans and **not one spec**. `.github/workflows/ci.yml` — the gate that
+actually protects `main` — runs `zeitwerk:check` and the full suite. So the local
+command *named CI* went green on a branch the real CI would reject.
+
+Not an exclusion: **a gate that never named the thing it exists to check.** The
+same wall from a third side, and the reason
+`spec/config/ci_runs_the_suite_spec.rb` now compares the two configs to each
+other rather than asserting a list — so the DIVERGENCE fails, not its
+consequence six weeks later.
+
+**The rule applies to the probe you wrote thirty seconds ago, not only to the
+rig somebody built last week.** The first command in that same investigation was
+wrong twice in one line: `ls src/**/*.stories.tsx` returned nothing because bash
+does not recurse `**` without `globstar`, and an `(empty = not installed)` echo
+printed unconditionally regardless of what the grep found. For a minute the
+conclusion was "no stories, no dependency" — both false, from one line. A shell
+line is an instrument. It gets the same suspicion as a spec.
+
 ### A SUBSET THAT COVERS THE FILES YOU TOUCHED IS NOT THE SUITE
 
 The obvious way to run less is to run the directory you edited. It is also the
