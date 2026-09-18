@@ -91,9 +91,31 @@ class ApplicationController < ActionController::API
   # English sentence from the API. Pashto and Dari users must not be shown
   # English because the server wrote the message.
 
+  # ── A VALIDATION ERROR AN AFGHAN USER CANNOT READ IS NOT AN ERROR MESSAGE ──
+  #
+  # `full_messages` is English prose — "Latitude can't be blank" — with no field
+  # and no code, so the app could neither TRANSLATE it nor attach it to the input
+  # that caused it. It could only dump a list of English sentences at somebody
+  # AFGHAN_UX.md §1 says may not read fluently. Every other error in this API
+  # carries a machine-readable `code` for exactly that reason; the model ones
+  # were the gap.
+  #
+  # `field_errors` is `errors.details` flattened: { latitude: ["blank"] }. Rails
+  # has produced it all along, so this is a shape the app can localise with its
+  # own i18n, keyed the way the rest of the API already is.
+  #
+  # ADDITIVE. `errors` stays exactly as it was — two specs and the console read
+  # it, and an English sentence is still the right thing for a developer and for
+  # an Administrate flash. Nothing has to change on the client for it to keep
+  # working; the new key is there when the screens want it.
   def render_unprocessable_entity(record_or_message, code: nil)
     body = if record_or_message.respond_to?(:errors)
-             { errors: record_or_message.errors.full_messages }
+             {
+               errors: record_or_message.errors.full_messages,
+               field_errors: record_or_message.errors.details.transform_values { |details|
+                 details.map { |detail| detail[:error].to_s }
+               }
+             }
     else
              { error: record_or_message.to_s }
     end

@@ -1139,6 +1139,43 @@ zeros mean something precisely because the reds happened beside them.
 number have moved at all if the bug were present?* If the answer is no, you
 have measured something true and learned nothing.
 
+#### A SECOND INSTANCE, IN A DIFFERENT MECHANISM: THE PLAUSIBLE PROXY
+
+Found 18 Sept 2026 in `db/seeds/stress.rb`, and it is recorded here rather than
+as a ninth shape **because it is not one** — it is the sixth wearing different
+clothes, which is exactly what makes it worth a second entry. The first instance
+was a pixel width; this one is a seed's own summary line. Same shape, nothing in
+common mechanically.
+
+The seed exists partly to give the browse card's *"opens at ۸:۰۰"* state a
+subject. Its summary printed:
+
+    first_screen.count { |m| !m.is_open && m.opening_hours.any? }   # => 1
+
+Every part of that is TRUE. There really was one shop with `is_open: false` that
+really did have opening hours. It is the wrong quantity: the card branches on
+`#next_opens_at`, which reads `open_per_schedule?` — **the hours rows, not the
+`is_open` column.** A shop manually toggled shut is still *open per schedule* at
+14:00, so `next_opens_at` returned nil and the state had never been produced.
+The seed reported success for a card that did not exist.
+
+**What makes this instance the more dangerous one: the proxy is CORRELATED with
+the property.** A shop that is manually shut usually is shut, so the number is
+plausible, stays plausible, and moves when you change the seed — it is not
+constant-by-construction the way the 1080px was. The sixth shape's own question
+*"could this number have moved if the bug were present?"* answers **yes** here,
+and the instrument still lies. A correlated proxy passes that check.
+
+**So the question needs its companion, and this is what the instance adds:**
+
+> *Is this the quantity the code branches on, or one that usually travels with
+> it?* Name the exact expression the product reads — `next_opens_at.present?` —
+> and measure that. If your instrument and the app read **different columns**,
+> you are measuring a correlation and calling it a fact.
+
+The fix was one line and the finding was free: the summary now counts
+`next_opens_at.present?` and `hours_known?`, which is what the card asks.
+
 ### The seventh shape: A TIME-DECAYING SUBJECT
 
 The first four lie **now**. The fifth reads nothing. The sixth reads something

@@ -48,6 +48,32 @@ RSpec.describe "Api::V1::Customers::Addresses", type: :request do
       expect(response).to have_http_status(:unprocessable_content)
     end
 
+    # ── AN ERROR AN AFGHAN USER CANNOT READ IS NOT AN ERROR MESSAGE ──────────
+    #
+    # `errors` is English prose with no field and no code, so a screen could
+    # neither translate it nor put it under the input that caused it — for
+    # somebody AFGHAN_UX.md §1 says may not read fluently. `field_errors` is the
+    # same failure as { field => [code] }, which the app localises with its own
+    # i18n, the way it does every other error in this API.
+    it "names the field and the reason as CODES, not as an English sentence" do
+      post "/api/v1/customer/addresses",
+           params: { address: pin[:address].merge(latitude: 91) }, headers: auth
+
+      expect(json["field_errors"]).to be_present
+      expect(json["field_errors"].keys).to include("latitude")
+      expect(json["field_errors"]["latitude"]).to be_an(Array)
+      # A code, not prose: no spaces and no apostrophes.
+      expect(json["field_errors"]["latitude"]).to all(match(/\A[a-z_]+\z/))
+    end
+
+    it "keeps `errors` exactly as it was, because the console and two specs read it" do
+      post "/api/v1/customer/addresses",
+           params: { address: pin[:address].merge(latitude: 91) }, headers: auth
+
+      expect(json["errors"]).to be_an(Array)
+      expect(json["errors"].join).to match(/[A-Z]/)
+    end
+
     # A bare pin is often not enough in a city navigated by landmark, so the
     # payload says whether a courier could actually find it.
     it "flags a bare pin as not navigable" do
