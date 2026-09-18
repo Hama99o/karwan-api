@@ -149,7 +149,7 @@ Rails.application.routes.draw do
       # question means the same thing to all three.
       resource :route, only: %i[show], controller: "routes"
 
-      resource :me, only: %i[show update], controller: "me" do
+      resource :me, only: %i[show update destroy], controller: "me" do
         post :switch_role
         post :register_device
         delete :unregister_device

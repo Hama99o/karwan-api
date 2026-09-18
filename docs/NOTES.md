@@ -25,6 +25,41 @@ Two rules from the wider workspace that apply to this file:
 > with what would settle it. Deleting an item because nobody could confirm it
 > is how a real gap disappears.
 
+### A CLOSED ACCOUNT KEEPS ITS PHONE NUMBER — HAMMA9900'S CALL
+
+`DELETE /api/v1/me` ships (2026-09-18) because both app stores require in-app
+account deletion. It `discard!`s, per one-way door 6, and **`users.phone` is
+unique and NOT scoped to `kept`** — so a closed account keeps its number and
+that person can never register again with it.
+
+**Both options cost something real:**
+
+- **Keep the number (what ships).** Deletion stays REVERSIBLE — the console's
+  restore can bring the account back, which is the only thing standing between
+  a mistaken tap and a courier's ledger. But the person is permanently locked
+  out of Karwan on that number, and in this market the phone IS the identity.
+  A number a carrier later reassigns is unusable for Karwan forever.
+- **Release the number** (scramble it on close). Deletion becomes complete and
+  re-registration works. Order history survives either way — every order
+  carries its own `customer_phone` snapshot — but the restore can no longer
+  recover the account, so an accidental close is final.
+
+Shipped reversible on purpose, because the irreversible option cannot be undone
+by an operator and this is money-adjacent. **It is a question about what
+"delete" means for a person's identity, which is his, not the code's.**
+
+### MERCHANT PROFILE IS READ-ONLY — `PATCH merchant/profile` DOES NOT EXIST
+
+`GET /api/v1/merchant/profile` exists and nothing writes it, so **a shop cannot
+change its hours, phone, pin, logo or storefront photo after applying.** Every
+correction goes through an operator in the console today.
+
+Not built yet, deliberately: it is a contract ADDITION and the mobile session is
+mid-rewrite of the Profile screen. **Trigger: when Karwan reaches the merchant
+workspace, Hamma9901 pairs the two sides in one pass** — the serializer spec and
+`src/types/api.ts` moving together, per the paired-commit rule. A contract change
+landing on one side only is a broken app with green tests on both.
+
 ### WHAT IS OPEN IS HAMMA9900'S — EXCEPT ONE LINE OF OURS
 
 The backend is functionally complete for v0: **1,944 examples, 0 failures, 2

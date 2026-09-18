@@ -26,6 +26,39 @@ class Api::V1::MeController < Api::V1::BaseController
     end
   end
 
+  # ── CLOSING THE ACCOUNT ─────────────────────────────────────────────────
+  #
+  # Required by both app stores, which is why it exists at all — and the most
+  # dangerous endpoint in this API, because the person pressing it may be
+  # holding our cash. `Users::AccountDeletion` names which check refused it so
+  # the app can say what to fix; a bare 422 would read as "the app is broken"
+  # to a courier who simply needs to settle first.
+  #
+  # `discard!`, never destroy — one-way door 6. Orders carry their own
+  # `customer_phone` snapshot, so the books survive the row.
+  #
+  # OPEN, and it belongs to Hamma9900 rather than to this code: `phone` is
+  # unique and NOT scoped to `kept`, so a closed account keeps its number and
+  # that person can never register again with it. Releasing the number would
+  # make deletion complete but would also defeat the console's restore, which
+  # is the only thing standing between a mistaken tap and a courier's ledger.
+  # Left reversible on purpose; recorded in docs/NOTES.md.
+  def destroy
+    authorize current_user, :update?
+
+    deletion = Users::AccountDeletion.new(current_user)
+
+    unless deletion.allowed?
+      return render json: { error: deletion.explanation, code: deletion.reason.to_s },
+                    status: :unprocessable_content
+    end
+
+    deletion.call
+    # 200 with a body rather than 204: the app shows a "your account is closed"
+    # screen, and a no-content response gives it nothing to key that on.
+    render_ok({ deleted: true })
+  end
+
   # ── REMOVING MUST BE AS EASY AS SETTING ─────────────────────────────────
   #
   # Hamma9900's requirement, and it is a product one rather than a nicety:

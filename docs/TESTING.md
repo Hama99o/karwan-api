@@ -572,6 +572,36 @@ expect(ids).not_to include(theirs.id)
 > A tenancy assertion keyed on a value is answering "is a row like this one
 > here?" when the question is "is *this row* here?"
 
+#### THE SAME DEFECT IN ANOTHER LANGUAGE: A SUBSTRING ASSERTION CANNOT DETECT A SUBSTRING BUG
+
+Found by the mobile session on 2026-09-18, in a Maestro flow, and it is this
+rule one layer up rather than a separate lesson.
+
+A flow renamed a saved address with `inputText: " نوی"`, which **appends** to a
+pre-filled field rather than replacing it — and the value persists in the
+database. So each run compounded: `کور` → `کور نوی` → `کور نوی نوی`. The flow
+was green exactly once per reseed, by construction.
+
+What makes it a shape rather than a bug is the check. It asserted
+`assertVisible: "کور"`, and **`کور` is a prefix of `کور نوی`**. So no assertion
+in that flow could ever have detected the corruption the flow itself was
+causing. The write and the read shared one oversight.
+
+> The assertion was not weak. It was **incapable** — aimed at a bug it could not
+> express — and it would have stayed green while the data rotted.
+
+**The rule:** a prefix, a `contains`, an `include` or a SQL `LIKE` cannot
+distinguish the correct value from *the correct value plus anything*. Where a
+test both WRITES and READS a value, the read is keyed on equality or on
+identity, never on containment.
+
+**And it is the same defect as the wallet example above**, in a different
+language: an assertion keyed on a value that another writer can also produce.
+There the other writer was a second courier's row; here it was the flow's own
+previous run. When you find one of these, ask who else can produce the value
+you are matching on — and remember that "yesterday's version of this same test"
+is one of the candidates.
+
 **And note which direction the lesson runs.** That example was one of the two
 vacuous assertions found by the negation sweep hours earlier. **A vacuous
 assertion cannot have an order dependency — it passes regardless.** Hardening it
