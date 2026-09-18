@@ -25,28 +25,43 @@ Two rules from the wider workspace that apply to this file:
 > with what would settle it. Deleting an item because nobody could confirm it
 > is how a real gap disappears.
 
-### A CLOSED ACCOUNT KEEPS ITS PHONE NUMBER — HAMMA9900'S CALL
+### A CLOSED ACCOUNT KEEPS ITS PHONE NUMBER — HAMMA9900'S CALL, THREE OPTIONS
 
 `DELETE /api/v1/me` ships (2026-09-18) because both app stores require in-app
-account deletion. It `discard!`s, per one-way door 6, and **`users.phone` is
-unique and NOT scoped to `kept`** — so a closed account keeps its number and
-that person can never register again with it.
+account deletion. It `discard!`s, per one-way door 6. **`users.phone` is unique
+and NOT scoped to `kept`**, so a closed account keeps its number and that person
+can never register again with it.
 
-**Both options cost something real:**
+**Nothing below is built. The shipped behaviour is option A, as the safe
+default, and the choice and the window length are his.**
 
-- **Keep the number (what ships).** Deletion stays REVERSIBLE — the console's
-  restore can bring the account back, which is the only thing standing between
-  a mistaken tap and a courier's ledger. But the person is permanently locked
-  out of Karwan on that number, and in this market the phone IS the identity.
-  A number a carrier later reassigns is unusable for Karwan forever.
-- **Release the number** (scramble it on close). Deletion becomes complete and
-  re-registration works. Order history survives either way — every order
-  carries its own `customer_phone` snapshot — but the restore can no longer
-  recover the account, so an accidental close is final.
+| | What it gets | What it costs |
+|---|---|---|
+| **A · Hold forever** (shipped) | Deletion stays REVERSIBLE — the console restore can bring the account back, which is the only thing between a mistaken tap and a courier's ledger | The person is locked out of Karwan on that number forever. Worse: **SIM churn is high here**, so a stranger later assigned that recycled number is locked out too, having done nothing |
+| **B · Release on close** | Deletion is complete; both the returning user and a new holder can register | Destroys the restore. An accidental close becomes final, on a money-adjacent surface |
+| **C · Hold for a grace window, then release** | Both properties: an operator can restore inside the window; after it the number is free and the row keeps its history | A window length has to be chosen, and the release needs a sweep |
 
-Shipped reversible on purpose, because the irreversible option cannot be undone
-by an operator and this is money-adjacent. **It is a question about what
-"delete" means for a person's identity, which is his, not the code's.**
+Order history is unaffected by all three — every order carries its own
+`customer_phone` snapshot, so the books never depended on the user row.
+
+**C is the one worth putting to him, and its mechanism needed correcting.** The
+proposal reached this session as *"after the window, null the phone — the unique
+index is `index_users_on_phone`, so nulling frees it."* **That does not work
+here:** `db/schema.rb:585` has `t.string "phone", null: false` and
+`app/models/user.rb:104` has `validates :phone, presence: true`. Nulling needs a
+migration AND a validation change, and a nullable identity column is a larger
+decision than the feature asking for it.
+
+**What does work, without touching the column:** a daily sweep rewrites `phone`
+to a tombstone (`closed-<id>`) once the window has passed, and the row keeps
+everything else. Restore before the sweep is a full recovery; after it, the
+history survives and the number is free. Cheap to run: `solid_queue` is already
+the adapter and `config/recurring.yml` already schedules two jobs, so this is one
+more entry in a file that exists.
+
+**Still open and still his: which option, and if C, how long the window is**
+(7 days? 30?). Apple and Google require deletion to be available and honoured,
+not instantaneous, so a stated grace period is ordinary practice.
 
 ### MERCHANT PROFILE IS READ-ONLY — `PATCH merchant/profile` DOES NOT EXIST
 
@@ -479,11 +494,28 @@ photograph:
 | storefront `:card` 400 px q80 | **65.9 KB** — 48× smaller | 1.29 MB |
 | storefront at 800 px q80, rejected | 214.4 KB | 4.19 MB |
 
-**Why 400 px and not 800.** Three megabytes per screen-open is a lot of
-somebody's credit for a sharper thumbnail, and this is the market where that
-trade goes the other way. A bigger variant for the merchant DETAIL screen is
-worth having, but it is a second field and therefore a contract change, so it
-waits for the paired mobile commit.
+**Why 400 px and not 800 — PROVISIONAL, and it should be decided by a
+measurement rather than by my instinct.** I framed it as three megabytes per
+screen-open against a sharper thumbnail. That is half the question: the other
+half is the RATIO, and it makes the answer arithmetic rather than taste.
+
+> Rendered width (from the layout tree) × device pixel ratio = the pixels the
+> screen actually needs. Pick the smallest variant at or above it.
+
+On a 1080-px-wide handset — most of the cheap Android market, not a flagship —
+a **full-bleed** card needs ~1080 device pixels, and a 400 px variant stretched
+across it is **2.7× undersampled**: visibly soft, on the first screen the app
+opens. If instead the storefront renders **half-width in a two-up grid**, 400 px
+is right and the instinct holds.
+
+So the open number is the storefront node's `bounds` on the customer Home, from a
+`uiautomator` dump — the mobile session already produces these. **Until that
+number exists this stays at 400 px and is marked provisional; it is not to be
+changed on anybody's say-so, including mine.** If it turns out to be full-bleed,
+the honest answer is probably neither 400 nor 800 but a narrower card.
+
+A bigger variant for the merchant DETAIL screen is worth having regardless, and
+is a second field — a contract change — so it waits for the paired mobile commit.
 
 **What is NOT varied, and why:** `license_photo`, `id_document`, `selfie` and
 `vehicle_photo` are never sent to a phone — they exist for an operator
