@@ -767,6 +767,54 @@ inside the block, so a day-boundary example cannot pass because it happened to
 run at 09:00 and fail at 00:01. That is the seventh shape removed rather than
 mitigated.
 
+### OPEN — THE PREMIUM UPLIFT IS COLLECTED BY THE COURIER AND CHARGED TO NOBODY
+
+Found 2026-09-19 while checking the launch blockers. **This is not a bug to fix
+here — it is `MONEY_AND_SETTLEMENT.md` §2's open question made concrete**, and
+§2 is explicitly Hamma9900's. Recorded with numbers so the decision has evidence
+rather than two prose options.
+
+`premium_price_multiplier` is 1.3, and its own description says the uplift
+*"applies to the customer's fee or fare, **never to the courier's pay**"*. The
+`SERVICE_TIERS` comment is blunter: *"the uplift is the platform's."*
+
+Measured through `Pricing::DeliveryQuote` on a real listed merchant, 400 items,
+one route, the only difference being the tier:
+
+| tier | delivery_fee | courier_fee | courier holds | wallet charged | **uncharged** |
+|---|---|---|---|---|---|
+| normal | 116.72 | 116.72 | 50.00 | 50.00 | **0.00** |
+| premium | 151.74 | 116.72 | 85.02 | 50.00 | **35.02** |
+
+"Courier holds" is `customer_total − merchant_payout − courier_fee` — the cash
+left in his hand after he has paid the shop and kept his own fee. On a normal
+order that is exactly the commission, which his wallet is charged for, and the
+books balance. **On a premium order he is holding 35.02 that nothing claims:**
+
+- `Couriers::AdvanceJobService` charges `-@job.commission` and nothing else.
+- `commission_topup` is the DISTANCE credit — `WalletEntry` says it is *"OURS
+  GIVING BACK, not the courier paying in"* — so it is not this.
+- `Couriers::CashPosition` sums `:commission` only, so the uplift does not count
+  toward `cash_in_hand_limit` either. **Both exposure controls are blind to it.**
+
+**Reachable today and never once fired.** `service_tier` is a permitted param on
+`Customers::OrdersController` and reaches the quote, so a client can order
+premium now — and the database holds 2,020 normal orders and **zero** premium.
+That is the dangerous shape: a live path with no traffic, so nothing has
+surfaced it and no ledger row is wrong yet.
+
+**Why this is not mine to close.** §2 asks who collects the platform's revenue,
+and the answer decides this: under Option B (the code today) the courier's wallet
+should be charged the uplift as well as the commission; under Option A the
+merchant collects it and the courier should never have held it. **Charging him
+would be choosing Option B on Hamma9900's behalf**, and it changes what a courier
+owes — the one number the whole wallet design exists to keep honest.
+
+**What is safe to say now:** whichever option he picks, premium should not be
+orderable until it is picked. One `Setting` row gating the tier would do it, and
+that is a smaller decision than the one above — but still his, since it is the
+product he is about to demonstrate to restaurant owners.
+
 ### OPEN — "RESTAURANT NOT READY" HAS NO PATH, AND IT MUST NOT BE A FAILURE
 
 Found 2026-09-18 walking PRODUCT.md phase 4. **For Hamma9901 / Hamma9900 — not
