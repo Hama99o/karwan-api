@@ -125,7 +125,18 @@ module Customers
             # from the menu, which the app must handle rather than assume —
             # `Orders::CartResolver` refuses a delisted or sold-out item at the
             # moment of re-ordering, exactly like any other bad cart line.
-            catalog_item_id: item.catalog_item_id,
+            #
+            # THIS COMMENT WAS A PROMISE THE CODE DID NOT KEEP. It served the
+            # raw foreign key, which survives a soft delete — so a discarded
+            # dish still handed the app a pointer that LOOKS usable and can
+            # never resolve, because `CartResolver` looks in `catalog_items.kept`.
+            # The difference on a screen is a greyed "order again" versus a
+            # button that fails when tapped.
+            #
+            # The snapshot beside it is untouched: one-way door 1 means the
+            # history still reads "Chicken Kabab, 400" after the dish is gone.
+            # Only the pointer goes.
+            catalog_item_id: (item.catalog_item_id if item.catalog_item&.kept?),
             # Snapshot names, not live joins — a merchant renaming "Large"
             # tomorrow must not rewrite what somebody ordered today.
             options: item.selected_options.map do |option|

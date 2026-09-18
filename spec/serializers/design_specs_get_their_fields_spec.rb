@@ -46,7 +46,8 @@ RSpec.describe "every design SPEC gets the fields it names", type: :request do
     "customer/profile" => { label: "the signed-in person", node: %w[user] },
     "customer/account-edit" => { label: "the signed-in person", node: %w[user] },
     "courier/wallet" => { label: "the courier wallet", node: %w[wallet] },
-    "courier/verification" => { label: "the courier application", node: %w[registration] }
+    "courier/verification" => { label: "the courier application", node: %w[registration] },
+    "merchant/board" => { label: "the order board", node: %w[board] }
   }.freeze
 
   # ── A TOKEN IN A DOCUMENT IS NOT A REQUIREMENT ───────────────────────────
@@ -113,6 +114,13 @@ RSpec.describe "every design SPEC gets the fields it names", type: :request do
       keys.merge(JSON.parse(response.body).fetch("addresses").first.keys)
       get "/api/v1/me", headers: auth
       keys.merge(JSON.parse(response.body).fetch("user").keys)
+
+      owner = create(:user, :merchant_owner)
+      board_merchant = create(:merchant, owner: owner, is_open: true)
+      create(:order, :ready, merchant: board_merchant)
+      get "/api/v1/merchant/orders",
+          headers: { "Authorization" => "Bearer #{UserSession.issue!(owner).last}" }
+      keys.merge(JSON.parse(response.body).fetch("orders").first.keys)
       keys
     end
   end
@@ -152,6 +160,13 @@ RSpec.describe "every design SPEC gets the fields it names", type: :request do
       get "/api/v1/courier/wallet",
           headers: { "Authorization" => "Bearer #{UserSession.issue!(courier).last}" }
       JSON.parse(response.body).fetch("wallet")
+    when "board"
+      owner = create(:user, :merchant_owner)
+      merchant.update!(owner: owner)
+      create(:order, :ready, merchant: merchant, courier: create(:user, :courier))
+      get "/api/v1/merchant/orders",
+          headers: { "Authorization" => "Bearer #{UserSession.issue!(owner).last}" }
+      JSON.parse(response.body).fetch("orders").first
     when "registration"
       applicant = create(:user, :customer)
       create(:courier_profile, user: applicant)

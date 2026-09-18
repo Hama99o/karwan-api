@@ -794,6 +794,56 @@ confirmed unreachable method that morning: unwiring it made it appear with 11
 spec refs, wiring it made it vanish. A sweep that cannot find the case that
 motivated it is not ready to report on cases nobody has checked.
 
+### A GATE THAT CAN BE SATISFIED BY ADDING SOMETHING IS A GATE THAT WILL BE
+
+Most rules here are about a gate that cannot fail. This one is about a gate that
+fails **in a direction with a cheap wrong answer** — and the cheap answer is the
+one that gets taken, because it makes the light go green.
+
+**The design-to-payload sweep is the example.** It reads each screen's SPEC,
+takes the fields it names, and asserts the API serves them. Red means a screen
+is blocked on us. **But the cheapest way to make it green is to ship a field
+nobody needs** — and shipping fields nobody reads is precisely how
+`UNREAD_FIELDS.md` reached eleven entries.
+
+It nearly happened on the first run. Four reds, and **not one of them wanted a
+field**:
+
+| The SPEC named | What it actually meant |
+|---|---|
+| `item_count` | named **to reject it** — *"a count is a fact about the menu, not a reason to choose a category"* |
+| `opening_hours` | **superseded** — the list serves `hours_known` + `next_opens_at`, which is the answer its own prose asks for |
+| `avatar` | the **attachment**, not the payload key `avatar_url` |
+| `verification_status` | the **column**, which lives on `courier_profiles`; the payload names whose status it is |
+
+> **A token in a document is neither a requirement nor a field name.**
+
+**So the rule is about the gate rather than the sweep: make it satisfiable only
+by an exception that carries a reason.** Not a list of names to skip — a map
+from the thing to WHY, which a reader can disagree with:
+
+```ruby
+NOT_A_REQUIREMENT = {
+  [ "customer/merchant-detail", "item_count" ] =>
+    "the SPEC says item_count is NOT SHOWN — it names the field to reject it"
+}.freeze
+```
+
+Three properties that buys, and the third is the one that matters:
+
+- **The domain stays derived.** Anything not in the map is still checked.
+- **The exception is arguable.** "Skipped" cannot be wrong; a sentence can.
+- **Adding a field is no longer the path of least resistance**, because writing
+  the reason is easier than shipping the field — and if you cannot write the
+  reason, the field is probably wanted after all.
+
+**The general test for any gate you build: what is the LAZIEST thing that turns
+it green, and is that thing an improvement?** If not, the gate is pointed at the
+wrong quantity. `bin/console_doors` has the same shape — a model with no door is
+cheapest fixed by routing something nobody needs — and it is why that tool's
+exceptions carry reasons too, and why its summary line is `UNEXPLAINED: 0`
+rather than a count of doors.
+
 ### WHEN TWO CORRECT OPERATIONS MEET, ASSERT WHAT MUST *NOT* HAPPEN
 
 The sharpest money assertion in this repo:

@@ -104,7 +104,12 @@ class Api::V1::Customers::OrdersController < Api::V1::BaseController
   private
 
   def set_order
-    @order = policy_scope(Order).find(params[:id])
+    # `catalog_item` is preloaded because the serializer asks each line whether
+    # its dish is still on the menu — without it that is a query per line on a
+    # screen a customer opens while waiting for food.
+    @order = policy_scope(Order)
+             .includes(order_items: [ :catalog_item, :selected_options ])
+             .find(params[:id])
   end
 
   def order_params
