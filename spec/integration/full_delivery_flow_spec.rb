@@ -184,8 +184,92 @@ RSpec.describe "A delivery, end to end", type: :request do
     expect(transitions.map(&:actor_id)).to eq(
       [ customer.id, owner.id, owner.id, owner.id, courier.id, courier.id ]
     )
-    # Every step has its own timestamp column, not just the current status.
-    expect([ order.placed_at, order.accepted_at, order.picked_up_at, order.delivered_at ])
-      .to all(be_present)
+    # ── AND IN ORDER, WHICH `all(be_present)` DID NOT SAY ──────────────────
+    #
+    # This asserted the four stamps EXIST. Four timestamps can all be present
+    # and describe an order delivered before it was accepted — `all` is true of
+    # a set that is wrong in every relation between its members, and one-way
+    # door 3 exists so that "how long did this sit in preparing" can be answered
+    # later. That question needs the ORDER, not the presence.
+    stamps = { placed_at: order.placed_at, accepted_at: order.accepted_at,
+               picked_up_at: order.picked_up_at, delivered_at: order.delivered_at }
+    expect(stamps.values).to all(be_present), "a missing stamp makes the ordering below vacuous"
+    expect(stamps.values).to eq(stamps.values.sort),
+                             "the timeline is out of order: #{stamps.transform_values { |t| t&.strftime('%H:%M:%S') }}"
+
+    # ---- 9. AND THE LEG NOTHING WALKED: SETTLEMENT ------------------------
+    #
+    # The flow used to stop at `collected` — money in a courier's pocket, ours,
+    # with no step that takes it back. That is half of Model A: the wallet is
+    # our exposure precisely BECAUSE it clears, and a pipeline that never
+    # settles cannot catch a settlement that clears cash it never counted.
+    #
+    # An operator does it, in the console, because the whole point is that the
+    # counted figure comes from somebody who is not the courier —
+    # MONEY_AND_SETTLEMENT.md: "unexplained mismatches are theft", which needs
+    # two figures and a name.
+    admin = AdminUser.create!(name: "Najibullah", email: "ops@karwan.af",
+                              password: "a-long-test-password")
+    post "/admin/login", params: { admin_user: { email: admin.email, password: "a-long-test-password" } }
+
+    held_before = Couriers::CashPosition.new(courier).held
+    balance_before = courier.courier_wallet.reload.balance
+
+    expect {
+      post "/admin/courier_wallets/#{courier.courier_wallet.id}/settle",
+           params: { counted_amount: held_before.to_s, counted_by_name: "Najibullah (Kabul office)" }
+    }.to change(Settlement, :count).by(1)
+
+    # THE CASH IS CLEARED AND THE WALLET IS NOT TOUCHED. Settling moves the JOB
+    # from `collected` to `settled`, which is what releases the cash-in-hand
+    # gate; it is not a wallet movement, and a settlement that also credited the
+    # balance would pay the courier twice for the same money.
+    expect(Couriers::CashPosition.new(courier).held).to eq(0)
+    expect(courier.courier_wallet.reload.balance).to eq(balance_before),
+                                                     "settling moved the wallet — the commission has been refunded"
+    expect(order.reload.payment_status).to eq("settled")
+
+    settlement = Settlement.order(:id).last
+    expect(settlement.expected_amount).to eq(held_before)
+    expect(settlement.counted_amount).to eq(held_before)
+    expect(settlement.counted_by_name).to eq("Najibullah (Kabul office)")
+
+    # ---- 10. THE COMMISSION WAS CHARGED ONCE ------------------------------
+    #
+    # The plant that matters is not a broken step — any single one fails loudly.
+    # It is a HANDOVER that runs twice: a courier who taps "delivered" on a
+    # flaky connection, a job retried, an operator settling the same cash again.
+    # One order, one commission, forever.
+    expect(WalletEntry.where(source: order, kind: :commission).count).to eq(1),
+                                                                        "the commission was charged more than once for one order"
+    # And NOTHING ELSE moved through the ledger in the whole flow. The opening
+    # balance was set on the wallet directly by the fixture rather than through an
+    # entry, so the entries sum to the commission alone — which is the claim:
+    # one order, one movement, and no second charge hiding behind a correct
+    # final balance.
+    expect(courier.courier_wallet.wallet_entries.sum(:amount)).to eq(-commission),
+                                                                 "money moved through the ledger that this flow does not account for"
+  end
+
+  # ── THE LEG THAT CANNOT BE WALKED, STATED RATHER THAN SKIPPED ─────────────
+  #
+  # A ride is the same pipeline with three steps instead of four, and this file
+  # deliberately does not walk it: **there is no front door.** `Trip` has a
+  # table, pricing, dispatch, a courier job view and an admin console, and
+  # nothing creates one — `PRODUCT.md:12` says "Do not build the ride product
+  # yet", and the schema being complete ahead of it is that deferral working as
+  # written rather than an omission.
+  #
+  # Asserted rather than left as a comment, so the day the decision changes this
+  # fails and names the file that has to change first.
+  it "cannot walk a ride, because a passenger has no way to request one" do
+    customer_routes = Rails.application.routes.routes.filter_map do |route|
+      controller = route.defaults[:controller].to_s
+      controller if controller.start_with?("api/v1/customers/")
+    end.uniq
+
+    expect(customer_routes).not_to include("api/v1/customers/trips"),
+                                   "a customer can request a ride — PRODUCT.md:12 must change before this spec does"
+    expect(Rails.root.join("docs/PRODUCT.md").read).to include("Do not build the ride product yet")
   end
 end
