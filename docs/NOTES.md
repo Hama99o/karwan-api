@@ -399,6 +399,62 @@ which is the one claim a list like this cannot support.
 
 ## Solved, with the reasoning
 
+### EIGHT ATTACHMENTS, ZERO VARIANTS — WHAT THE HOME SCREEN COSTS
+
+Measured 2026-09-18 at Hamma9901's request, before proposing anything. **This
+is open, not solved** — the numbers are here so Hamma9900 can decide on a
+number rather than an opinion.
+
+**The facts, each checked rather than assumed:**
+
+| | |
+|---|---|
+| Attachments declared | **8**, across 5 models — `logo`, `storefront_photo`, `license_photo`, `photo`, `vehicle_photo`, `selfie`, `id_document`, `voice_note` |
+| Variants or resizes anywhere in `app/` or `config/` | **none** |
+| What the serializer emits | `Attachments::PublicUrl.for` → `rails_blob_path`, i.e. **the original blob** |
+| Images per merchant card | **two** — `logo_url` and `storefront_photo_url` are top-level fields, inherited by `view :list` |
+| Default page | 20 (Pagy), `MAX_PAGE_SIZE` 100 |
+| Our own cap per image | `AttachableDocuments::MAX_IMAGE_BYTES` = **5 MB** |
+| `image_processing` gem | **present** (Gemfile:23, with ruby-vips and mini_magick) |
+| `libvips` in the production image | **present**, both Dockerfile stages (lines 19 and 51) |
+
+**So variants are already deployable. The dependency is declared and the
+library is installed — what is missing is only the code that asks for one.**
+That is the cheapest finding in this entry: nothing has to be added to the
+image, and correction 14 is not engaged at all.
+
+**What a Home screen costs, first request, cold cache:**
+
+| Scenario | 20 cards × 2 images |
+|---|---|
+| Seeded today (measured: logos avg 2.7 KB, storefronts avg 6.9 KB) | **~0.2 MB** |
+| A typical mid-range phone photo at 3 MB | **~120 MB** |
+| The worst case our own validator permits, 5 MB | **~200 MB** |
+| With variants (measured: 192 px logo ≈ 8 KB, 800 px storefront ≈ 44 KB at q80) | **~1 MB** |
+
+**The seeded number is the trap.** 0.2 MB looks fine and means nothing: the
+fixtures are generated 2–7 KB cards, and **no real photograph has ever been
+uploaded to this system**. The first merchant who photographs their shop with a
+phone moves that row from 0.2 MB to somewhere between 120 and 200 MB, and
+nothing in the code stops it — 5 MB is the only bound, and it is a bound on one
+image, not on a screen.
+
+**Why it is worse than the megabytes suggest.** This is the screen the app
+opens with, on the demand type the business depends on, over a metered
+connection, on the users Hamma9900 acquired by talking to each of them in
+person. It is their money, not ours. AFGHAN_UX.md puts photos at the centre of
+this screen deliberately — a large share of users cannot read fluently, so the
+photo IS the label — which means the answer is a variant, never fewer photos.
+
+**Method, so it can be re-run rather than re-argued:** blob sizes from
+`ActiveStorage::Blob` in the dev database; variant sizes from a 4032×3024
+source resized with Lanczos and written at q80. The variant figures are sound
+(a 192 px JPEG is a 192 px JPEG); the ORIGINAL figures are anchored on
+`MAX_IMAGE_BYTES` rather than on a synthetic source, because a generated image
+compresses far smaller than a photograph and would have understated the
+problem.
+
+
 ### THE CALLER SWEEP — 194 PUBLIC METHODS, 26 REACHED BY NOTHING IN THE APP
 
 Run 2026-09-18 after `Merchant.fuzzy` turned out to have no caller, on the
