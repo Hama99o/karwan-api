@@ -285,16 +285,114 @@ end
 # taking 60% of every card — and a load-test database is still the one somebody
 # demos from.
 seed_section "stress merchant photos" do
-  first_screen = Merchant.orderable.order(:id).limit(20).to_a
+  # ── THE SET THE SCREEN ACTUALLY SHOWS, NOT THE ONE THAT WAS CONVENIENT ──
+  #
+  # The first version seeded `Merchant.orderable.order(:id).limit(20)`. The
+  # browse screen shows `policy_scope(Merchant)` — which is `listed`, so it
+  # INCLUDES closed shops (they render greyed, `open_now` is opt-in) — and
+  # orders **alphabetically** when the customer sends no location, by distance
+  # when they do. So "the first twenty by id of the open ones" is a set nobody
+  # ever sees: 12 of the real first page had a photo and I had reported 20.
+  #
+  # Seeding the WHOLE listed scope removes the question. It is ~41 shops here,
+  # about 40 MB of blobs on a dev disk, and it is correct under every ordering
+  # the customer's own position can produce — which no fixed slice can be.
+  first_screen = Merchant.listed.order(:name).to_a
   next if first_screen.empty?
 
+  # SIX distinct storefronts rather than three. Two or three cards are on screen
+  # at once, so a cycle of three repeats within a single view — and a browse
+  # screen where every third shop is the same photograph reads as a mock rather
+  # than as a product. The logos cycle on three because a logo IS a small
+  # graphic and three flat marks do not read as repetition the way photographs
+  # of buildings do.
+  storefronts = %w[kabab bakery store grill sweets pharmacy]
+
   first_screen.each_with_index do |merchant, index|
-    set = %w[kabab bakery store][index % 3]
-    Attachments::SeedPhoto.attach!(merchant, :storefront_photo, "storefront_#{set}.jpg")
-    Attachments::SeedPhoto.attach!(merchant, :logo, "logo_#{set}.jpg")
+    Attachments::SeedPhoto.attach!(merchant, :storefront_photo,
+                                   "storefront_#{storefronts[index % storefronts.size]}.jpg")
+    Attachments::SeedPhoto.attach!(merchant, :logo, "logo_#{%w[kabab bakery store][index % 3]}.jpg")
   end
 
-  puts "  photos on #{first_screen.count { |m| m.storefront_photo.attached? }} of the first #{first_screen.size}"
+  # ── AND THE SCREEN AFTER HOME ──────────────────────────────────────────
+  #
+  # `catalog_item.photo` is the menu, where AFGHAN_UX makes the photo the LABEL
+  # rather than decoration — a customer who does not read fluently orders from
+  # the picture. A menu of grey boxes cannot be designed against any more than a
+  # browse screen of them can. Four dishes across the first screen's shops:
+  # enough for a menu to look like a menu, not so many that a load-test database
+  # fills a disk already at 94%.
+  dishes = %w[kabab qabuli_palaw mantu bolani]
+  CatalogItem.where(merchant_id: first_screen.map(&:id)).order(:merchant_id, :id)
+             .group_by(&:merchant_id).each_value do |items|
+    items.first(4).each_with_index do |item, index|
+      Attachments::SeedPhoto.attach!(item, :photo, "#{dishes[index % dishes.size]}.jpg")
+    end
+  end
+
+  # ── THE CASES THAT BREAK A LAYOUT AT 360 dp ─────────────────────────────
+  #
+  # `دا عادي خای کړه` truncating mid-word was found at 360 dp and missed at
+  # 411 dp, and Pashto and Dari run longer than English — CLAUDE.md says so and
+  # a layout that passes in English will break. A browse screen seeded entirely
+  # with "Stress Merchant 7 Kabab House" cannot find the next one of those.
+  #
+  # Two shops carry the hard cases, deliberately NOT the first card — that is
+  # the one every screenshot shows, and it should look ordinary.
+  long_named = first_screen[3]
+  long_named&.update!(
+    name: "د کابل د شار نو غوره کباب او چاینکي رستوران",
+    landmark_note: "د شهر نو د جومات مخې ته، د پخواني بانک تر څنګ، دویمه کوڅه، شنه دروازه"
+  )
+
+  # And one whose name is ordinary but whose landmark is a full sentence, since
+  # those wrap in different places on a card.
+  first_screen[7]&.update!(
+    landmark_note: "د پوهنتون د دروازې مخې ته، د کتاب پلورنځي تر شا، په دریمه پوړ کې، د زینې تر څنګ"
+  )
+
+  # ── HOURS ON THE FIRST SCREEN, AND ONE SHOP CLOSED WITH THEM ────────────
+  #
+  # `opening_hours` has been on the wire since the serializer was written and
+  # three of the first twenty shops had any, so the Home card's hours line had
+  # nothing to render and could not be designed against. The console can set
+  # these now; the seed should exercise what the console can do.
+  #
+  # **The case nothing produced, and the one the card actually branches on:** a
+  # shop that is CLOSED NOW but HAS hours, which is what "opens at ۸:۰۰" is for.
+  # A shop with no hours must read as "hours not given, ring them" and a closed
+  # shop with hours as "opens at". Those are different cards and only one of
+  # them existed. Same reasoning as the four board states.
+  first_screen.each_with_index do |merchant, index|
+    next if merchant.opening_hours.any?
+
+    # A late-closing shop every fourth, so "open until 23:00" exists too.
+    opens, closes = (index % 4).zero? ? [ "11:00", "23:00" ] : [ "08:00", "21:00" ]
+    MerchantOpeningHour::DAYS.each do |day|
+      MerchantOpeningHour.find_or_create_by!(merchant: merchant, day_of_week: day) do |hours|
+        hours.opens_at = opens
+        hours.closes_at = closes
+      end
+    end
+  end
+
+  # One of them shut, deliberately, so the "opens at" card has a subject. Not
+  # the first — that is the card every screenshot shows.
+  #
+  # GUARDED, because the first version was not idempotent and running the seed
+  # twice proved it: `orderable` is `listed.where(is_open: true)`, so the shop
+  # this closes DROPS OUT of `first_screen` on the next run and the third slot
+  # is a different merchant — closing one more shop every time anybody re-seeds.
+  # A seed that quietly shuts another shop on each run is worse than one that
+  # never shut any.
+  unless Merchant.kept.where(is_open: false).joins(:opening_hours).exists?
+    first_screen[2]&.update!(is_open: false)
+  end
+
+  puts "  hours on #{first_screen.count { |m| m.opening_hours.any? }} of #{first_screen.size} listed, " \
+       "#{first_screen.count { |m| !m.is_open && m.opening_hours.any? }} closed-with-hours"
+  puts "  photos on #{first_screen.count { |m| m.storefront_photo.attached? }} of #{first_screen.size} listed, " \
+       "#{CatalogItem.joins(:photo_attachment).where(merchant_id: first_screen.map(&:id)).count} dishes"
 end
 
 merchant_ids = Merchant.where("phone LIKE '+9379%'").order(:id).pluck(:id)

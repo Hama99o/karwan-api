@@ -379,6 +379,19 @@ seed_section "e2e live order" do
   # keeps `ready` — so the merchant board still has its card, the timeline
   # still has its stamps, and the map still has two points.
   order.courier = courier
+
+  # ── AND HE HAS REACHED THE SHOP ────────────────────────────────────────
+  #
+  # `courier_arrived_at` is the customer's middle state — *"your courier has
+  # reached the restaurant"* — and it was NULL on every seeded order, so the
+  # tracking screen could not be designed against it: a field that is always
+  # null gets designed around rather than for.
+  #
+  # It is also a fixture correctness fix. A courier who is assigned to a `ready`
+  # order is standing at the counter waiting for it, and the same order reaches
+  # `picked_up` during a rig run — a courier who collected an order without ever
+  # arriving is a state the domain cannot produce.
+  order.courier_arrived_at ||= 2.minutes.ago
   order.save!
 
   if order.order_items.empty?
@@ -532,7 +545,15 @@ seed_section "e2e merchant board states" do
   [
     { code: "KQA00004", status: :placed,    placed: 3.minutes.ago,  accepted: nil,            preparing: nil },
     { code: "KQA00005", status: :accepted,  placed: 12.minutes.ago, accepted: 9.minutes.ago,  preparing: nil },
-    { code: "KQA00006", status: :preparing, placed: 20.minutes.ago, accepted: 17.minutes.ago, preparing: 14.minutes.ago }
+    { code: "KQA00006", status: :preparing, placed: 20.minutes.ago, accepted: 17.minutes.ago, preparing: 14.minutes.ago },
+    # ── TWO MORE, SO A TABLET BOARD IS NOT HALF EMPTY ────────────────────
+    #
+    # A tablet shows roughly twice what a phone does, so a seed that fills a
+    # 360 dp screen leaves an 800 dp one looking unfinished — and "the board
+    # looked deliberate" was exactly a layout that was wrong and plausible.
+    # Four live cards fill a phone; six start the second column.
+    { code: "KQA00007", status: :accepted,  placed: 15.minutes.ago, accepted: 11.minutes.ago, preparing: nil },
+    { code: "KQA00008", status: :preparing, placed: 25.minutes.ago, accepted: 22.minutes.ago, preparing: 19.minutes.ago }
   ].each do |row|
     order = Order.find_or_initialize_by(code: row[:code])
     order.assign_attributes(

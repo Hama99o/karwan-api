@@ -133,6 +133,19 @@ RSpec.describe "db/seeds/e2e.rb" do
   # orders rendered identically while one had a courier and one did not. A
   # fixture covering every state a screen branches on is the seed equivalent of
   # asserting a whole key set.
+  # The customer's middle state — "your courier has reached the restaurant".
+  # It was null on every seeded order, so the tracking screen had nothing to
+  # draw and a field that is always null gets designed around rather than for.
+  describe "the tracking screen's middle state" do
+    it "has a live order whose courier has reached the shop" do
+      order = Order.find_by!(code: "KQA00001")
+
+      expect(order.courier).to be_present, "no courier — arrival cannot mean anything"
+      expect(order.courier_arrived_at).to be_present,
+                                          "courier_arrived_at is null, so the tracking screen cannot render its middle state"
+    end
+  end
+
   describe "the merchant board's states" do
     let(:merchant) { Merchant.find_by!(phone: "+93700000804") }
 
