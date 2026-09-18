@@ -174,6 +174,40 @@ seed_section "e2e accounts" do
   item.update!(catalog_category: category, price: 400, currency: "AFN", is_available: true)
   Attachments::SeedPhoto.attach!(item, :photo, "kabab.jpg")
 
+  # ── AN OPTION WITH A PRICE ON IT, BECAUSE A ZERO DELTA PROVES ONLY THE TAP ──
+  #
+  # F-66: the rig measured **169 catalog items across the first eight listed
+  # merchants and not one with options**, so `options_total` — the one number a
+  # choice moves — has never been exercised on a device. `sample.rb` does seed a
+  # size group, on `کباب شهر نو`, which the browse screen never reaches: the
+  # stress rows sort ahead of it and the device only ever sees the first page.
+  # A fixture the screen cannot reach is not a fixture.
+  #
+  # THE DELTA IS THE POINT. A group whose values are all 0 proves the sheet
+  # opens and says nothing about the arithmetic behind it, which is where the
+  # money is: `options_total`, `line_total`, and the customer total built on
+  # them.
+  #
+  # DELIBERATELY NOT `required`, and this is the one place the fixture departs
+  # from what a real menu would say. `Orders::CartResolver` raises
+  # `InvalidOptions` when a required group's minimum is unmet — so a required
+  # size here would fail EVERY existing rig flow that carts this item without
+  # choosing one, and F-66 would be closed by breaking several other flows. An
+  # optional group still lets a flow tap a value and move the total, which is
+  # the whole thing being tested.
+  #
+  # `select_single` with two values: one at 0 and one at +150, so a flow can
+  # assert the delta in BOTH directions — choosing the free one must leave
+  # `options_total` at 0, and that negative is what makes the +150 mean
+  # something.
+  size = item.options.find_or_initialize_by(name: "اندازه")
+  size.update!(selection_type: :single, required: false,
+               min_selections: 0, max_selections: 1, position: 0)
+  [ [ "عادی", 0, 0 ], [ "کلان", 150, 1 ] ].each do |name, delta, position|
+    value = size.values.find_or_initialize_by(name: name)
+    value.update!(price_delta: delta, currency: "AFN", is_available: true, position: position)
+  end
+
   # The COURIER must be approvable and approved, or `Couriers::BaseController`
   # refuses every request with `not_approved` and the courier screens are as
   # empty as they were with no account at all.

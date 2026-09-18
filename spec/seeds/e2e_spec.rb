@@ -633,4 +633,55 @@ RSpec.describe "db/seeds/e2e.rb" do
       expect(incoherent).to be_empty, "a re-run moved a balance without moving its ledger:\n  #{incoherent.join("\n  ")}"
     end
   end
+  # ── AN OPTION WITH A PRICE ON IT, REACHABLE FROM THE BROWSE SCREEN ──────────
+  #
+  # F-66: 169 catalog items across the first eight listed merchants and not one
+  # with options, so `options_total` had never been exercised on a device.
+  #
+  # ASSERTED RATHER THAN PRINTED. `e2e.rb` has no summary lines by design — it is
+  # checked by value here — and a spec is the better home for "count the thing"
+  # anyway: a printed number is read once by whoever ran the seed, and this fails
+  # the build for everybody. The hours seed needed a summary because it prints
+  # one; this file does not.
+  #
+  # COUNTS THE THING, NOT THE PROXY. "has options" is satisfied by a group whose
+  # values are all zero, which proves the sheet opens and nothing about the
+  # arithmetic. The property is a NON-ZERO delta, reachable from the first page.
+  describe "the catalog option a flow can actually price" do
+    let(:qa_item) { CatalogItem.find_by(name: "QA Chicken Kabab") }
+
+    it "offers a single-choice group of two values" do
+      group = qa_item.options.first
+
+      expect(group).to be_present
+      expect(group).to be_select_single
+      expect(group.values.count).to eq(2)
+    end
+
+    it "carries a NON-ZERO price delta, which is the number a tap has to move" do
+      deltas = qa_item.options.flat_map { |o| o.values.map(&:price_delta) }
+
+      expect(deltas).to include(be_zero)
+      expect(deltas.any?(&:positive?)).to be(true), "every delta is zero, so choosing one proves only that the sheet opened"
+    end
+
+    # A fixture the browse screen cannot reach is not a fixture — `sample.rb`
+    # already seeds a size group on a merchant that sorts behind the stress rows
+    # and the device has never once seen it.
+    it "sits on a merchant the browse first page actually shows" do
+      first_page = Merchant.listed.order(:name).limit(20).map(&:id)
+
+      expect(first_page).to include(qa_item.merchant_id)
+    end
+
+    # The guard on the fix itself: `Orders::CartResolver` raises InvalidOptions
+    # when a required group's minimum is unmet, so a required size here would
+    # fail every existing flow that carts this item WITHOUT choosing one.
+    it "is optional, so a cart that chooses nothing still resolves" do
+      group = qa_item.options.first
+
+      expect(group.required).to be(false)
+      expect(group.minimum_required).to eq(0)
+    end
+  end
 end
