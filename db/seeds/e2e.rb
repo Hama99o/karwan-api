@@ -218,9 +218,36 @@ seed_section "e2e accounts" do
     admin.password = "karwan-dev-password"
     admin.password_confirmation = "karwan-dev-password"
   end
+  # ── THE OPENING FLOAT IS A LEDGER ENTRY, NOT A BALANCE ─────────────────────
+  #
+  # This wrote `update!(balance: 5_000)` directly, and it produced two states the
+  # app cannot produce. Both were invisible to the idempotency example below,
+  # which compares ROW COUNTS — and a balance drift is an UPDATE.
+  #
+  #   · +93700000801, the account every flow signs in as, held 5,000 with ZERO
+  #     ledger rows on the very first run. A balance nothing explains.
+  #   · +93700000803 drifted on a RE-RUN: this line reset it to 5,000 while the
+  #     ledger section below, guarded against re-running, left its entries
+  #     summing to 2,160.
+  #
+  # One-way door 4 is the rule it broke, and the ledger section below cites that
+  # door by name twelve lines into its own comment. A balance can always be
+  # recomputed from entries; entries can never be reconstructed from a balance.
+  #
+  # `record_entry!` is the single locked entry point (MONEY_AND_SETTLEMENT §10),
+  # so it writes the row, the `balance_after` and the balance together and the
+  # arithmetic cannot drift from the ledger. Guarded on the wallet being empty,
+  # which is what makes a second run change nothing.
   [ courier, customer ].each do |person|
     person.courier_profile.approve!(by: approver) unless person.courier_profile.verification_approved?
-    person.reload.courier_wallet&.update!(balance: 5_000, credit_line: 500)
+    wallet = person.reload.courier_wallet
+    next if wallet.nil?
+
+    wallet.update!(credit_line: 500)
+    next if wallet.wallet_entries.any?
+
+    wallet.record_entry!(kind: :top_up, amount: 5_000, recorded_by_admin_user: approver,
+                         note: "opening float, seeded")
   end
 end
 
@@ -644,8 +671,11 @@ seed_section "e2e courier offer and wallet ledger" do
   # reconstructed from a balance (CLAUDE.md, one-way door 4) — so `balance_after`
   # is written to match the running total rather than invented per row.
   wallet = courier.courier_wallet || courier.create_courier_wallet!(balance: 0, credit_line: 500)
-  if wallet.wallet_entries.none?
-    running = 0
+  # Guarded on THIS section's own rows rather than on the wallet being empty.
+  # The accounts section now seeds an opening float, so `none?` would have been
+  # false here and these four kinds would never have been written — the rig would
+  # have met a ledger of one kind and the parser would never have seen the rest.
+  if wallet.wallet_entries.where(kind: :commission).none?
     [
       { kind: :top_up,        amount:  2_000, note: "bank deposit, rider code 41" },
       { kind: :commission,    amount:    -35, note: "KQA00010" },
@@ -653,13 +683,12 @@ seed_section "e2e courier offer and wallet ledger" do
       { kind: :reimbursement, amount:    260, note: "customer refused — food returned" },
       { kind: :adjustment,    amount:    -15, note: "counted short at settlement" }
     ].each do |e|
-      running += e[:amount]
-      wallet.wallet_entries.create!(
-        kind: e[:kind], amount: e[:amount], balance_after: running,
-        currency: "AFN", note: e[:note], recorded_by: rig_customer
-      )
+      # `record_entry!` rather than `create!` plus a hand-kept `running` total:
+      # one locked entry point owns the arithmetic, so the fixture cannot teach a
+      # ledger the app would never write.
+      wallet.record_entry!(kind: e[:kind], amount: e[:amount],
+                           recorded_by: rig_customer, note: e[:note])
     end
-    wallet.update!(balance: running)
   end
 end
 

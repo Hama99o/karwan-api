@@ -593,4 +593,44 @@ RSpec.describe "db/seeds/e2e.rb" do
       expect(wallet.balance).to eq(running)
     end
   end
+
+  # ── THE SAME RULE, FOR EVERY WALLET AND AFTER A RE-RUN ──────────────────────
+  #
+  # The example above is right and was too narrow in two directions at once, and
+  # a real defect sat in each blind spot:
+  #
+  #   · it checks ONE wallet. +93700000801 — the account every flow signs in as —
+  #     held a balance of 5,000 with ZERO ledger rows, on the first run.
+  #   · it checks ONE run. +93700000803 drifted to 5,000 against a ledger summing
+  #     2,160 the second time the seed was loaded.
+  #
+  # Neither was visible to "is idempotent", which compares ROW COUNTS — and both
+  # defects are an UPDATE, which adds no row. A seed is loaded after a deploy, by
+  # a developer, and by the rig's own seed step, so the second run is the normal
+  # case rather than the exotic one.
+  describe "every wallet's ledger, on the first run and the second" do
+    def incoherent
+      CourierWallet.includes(:wallet_entries).filter_map { |w|
+        sum = w.wallet_entries.sum(:amount)
+        next if w.balance == sum
+
+        "#{w.user&.phone}: balance #{w.balance}, entries sum #{sum} over #{w.wallet_entries.count} rows"
+      }
+    end
+
+    it "finds wallets at all, so an empty table cannot pass this vacuously" do
+      expect(CourierWallet.count).to be >= 2
+      expect(WalletEntry.count).to be >= 2
+    end
+
+    it "has no wallet whose balance its own entries do not explain" do
+      expect(incoherent).to be_empty, "the seed wrote a balance the app could not produce:\n  #{incoherent.join("\n  ")}"
+    end
+
+    it "still has none after the seed is loaded a second time" do
+      load Rails.root.join("db/seeds/e2e.rb")
+
+      expect(incoherent).to be_empty, "a re-run moved a balance without moving its ledger:\n  #{incoherent.join("\n  ")}"
+    end
+  end
 end
