@@ -492,6 +492,51 @@ which is the one claim a list like this cannot support.
 
 ## Solved, with the reasoning
 
+### ELEVEN FIELDS ON THE WIRE THAT NOTHING READS — THE REVERSE SWEEP
+
+The serializer sweep asked *does the response carry a field nobody asked for?*
+Hamma9901 ran the inverse against the same nine key sets — every key checked in
+snake and camel form across `karwan-mobile/src/api/*.ts`, `src/types/api.ts`,
+then all of `src/` and `app/`. **Eleven fields are sent and read by nothing**,
+with no hits outside tests, so they are unread rather than renamed-and-read.
+
+| Endpoint | Field | What nobody sees |
+|---|---|---|
+| merchant page | **`opening_hours`** | **a customer cannot see when a shop opens** |
+| order detail + list | **`courier_arrived_at`** | "your courier has reached the shop" — the whole middle state of a delivery |
+| courier wallet | **`top_up_instructions`** | he gets the code and not where to take it |
+| courier job | `can_be_combined`, `service_tier` | batching and tier, invisible to the courier they affect |
+| merchant board | `accepted_at`, `ready_at` | the shop cannot see its own timings, only `minutes_in_state` |
+| merchant profile | `contact_person_name`, `contact_person_phone` | the shop's own contact, unshown |
+| order detail | `delivery_location` | the pin (the map takes its own) |
+
+**Method's one blind spot, stated:** a field read by dynamic or bracket access
+would not show. `src/api/*.ts` parses explicitly key by key, so it is unlikely.
+
+**Nothing to delete here** — the opposite conclusion from the three cart routing
+fields. Each of these is a field a screen *should* read, so they become content
+the design must carry. `opening_hours` and `courier_arrived_at` are product gaps
+rather than cleanup: both are things a customer rings a human about today.
+
+**And `top_up_instructions` is a different finding from the other ten, found by
+checking whether it is POPULATED rather than merely serialized.**
+`top_up_bank_name` and `top_up_account_number` are **both empty strings** — the
+definition defaults, never filled. So even a screen that rendered the field
+would show two blank lines. CLAUDE.md makes a bank deposit referenced by a
+numeric code THE way a courier adds credit in v0, which means **with these blank
+a courier whose wallet runs out cannot top up, and dispatch stops offering them
+work.** Closed on our side: `bin/preflight` now has a "Settings only he can
+fill" step, derived from the definitions (a blank default is by construction one
+we cannot supply), warning locally and failing on a deployed box. Filling them
+is his.
+
+**This is the fourth instance of one shape in a day** — `Merchant.fuzzy` with no
+caller, the cart's three routing fields, `avatar_url`/`phone_verified`, and now
+these eleven. Built, documented, unreachable. The two sweeps are halves of one
+question: **does every field the API sends reach a person, and does every field
+a person sees come from the API?**
+
+
 ### EIGHT ATTACHMENTS, ZERO VARIANTS — WHAT THE HOME SCREEN COSTS
 
 Measured 2026-09-18 at Hamma9901's request, before proposing anything. **This

@@ -43,21 +43,40 @@ class Merchant < ApplicationRecord
   # could pull ~200 MB of originals to render a logo at about 96 px. With
   # variants the same screen is ~1 MB.
   #
-  # The sizes are the rendered size at 2x, not a guess at a "reasonable" size:
-  # the logo draws at ~96 px, the storefront at ~400 px wide.
+  # The sizes come from the rendered size in device pixels, measured from the
+  # layout tree — not from a guess at a "reasonable" size. The logo draws at
+  # ~96 px; the storefront card is 996 device px on a 1080/420 handset.
   has_one_attached :logo do |attachable|
     attachable.variant :thumb, resize_to_limit: [ 192, 192 ], saver: { quality: 80 }
   end
 
-  # 400 px, NOT 800. Measured through the real libvips on a 3.19 MB
-  # photograph: 400 px costs 1.29 MB per Home screen of 20 cards, 800 px costs
-  # 4.19 MB. Three megabytes per screen-open is a lot of somebody's credit for
-  # a sharper thumbnail, and this is the market where that trade goes the other
-  # way. A larger variant for the merchant DETAIL screen is worth having and is
-  # a separate field — i.e. a contract change, so it waits for the paired
-  # mobile commit rather than being smuggled in here.
+  # 1000 px AT q72, from a measurement rather than anybody's judgement —
+  # including mine, which was wrong.
+  #
+  # This first shipped at 400 px, argued as "three megabytes is a lot of
+  # somebody's credit for a sharper thumbnail". That framed a RATIO as a taste
+  # question. The card renders at 996 device px, so:
+  #
+  #    400 px  1.29 MB/screen  2.49x UNDERSAMPLED — visibly soft, first screen
+  #    800 px  4.19 MB/screen  1.24x undersampled — still soft
+  #    996 q80 5.94 MB/screen  exact
+  #   1000 q72 5.01 MB/screen  exact
+  #
+  # The rule is rendered width x DPR, then the smallest variant at or above it.
+  # **800 does not satisfy it.** Dropping quality to 72 buys the exact
+  # dimensions for roughly what 800 px at q80 would have cost, and correct
+  # sampling at q72 beats q80 stretched 1.24x — upscaling softens everything,
+  # while JPEG artefacts stay local.
+  #
+  # IT IS STILL 5 MB OF SOMEBODY'S CREDIT, and that number only holds if the
+  # client loads all twenty cards at once. A list that loads images as they
+  # scroll pays for the two or three on screen — under 1 MB — which is a bigger
+  # win than any variant size and is a mobile-side question, not this one.
+  #
+  # A larger variant for the merchant DETAIL screen is worth having and is a
+  # separate field — a contract change — so it waits for the paired commit.
   has_one_attached :storefront_photo do |attachable|
-    attachable.variant :card, resize_to_limit: [ 400, 300 ], saver: { quality: 80 }
+    attachable.variant :card, resize_to_limit: [ 1000, 750 ], saver: { quality: 72 }
   end
 
   # NO VARIANT, deliberately. The licence is never sent to a phone — it exists

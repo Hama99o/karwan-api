@@ -170,6 +170,40 @@ else
   note "bin/rails db:seed"
 fi
 
+# ── A ROW IS NOT A VALUE ──────────────────────────────────────────────────
+#
+# The check above asks whether every setting HAS A ROW. It does not ask whether
+# the row has anything in it, and three of them ship with an empty default
+# because nobody but Hamma9900 can supply them.
+#
+# Found 2026-09-18: `top_up_bank_name` and `top_up_account_number` are both "",
+# and they are the entire content of a courier's top-up instructions. CLAUDE.md
+# makes a bank deposit referenced by a numeric code THE way a courier adds
+# credit in v0 — so with these blank, a courier whose wallet runs out cannot
+# top up, and dispatch stops offering them work. The API serves the field, the
+# screen would render two empty lines, and nothing anywhere says why.
+#
+# DERIVED, not listed: any definition whose default is blank is by construction
+# one we cannot supply. A new one joins this check without anybody editing it.
+step "Settings only he can fill"
+BLANK=$(bin/rails runner '
+  blank = Setting::DEFINITIONS.select { |_k, d| d[:default].to_s.strip.empty? }
+  print blank.keys.reject { |k| Setting.fetch(k).to_s.strip.present? }.join(" ")
+' 2>/dev/null)
+BLANK_COUNT=$(printf "%s" "$BLANK" | wc -w | tr -d " ")
+
+if [ "$BLANK_COUNT" = "0" ]; then
+  ok "every setting that needs a human has one"
+elif [ -n "${APP_BASE_URL:-}${KAMAL_HOST:-}" ] || [ "${RAILS_ENV:-development}" = "production" ]; then
+  bad "$BLANK_COUNT setting(s) are EMPTY on a DEPLOYED box."
+  note "empty: $BLANK"
+  note "a blank top_up_* means a courier cannot add credit, and dispatch stops offering them work"
+  note "fill them in the Config screen — no deploy needed"
+else
+  say "  · $BLANK_COUNT setting(s) are still empty — fine locally, fails on a deployed box."
+  note "empty: $BLANK"
+fi
+
 # ── CAN ANYBODY ACTUALLY OPEN THE CONSOLE? ────────────────────────────────
 #
 # Found by booting the production image on 2026-09-17: the seed ran, settings

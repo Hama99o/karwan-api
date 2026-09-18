@@ -18,6 +18,13 @@ class CatalogItem < ApplicationRecord
   # AFGHAN_UX.md puts the photo at the centre of this screen — a large share of
   # users cannot read fluently, so the photo IS the label. That makes the answer
   # a variant and never fewer photos.
+  #
+  # 400 px IS UNMEASURED and is the one size here that is still a guess. The
+  # storefront was corrected from 400 to 1000 once the mobile session measured
+  # its card at 996 device px; nobody has measured the MENU ITEM card, and if it
+  # is also near-full-width this is undersampled by the same factor and on the
+  # screen where the photo carries the most meaning. Needs the same `uiautomator`
+  # bounds before it is treated as decided.
   has_one_attached :photo do |attachable|
     attachable.variant :card, resize_to_limit: [ 400, 300 ], saver: { quality: 80 }
   end
