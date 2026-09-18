@@ -3,6 +3,29 @@
 # The availability toggle is the first thing on the courier's screen, so this is
 # the endpoint the app hits most often after position.
 class Api::V1::Couriers::ShiftsController < Api::V1::Couriers::BaseController
+  # ── THE WRITE SIDE OF LIVE TRACKING, WHICH WAS THE UNCAPPED ONE ────────────
+  #
+  # The customer POLLING this position is throttled at 1,200/hour
+  # (`Customers::OrdersController`, `:track`). The courier WRITING it was not
+  # throttled at all — so the cheap read was capped and the DB write was open.
+  # Found walking phase 6, by listing the throttles rather than by reading here,
+  # where nothing looks wrong.
+  #
+  # The number is deliberately the SAME as the poll it pairs with, rather than a
+  # fresh guess: one report per position, one poll per position. At a 10-second
+  # cadence a 40-minute delivery reports 240 times, so 1,200/hour is far above
+  # any real use and caps a runaway at one every three seconds.
+  #
+  # It exists for the retry loop, not for abuse. A bad connection is the normal
+  # condition here, and a client that retries a failed position report in a tight
+  # loop is the likeliest way this endpoint ever gets hammered — on a VPS that is
+  # Hamma9900's own money (correction 6).
+  #
+  # `by: :user` and not `:ip`: couriers share carrier NAT, so an IP limit would
+  # throttle a neighbourhood to punish one handset — the same reasoning
+  # `RoutesController` gives.
+  throttle to: 1_200, within: 1.hour, by: :user, only: :location
+
   def show
     authorize courier_profile, :show?
 

@@ -70,6 +70,18 @@ RSpec.describe "Api::V1::Couriers::Shifts", type: :request do
       expect(json["location_fresh"]).to be true
     end
 
+    # The read side of live tracking was capped and the write side was not.
+    # Exercised rather than asserted from the config, because a limit that is
+    # declared and not wired is the shape of check this project keeps finding.
+    it "caps a runaway position loop, which a bad connection makes the normal case" do
+      1_201.times do
+        post "/api/v1/courier/shift/location",
+             params: { latitude: 34.5553, longitude: 69.2075 }, headers: auth
+      end
+
+      expect(response).to have_http_status(:too_many_requests)
+    end
+
     it "refuses a courier who is not approved yet" do
       profile.update!(verification_status: :pending)
 
