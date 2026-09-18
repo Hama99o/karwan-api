@@ -333,6 +333,54 @@ RSpec.describe "Api::V1::Customers::Orders", type: :request do
     # examples exist because nothing asserted they survive, and a re-order
     # feature built on fields nobody tests is one refactor from silently
     # falling back to name matching.
+    # ── THE NUMBER A CUSTOMER ACTUALLY RINGS ────────────────────────────────
+    #
+    # The call that gets made: an item is wrong, the order is late, the courier
+    # cannot find the gate. The payload carried `merchant_id` and
+    # `merchant_name` and nothing to dial, so the app's contact sheet had a
+    # merchant row with no number — and fetching the merchant separately to fill
+    # one row is what correction 17 forbids.
+    describe "ringing the shop" do
+      it "carries the shop's phone while the order is live" do
+        get "/api/v1/customer/orders/#{order.id}", headers: auth
+
+        expect(json.dig("order", "merchant_phone")).to eq(merchant.phone)
+      end
+
+      # `phone` is the shop; `contact_person_phone` is a named human, and that
+      # one belongs on the merchant profile, which is an operator surface. A
+      # customer ringing about a kebab wants whoever picks up.
+      it "is the shop's number and not the named contact's" do
+        merchant.update!(phone: "+93780000111", contact_person_phone: "+93790000222")
+
+        get "/api/v1/customer/orders/#{order.id}", headers: auth
+
+        expect(json.dig("order", "merchant_phone")).to eq("+93780000111")
+        expect(response.body).not_to include("+93790000222"),
+                                     "the named contact's private number reached a customer"
+      end
+
+      # A number on a delivered order from three weeks ago is a customer ringing
+      # a restaurant about something nobody there remembers.
+      it "is withheld once the order is over" do
+        order.update!(status: :delivered, delivered_at: Time.current)
+
+        get "/api/v1/customer/orders/#{order.id}", headers: auth
+
+        expect(json.dig("order", "is_live")).to be(false), "not terminal — the assertion below proves nothing"
+        expect(json.dig("order", "merchant_phone")).to be_nil
+      end
+
+      # The list is the order history; the contact sheet is on the order page.
+      # If this ever appears in the list, the list has started shipping a detail
+      # payload twenty times over.
+      it "is not in the order list" do
+        get "/api/v1/customer/orders", headers: auth
+
+        expect(json["orders"].first).not_to have_key("merchant_phone")
+      end
+    end
+
     describe "the pointers re-ordering needs" do
       it "carries the merchant id, so the app can open the right catalog" do
         get "/api/v1/customer/orders/#{order.id}", headers: auth

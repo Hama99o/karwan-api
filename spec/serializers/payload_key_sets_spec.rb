@@ -90,7 +90,7 @@ RSpec.describe "payload key sets" do
         amount_to_pay_in_cash can_cancel code courier courier_arrived_at currency
         customer_phone customer_total delivery_fee delivery_landmark_note
         delivery_location id is_live item_count items items_total merchant_id
-        merchant_name notes placed_at status suggested_notes timeline
+        merchant_name merchant_phone notes placed_at status suggested_notes timeline
       ])
     end
 

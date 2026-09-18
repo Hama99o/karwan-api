@@ -65,6 +65,29 @@ module Customers
     view :detailed do
       include_view :list
 
+      # ── THE NUMBER A CUSTOMER ACTUALLY RINGS ────────────────────────────────
+      #
+      # The call that gets made: an item is wrong, the order is late, the courier
+      # cannot find the gate. `merchant_id` and `merchant_name` were here and
+      # nothing to dial, so the app's contact sheet had a merchant row with no
+      # number — and fetching the merchant separately to fill one row is what
+      # correction 17 forbids.
+      #
+      # `phone` AND NOT `contact_person_phone`, which are different things: one is
+      # the shop, the other is a named human. A customer ringing about a kebab
+      # wants whoever picks up at the shop; the office ringing about a payout
+      # wants the person. `contact_person_phone` stays on the merchant profile,
+      # which is an operator surface.
+      #
+      # NIL ONCE THE ORDER IS TERMINAL. A number on a delivered order from three
+      # weeks ago is a customer ringing a restaurant about something nobody there
+      # remembers — and the shop pays for that call in patience. The app already
+      # branches on `is_live`; this agrees with it rather than asking the client to
+      # enforce it.
+      field :merchant_phone do |order|
+        order.merchant.phone if !order.terminal? && order.merchant
+      end
+
       fields :delivery_landmark_note, :customer_phone, :notes
 
       field :delivery_location do |order|
