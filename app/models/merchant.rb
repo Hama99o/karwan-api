@@ -36,8 +36,34 @@ class Merchant < ApplicationRecord
   has_many :merchant_categories, through: :merchant_category_assignments
   has_many :orders, dependent: :restrict_with_error
 
-  has_one_attached :logo
-  has_one_attached :storefront_photo
+  # ── VARIANTS, BECAUSE THE ORIGINAL IS THE USER'S MONEY ───────────────────
+  #
+  # Measured 2026-09-18 (docs/NOTES.md): a merchant card carries BOTH of these,
+  # the default page is 20, and `MAX_IMAGE_BYTES` is 5 MB — so one Home screen
+  # could pull ~200 MB of originals to render a logo at about 96 px. With
+  # variants the same screen is ~1 MB.
+  #
+  # The sizes are the rendered size at 2x, not a guess at a "reasonable" size:
+  # the logo draws at ~96 px, the storefront at ~400 px wide.
+  has_one_attached :logo do |attachable|
+    attachable.variant :thumb, resize_to_limit: [ 192, 192 ], saver: { quality: 80 }
+  end
+
+  # 400 px, NOT 800. Measured through the real libvips on a 3.19 MB
+  # photograph: 400 px costs 1.29 MB per Home screen of 20 cards, 800 px costs
+  # 4.19 MB. Three megabytes per screen-open is a lot of somebody's credit for
+  # a sharper thumbnail, and this is the market where that trade goes the other
+  # way. A larger variant for the merchant DETAIL screen is worth having and is
+  # a separate field — i.e. a contract change, so it waits for the paired
+  # mobile commit rather than being smuggled in here.
+  has_one_attached :storefront_photo do |attachable|
+    attachable.variant :card, resize_to_limit: [ 400, 300 ], saver: { quality: 80 }
+  end
+
+  # NO VARIANT, deliberately. The licence is never sent to a phone — it exists
+  # for an operator verifying a shop in the console, on a laptop, where the
+  # detail IS the point and a resize would defeat the review. Same reasoning
+  # keeps the courier's tazkira, selfie and vehicle photo at full size.
   has_one_attached :license_photo
 
   # `has_one_attached` validates neither type nor size. The storefront photo is

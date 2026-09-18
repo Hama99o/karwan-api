@@ -19,7 +19,7 @@ module Customers
           currency: item.currency,
           is_available: item.is_available?,
           prep_time_minutes: item.effective_prep_time_minutes,
-          photo_url: Attachments::PublicUrl.for(item.photo),
+          photo_url: Attachments::PublicUrl.for(item.photo, variant: :card),
           options: item.options.map do |option|
             {
               id: option.id,

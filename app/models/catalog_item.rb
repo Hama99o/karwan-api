@@ -15,7 +15,12 @@ class CatalogItem < ApplicationRecord
   # order history.
   has_many :order_items, dependent: :nullify
 
-  has_one_attached :photo
+  # AFGHAN_UX.md puts the photo at the centre of this screen — a large share of
+  # users cannot read fluently, so the photo IS the label. That makes the answer
+  # a variant and never fewer photos.
+  has_one_attached :photo do |attachable|
+    attachable.variant :card, resize_to_limit: [ 400, 300 ], saver: { quality: 80 }
+  end
   # Same reasoning as the merchant's storefront: this image is fetched by every
   # customer who opens the menu.
   # HOW BIG IT IS, and the merchant is the only one who knows. A restaurant

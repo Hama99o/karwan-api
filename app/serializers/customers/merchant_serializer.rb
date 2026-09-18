@@ -19,12 +19,12 @@ module Customers
     # share of users cannot read fluently, so the photo IS the label and a text
     # row is a literacy tax.
     field :logo_url do |merchant|
-      Attachments::PublicUrl.for(merchant.logo)
+      Attachments::PublicUrl.for(merchant.logo, variant: :thumb)
     end
 
     field :storefront_photo_url do |merchant|
       if merchant.storefront_photo.attached?
-        Attachments::PublicUrl.for(merchant.storefront_photo)
+        Attachments::PublicUrl.for(merchant.storefront_photo, variant: :card)
       end
     end
 

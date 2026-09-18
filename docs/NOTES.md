@@ -430,7 +430,31 @@ image, and correction 14 is not engaged at all.
 | Seeded today (measured: logos avg 2.7 KB, storefronts avg 6.9 KB) | **~0.2 MB** |
 | A typical mid-range phone photo at 3 MB | **~120 MB** |
 | The worst case our own validator permits, 5 MB | **~200 MB** |
-| With variants (measured: 192 px logo ≈ 8 KB, 800 px storefront ≈ 44 KB at q80) | **~1 MB** |
+| With variants | **~1.7 MB** |
+
+**CLOSED 2026-09-18 by the variants commit**, and the variant row above is a
+CORRECTION of the first estimate, which said ~1 MB. That figure came from a
+synthetic image smooth enough to compress far better than a photograph. Redone
+through the real libvips inside the production image, on a 3.19 MB 4032×3024
+photograph:
+
+| Variant | Output | Per Home screen (20 cards) |
+|---|---|---|
+| logo `:thumb` 192 px q80 | **16.8 KB** — 194× smaller | 0.33 MB |
+| storefront `:card` 400 px q80 | **65.9 KB** — 48× smaller | 1.29 MB |
+| storefront at 800 px q80, rejected | 214.4 KB | 4.19 MB |
+
+**Why 400 px and not 800.** Three megabytes per screen-open is a lot of
+somebody's credit for a sharper thumbnail, and this is the market where that
+trade goes the other way. A bigger variant for the merchant DETAIL screen is
+worth having, but it is a second field and therefore a contract change, so it
+waits for the paired mobile commit.
+
+**What is NOT varied, and why:** `license_photo`, `id_document`, `selfie` and
+`vehicle_photo` are never sent to a phone — they exist for an operator
+verifying a person or a shop in the console, on a laptop, where the detail IS
+the review. `voice_note` is audio. Declaring variants nothing serves would be
+the unreachable-code problem this week was spent finding.
 
 **The seeded number is the trap.** 0.2 MB looks fine and means nothing: the
 fixtures are generated 2–7 KB cards, and **no real photograph has ever been
