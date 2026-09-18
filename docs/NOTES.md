@@ -608,6 +608,53 @@ which is the one claim a list like this cannot support.
 
 ## Solved, with the reasoning
 
+### THE MERCHANT ALERT DOES NOT FAIL SILENTLY — BUT NOBODY COULD SEE THAT IT FAILED
+
+Traced 2026-09-18. The question was whether a push with no FCM credentials
+no-ops silently. **It does not, and the design is good:** `FcmClient` returns
+`status: :unconfigured` and logs; `MerchantAlert#record` writes an
+`AuditLog` with **`needs_human_contact: !result.any_delivered?`**, which is
+exactly the right thing to record — "we could not send" must escalate to a human
+while "nothing is configured yet" is a deployment state.
+
+**The failure was one layer out: nothing in `app/` read that flag.** It was
+written, asserted in its own unit spec, and unreachable — `details` is a
+show-page field on `AuditLogDashboard`, so answering *"which shops do I need to
+ring?"* meant opening every `merchant.alerted` row and reading its JSON. The
+fourth instance of one shape in a day, and the most expensive: the remedy is a
+telephone and the window is how long a customer will wait for food.
+
+**Closed:** the console's landing page now counts live orders whose merchant was
+never reached — the one tile whose remedy is a phone call. Restricted to LIVE
+orders deliberately: a failed alert on a delivered order was resolved by
+somebody, and a number counting settled history is a number an operator learns
+to ignore.
+
+### TWO DEPLOY SECRETS THAT DECIDE WHETHER WE CAN TALK TO ANYBODY
+
+`FCM_PROJECT_ID` and `FCM_ACCESS_TOKEN` are **ENV, not `Setting` rows**, so the
+"Settings only he can fill" check added earlier the same day could not see them
+— the same class of gap as the top-up pair, one layer further out.
+
+`bin/preflight` now also derives from **`config/deploy.yml`'s `env.secret` list**:
+whatever a deployed box is expected to supply is what gets checked, so a newly
+declared secret joins by being declared. Verified: fails with `KAMAL_HOST` set,
+green once supplied, and a secret added to `deploy.yml` appears in the check
+without anybody editing it. Found `ADMIN_PASSWORD` empty as well, which nobody
+had listed.
+
+**Exceptions, named rather than silent:** `SMTP_*` and `SMS_PROVIDER` have their
+own steps already, and `RAILS_MASTER_KEY`/`DATABASE_PASSWORD`/
+`KAMAL_REGISTRY_PASSWORD` are supplied by the deploy tooling rather than by him.
+
+### `register_device` WAS ALREADY COVERED — no work done
+
+Reported as having no spec. It has seven examples in
+`spec/requests/api/v1/me_spec.rb`, covering registration, re-registration with
+the same token, a second device, an unknown platform, the tokenless path and a
+shared phone. Checked before writing anything, which is what `bin/gates` is for.
+
+
 ### ELEVEN FIELDS ON THE WIRE THAT NOTHING READS — THE REVERSE SWEEP
 
 The serializer sweep asked *does the response carry a field nobody asked for?*

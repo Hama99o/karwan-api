@@ -25,6 +25,20 @@ module Admin
       # Money couriers are holding on our behalf — our actual exposure.
       @cash_outstanding = outstanding_cash
 
+      # ── WHICH RESTAURANTS NEVER HEARD THEIR ALERT ──────────────────────
+      #
+      # `Notifications::MerchantAlert` already records
+      # `needs_human_contact: true` when a push reached no device — unconfigured
+      # FCM, no registered tablet, every token dead. It has recorded it since
+      # the day it was written and **nothing read it**: `details` is a show-page
+      # field on `AuditLogDashboard`, so answering "who do I need to ring?"
+      # meant opening every `merchant.alerted` row and reading its JSON.
+      #
+      # PRODUCT.md: a missed alert is a lost order, not an annoyance. The three
+      # channels are push, in-app polling, and a human — and the human is the
+      # one that has to be told. This is that telling.
+      @merchants_to_ring = merchants_needing_a_call
+
       @recent_interventions = AuditLog.interventions.newest_first.limit(10)
     end
 
@@ -35,6 +49,17 @@ module Admin
       trips = Trip.where(status: :completed, completed_at: from..).group(:currency).sum(:commission)
 
       orders.merge(trips) { |_currency, a, b| a + b }
+    end
+
+    # Only LIVE orders: an alert that failed on an order since delivered was
+    # resolved by somebody, and a number that counts settled history is a
+    # number an operator learns to ignore.
+    def merchants_needing_a_call
+      AuditLog.where(action: "merchant.alerted", target_type: "Order")
+              .where("details->>'needs_human_contact' = 'true'")
+              .where(target_id: Order.live.select(:id))
+              .distinct
+              .count(:target_id)
     end
 
     def outstanding_cash

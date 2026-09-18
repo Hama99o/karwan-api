@@ -204,6 +204,47 @@ else
   note "empty: $BLANK"
 fi
 
+# ── A DECLARED SECRET IS NOT A SUPPLIED ONE ───────────────────────────────
+#
+# The step above covers `Setting` rows. It cannot see ENV, and two of the keys
+# that decide whether this platform can talk to anybody live there:
+# `FCM_PROJECT_ID` and `FCM_ACCESS_TOKEN`.
+#
+# What happens without them is deliberate and correct — `Notifications::FcmClient`
+# returns `status: :unconfigured` and logs, because a missing push must not fail
+# an order. But PRODUCT.md is explicit that a merchant who never hears the alert
+# is the most damaging state in the system: a tablet in a loud kitchen that never
+# makes a sound, and an order going cold while somebody waits.
+#
+# DERIVED FROM `config/deploy.yml`, not listed here: whatever is declared under
+# `env.secret` is what a deployed box is expected to supply, so a new secret
+# joins this check by being declared. The exceptions are named with the reason,
+# the same shape as the variant gate's SERVED_WHOLE.
+step "Declared secrets that are empty"
+SECRETS=$(bin/rails runner '
+  require "yaml"
+  declared = YAML.load_file(Rails.root.join("config/deploy.yml"), aliases: true)
+                 .dig("env", "secret") || []
+  # Covered by their own steps above, so reporting them here is noise.
+  covered = %w[SMTP_ADDRESS SMTP_USER_NAME SMTP_PASSWORD SMS_PROVIDER]
+  # Supplied by the deploy tooling itself rather than by him.
+  tooling = %w[RAILS_MASTER_KEY DATABASE_PASSWORD KAMAL_REGISTRY_PASSWORD]
+  print (declared - covered - tooling).reject { |k| ENV[k].to_s.strip.present? }.join(" ")
+' 2>/dev/null)
+SECRETS_COUNT=$(printf "%s" "$SECRETS" | wc -w | tr -d " ")
+
+if [ "$SECRETS_COUNT" = "0" ]; then
+  ok "every declared secret has a value"
+elif [ -n "${APP_BASE_URL:-}${KAMAL_HOST:-}" ] || [ "${RAILS_ENV:-development}" = "production" ]; then
+  bad "$SECRETS_COUNT declared secret(s) are EMPTY on a DEPLOYED box."
+  note "empty: $SECRETS"
+  note "with no FCM credentials the merchant alert is silent — PRODUCT.md calls that the"
+  note "most damaging state in the system, and the audit row that flags it is not on a screen"
+else
+  say "  · $SECRETS_COUNT declared secret(s) are empty — fine locally, fails on a deployed box."
+  note "empty: $SECRETS"
+fi
+
 # ── CAN ANYBODY ACTUALLY OPEN THE CONSOLE? ────────────────────────────────
 #
 # Found by booting the production image on 2026-09-17: the seed ran, settings

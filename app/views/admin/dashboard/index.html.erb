@@ -13,6 +13,11 @@
       <span class="karwan-tile__number"><%= @overdue_orders %></span>
       <span class="karwan-tile__label">orders overdue</span>
     </a>
+    <%# A push that reached nobody. The one tile whose remedy is a telephone. %>
+    <a class="karwan-tile <%= "karwan-tile--alert" if @merchants_to_ring.positive? %>" href="<%= admin_audit_logs_path %>">
+      <span class="karwan-tile__number"><%= @merchants_to_ring %></span>
+      <span class="karwan-tile__label">shops to ring — alert not delivered</span>
+    </a>
     <a class="karwan-tile <%= "karwan-tile--warn" if @unassigned_orders.positive? %>" href="<%= admin_orders_path %>">
       <span class="karwan-tile__number"><%= @unassigned_orders %></span>
       <span class="karwan-tile__label">orders with no courier</span>
