@@ -72,6 +72,17 @@ Rails.application.routes.draw do
     # (PRODUCT.md), so this is the only place they can come from.
     resources :merchant_opening_hours, only: %i[index show new create edit update destroy]
 
+    # MENU MANAGEMENT. Phase 1 of PRODUCT.md is the console because "you cannot
+    # test an order without a restaurant and a menu", and :66 makes admin the
+    # party that onboards. Until these existed a menu could only arrive from a
+    # seed, so the first real restaurant could not be onboarded at all.
+    # The browse taxonomy. `public/merchants_controller:15` already filters on
+    # it, and nothing could assign a merchant to one.
+    resources :merchant_categories, only: %i[index show new create edit update destroy]
+
+    resources :catalog_categories, only: %i[index show new create edit update destroy]
+    resources :catalog_items, only: %i[index show new create edit update destroy]
+
     resources :users, only: %i[index show edit update] do
       member do
         patch :suspend

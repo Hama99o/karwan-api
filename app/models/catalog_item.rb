@@ -19,14 +19,16 @@ class CatalogItem < ApplicationRecord
   # users cannot read fluently, so the photo IS the label. That makes the answer
   # a variant and never fewer photos.
   #
-  # 400 px IS UNMEASURED and is the one size here that is still a guess. The
-  # storefront was corrected from 400 to 1000 once the mobile session measured
-  # its card at 996 device px; nobody has measured the MENU ITEM card, and if it
-  # is also near-full-width this is undersampled by the same factor and on the
-  # screen where the photo carries the most meaning. Needs the same `uiautomator`
-  # bounds before it is treated as decided.
+  # 1000 px AT q72, MEASURED. The menu item card dumped at **996 device px** —
+  # identical to the storefront — so 400 px was undersampled by the same 2.49x
+  # and the same arithmetic gives the same answer: rendered width x DPR, then
+  # the smallest variant at or above it.
+  #
+  # It matters more here than on the Home cards. A soft storefront is a polish
+  # complaint; a soft dish is a customer ordering the wrong food, because
+  # AFGHAN_UX makes this photo the LABEL rather than decoration.
   has_one_attached :photo do |attachable|
-    attachable.variant :card, resize_to_limit: [ 400, 300 ], saver: { quality: 80 }
+    attachable.variant :card, resize_to_limit: [ 1000, 750 ], saver: { quality: 72 }
   end
   # Same reasoning as the merchant's storefront: this image is fetched by every
   # customer who opens the menu.

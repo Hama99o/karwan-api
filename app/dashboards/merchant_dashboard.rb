@@ -32,6 +32,9 @@ class MerchantDashboard < Administrate::BaseDashboard
     rejection_reason: Field::Text,
     deleted_at: Field::DateTime,
     opening_hours: Field::HasMany,
+    # The browse tags a customer filters by. Settable here because this is the
+    # only place they can be assigned at all.
+    merchant_categories: Field::HasMany,
     catalog_categories: Field::HasMany,
     catalog_items: Field::HasMany,
     created_at: Field::DateTime
@@ -47,7 +50,7 @@ class MerchantDashboard < Administrate::BaseDashboard
     name merchant_kind phone status is_open prep_time_minutes commission_rate
     latitude longitude landmark_note owner owner_name owner_phone
     owner_national_id_number license_number contact_person_name contact_person_phone
-    verified_at verified_by_admin_user rejection_reason deleted_at opening_hours
+    verified_at verified_by_admin_user rejection_reason deleted_at opening_hours merchant_categories
     logo storefront_photo license_photo catalog_categories catalog_items created_at
   ].freeze
   # Admin onboards merchants, so unlike orders the form IS the workflow — but
@@ -57,7 +60,7 @@ class MerchantDashboard < Administrate::BaseDashboard
     name merchant_kind phone status prep_time_minutes commission_rate
     latitude longitude landmark_note owner owner_name owner_phone
     owner_national_id_number license_number contact_person_name contact_person_phone
-    logo storefront_photo license_photo
+    logo storefront_photo license_photo merchant_categories
   ].freeze
 
   COLLECTION_FILTERS = {
