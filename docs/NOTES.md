@@ -13,6 +13,45 @@ Two rules from the wider workspace that apply to this file:
 
 ## Open problems — not yet fixed
 
+### THE LEDGER CANNOT NAME AN OPERATOR — `recorded_by` POINTS AT THE WRONG TABLE
+
+Audited 2026-09-18 against one-way door 5 (*"who credited a wallet, before and
+after. Unanswerable later if nobody wrote it"*). **The information is not lost,
+and the alarming version of this finding is wrong** — but the ledger is not
+self-describing and that has a cost.
+
+`wallet_entries.recorded_by_id` is a foreign key to **`users`**. The console's
+actor is an **`AdminUser`** — a separate table, because correction 16 removed
+admin from the mobile app entirely. So an entry written by an operator
+**cannot** name its author in the ledger: wrong table, not an oversight. All
+four console money paths call `record_entry!` without `recorded_by:` because
+there is nothing valid to pass.
+
+**Where the answer actually lives.** `top_up`, `adjust` and `reimburse` each
+write an `AuditLog` carrying `admin_user_id`, the balance **before** and after,
+and the `entry_id` — so every console-written entry is attributable by joining
+`audit_logs` on `details->>'entry_id'`. `settle` writes no ledger row at all (it
+marks jobs settled, which is what clears the cash-in-hand gate) and its audit row
+carries expected, counted, variance and the counter's name. The courier-side
+paths in `Couriers::AdvanceJobService` pass `recorded_by: @courier`, so those
+entries name their author in the ledger itself.
+
+**So there are two legitimate attribution mechanisms, and a gate demanding
+either one alone would demand a rewrite of the other half.**
+`spec/models/every_money_movement_is_attributable_spec.rb` asserts the invariant
+rather than a mechanism: a movement is attributable if the entry names its
+author OR an audit row names the admin and carries the entry id.
+
+**What is genuinely lost:** a courier's statement, or any reconciliation built
+from `wallet_entries` alone, cannot say who made an adjustment without a join to
+`audit_logs`. In a cash business where *"unexplained mismatches are theft"*, the
+row a courier disputes is exactly the one whose author is one table away.
+
+**The fix is a second nullable FK — `recorded_by_admin_user_id` — and it is NOT
+made here.** It is additive and small, but it is a migration on the money table,
+and one-way door 4 makes the ledger the record of record. It wants Hamma9901's
+word and probably his.
+
 ### CONSOLE COVERAGE SWEEP — WHAT AN OPERATOR CANNOT REACH
 
 Run 2026-09-18 after `MerchantOpeningHour` turned out to have no door at all.
