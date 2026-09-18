@@ -15,6 +15,27 @@ module Admin
   class ApplicationController < Administrate::ApplicationController
     protect_from_forgery with: :exception
 
+    # ── THE POLICIES WERE WRITTEN, CORRECT, AND NEVER CONSULTED ───────────
+    #
+    # Found by the caller sweep on 2026-09-18: `CourierWalletPolicy#adjust?`,
+    # `#top_up?`, `#settle?` and `CourierProfilePolicy#approve?`, `#reject?`
+    # had no caller anywhere. The console enforced the same rule through
+    # `authenticate_admin_user!`, so nothing was reachable that should not have
+    # been — this is edu-safi's bug with the outcome coinciding.
+    #
+    # The danger was the reading. A file that says "money only moves through
+    # admin: a courier crediting their own wallet is the one thing this design
+    # exists to prevent" is the first place anyone looks to CHANGE that rule,
+    # and changing it would have done nothing. Wiring it costs no behaviour
+    # today — every method is `= admin?` and every console session is an admin —
+    # which is exactly what makes it safe to do now and expensive to leave.
+    #
+    # `pundit_user` is the AdminUser, NOT `current_user`: the console's actor is
+    # its own table. Without this the policies would refuse every admin.
+    include Pundit::Authorization
+
+    rescue_from Pundit::NotAuthorizedError, with: :deny_intervention
+
     before_action :authenticate_admin_user!
 
     # ── EVERY EDIT, NOT ONLY THE INTERVENTIONS ────────────────────────────────
@@ -91,6 +112,17 @@ module Admin
     # Records a staff action. Failures here must never break the action itself
     # — but they are logged rather than swallowed, because an audit trail that
     # silently stops is worse than one that was never claimed.
+    def pundit_user
+      current_admin_user
+    end
+
+    # HTML, not the API's JSON 403 — this surface is a browser session, and an
+    # operator needs to land somewhere they can still work.
+    def deny_intervention
+      redirect_back fallback_location: admin_root_path,
+                    alert: "You are not allowed to do that."
+    end
+
     def log_intervention(action, target: nil, before: nil, after: nil, details: nil)
       AuditLog.record!(
         action: action, admin_user: current_admin_user, actor_role: :admin,

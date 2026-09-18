@@ -8,6 +8,7 @@ module Admin
   class CourierProfilesController < Admin::ApplicationController
     def approve
       profile = requested_resource
+      authorize profile, :approve?
 
       # `approve!` rather than `update` — it does all THREE things approval
       # means (status, role, wallet) in one transaction. This used to update
@@ -61,6 +62,7 @@ module Admin
 
     def reject
       profile = requested_resource
+      authorize profile, :reject?
       reason = params[:reason].presence
 
       return redirect_back fallback_location: admin_courier_profile_path(profile),

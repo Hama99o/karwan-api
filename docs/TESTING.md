@@ -632,6 +632,38 @@ the four corrected in the other direction the same day.
 > Circumstantial evidence about **who** is not evidence about **what**. The repo
 > can answer the second question exactly, and the answer is cheap.
 
+### "IS THIS USED OUTSIDE ITS CLASS" IS A VISIBILITY QUESTION AND READS AS REACHABILITY
+
+The two look identical in a grep and answer different things. Confusing them
+produces a confident report that a working safeguard is dead.
+
+Measured on 2026-09-18 while sweeping for methods nothing calls. The sweep
+excluded each method's own defining file — reasonable, if the question is
+*"does anything outside this class use it?"* Under that reading
+`OtpVerification.send_allowance` came back unreferenced, and it is **the OTP
+send throttle**, which correction 6 makes a BILLING control rather than only a
+security one. It is called by `issue!` eleven lines below its own definition:
+
+```ruby
+def self.issue!(phone)
+  allowance = send_allowance(phone)          # <- eleven lines below
+  raise Throttled, allowance[:retry_after_seconds] unless allowance[:allowed]
+```
+
+> A method used only inside its own class is **over-public**, not unreachable.
+> One is a tidiness observation; the other is "somebody spends Hamma9900's
+> money".
+
+**So state which question the instrument answers, in the instrument.** Same run,
+same tool, two more ways to get the domain wrong: `\b` does not anchor after
+`?` or `!`, so every predicate and bang method looked unreferenced — 119 false
+positives including a method called from a controller written an hour earlier.
+
+**And validate a sweep against a bug you already know.** `Merchant.fuzzy` was a
+confirmed unreachable method that morning: unwiring it made it appear with 11
+spec refs, wiring it made it vanish. A sweep that cannot find the case that
+motivated it is not ready to report on cases nobody has checked.
+
 ### A CHECK NOBODY RUNS IS INDISTINGUISHABLE FROM A CHECK NOBODY WROTE
 
 The five shapes are about instruments that **lie**. This one is about an

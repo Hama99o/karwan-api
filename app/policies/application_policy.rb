@@ -30,7 +30,19 @@ class ApplicationPolicy
   # Belonging to something is not permission to act on it either — edu-safi's
   # lesson: `current_organization` is tenancy, not authorisation. Hence the
   # `own?`/`owner?` predicates in the subclasses ON TOP of these.
+  # TWO KINDS OF ADMIN, because there are two front doors.
+  #
+  # `AdminUser` is the ops console's own table, separate from the mobile `User`
+  # by design — correction 16 is that nothing which can credit a wallet exists
+  # on a phone that gets shared or lost. Holding an `AdminUser` session IS being
+  # an admin; there is no lesser console account, and `AdminUser` has no `role?`
+  # at all, so the check must come first or it raises.
+  #
+  # The mobile branch stays for the API, where an admin is a `User` holding the
+  # role.
   def admin?
+    return true if user.is_a?(AdminUser)
+
     user&.role?(:admin) || false
   end
 

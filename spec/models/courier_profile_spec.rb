@@ -52,41 +52,55 @@ RSpec.describe CourierProfile, type: :model do
     end
   end
 
-  describe "#dispatchable_for?" do
-    it "is true for an approved, available courier who takes that kind" do
-      profile = create(:courier_profile, :dispatchable)
-
-      expect(profile.dispatchable_for?(:delivery)).to be true
-    end
-
-    it "is false for a kind they do not accept" do
-      profile = create(:courier_profile, :dispatchable)
-
-      expect(profile.dispatchable_for?(:ride)).to be false
-    end
-
-    it "is false when off shift, however well approved" do
-      profile = create(:courier_profile, :approved)
-
-      expect(profile.dispatchable_for?(:delivery)).to be false
-    end
-
-    it "is false when not approved, however available" do
-      profile = create(:courier_profile, :available)
-
-      expect(profile.dispatchable_for?(:delivery)).to be false
-    end
-
+  # ── THE COMPOSITE GATE LIVES IN `Dispatch::Eligibility`, NOT HERE ────────
+  #
+  # `#dispatchable_for?` was deleted on 2026-09-18. It answered "may this
+  # courier be offered this kind of job" by AND-ing approval, availability and
+  # the accepted kinds — and `Dispatch::Eligibility#reason` already asked the
+  # same three questions, separately, so it can name WHICH one failed. That
+  # naming is the product requirement: a courier who goes online and silently
+  # receives nothing concludes the app is broken, when the truth is one
+  # specific, fixable thing.
+  #
+  # The caller sweep found the twin had no caller in `app/` at all — it was
+  # reached only from this file's own examples. Two implementations of one gate
+  # is how they diverge, and the unused one diverges without anybody noticing.
+  #
+  # The three conditions are asserted in `spec/services/dispatch/eligibility_spec.rb`
+  # as `:not_approved`, `:off_shift` and `:wrong_job_kind`. What is kept here is
+  # the part that was ONLY asserted through the twin: how `accepts?` treats its
+  # argument.
+  describe "#accepts?" do
     it "accepts a string as well as a symbol" do
       profile = create(:courier_profile, :dispatchable)
 
-      expect(profile.dispatchable_for?("delivery")).to be true
+      expect(profile.accepts?("delivery")).to be true
+      expect(profile.accepts?(:delivery)).to be true
     end
 
+    it "is false for a kind they do not take" do
+      profile = create(:courier_profile, :dispatchable)
+
+      expect(profile.accepts?(:ride)).to be false
+    end
+
+    # A kind that does not exist must be a plain "no", not an exception:
+    # dispatch runs this over every available courier and one bad value would
+    # take the whole offer round down.
     it "is false for a kind that does not exist rather than raising" do
       profile = create(:courier_profile, :dispatchable)
 
-      expect(profile.dispatchable_for?(:teleportation)).to be false
+      expect(profile.accepts?(:teleportation)).to be false
+    end
+
+    # THE ANTI-RE-ADD GUARD. Nothing stops somebody writing the convenient
+    # composite again; this makes doing so a failing test with the reason
+    # attached rather than a silent second gate.
+    it "is not joined by a composite twin that hides which condition failed" do
+      expect(described_class.method_defined?(:dispatchable_for?)).to be(false),
+                                                                    "a composite dispatchability predicate is back on CourierProfile. " \
+                                                                    "Dispatch::Eligibility#reason is the gate — it names which of " \
+                                                                    "approval, availability or job kind failed, and a boolean cannot."
     end
   end
 

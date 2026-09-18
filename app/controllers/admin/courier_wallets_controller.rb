@@ -11,6 +11,7 @@ module Admin
     # (Muhammad / Mohammad / Mohammed); a code survives a bank statement.
     def top_up
       wallet = requested_resource
+      authorize wallet, :top_up?
       amount = params[:amount].to_d
 
       return reject_amount(wallet, "A top-up must be a positive amount.") unless amount.positive?
@@ -29,6 +30,7 @@ module Admin
     # explanation is indistinguishable from a mistake six months later.
     def adjust
       wallet = requested_resource
+      authorize wallet, :adjust?
       amount = params[:amount].to_d
       note = params[:note].presence
 
@@ -75,6 +77,7 @@ module Admin
     # is the single thing it exists to prevent.
     def settle
       wallet = requested_resource
+      authorize wallet, :settle?
       counted = params[:counted_amount].to_d
       counter = params[:counted_by_name].presence
 

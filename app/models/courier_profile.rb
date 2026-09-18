@@ -210,14 +210,6 @@ class CourierProfile < ApplicationRecord
     announce_review!
   end
 
-  # Can this courier be offered this kind of job at all? A funded wallet is
-  # checked separately, per job, because it depends on that job's commission.
-  def dispatchable_for?(job_kind)
-    return false unless verification_approved? && is_available?
-
-    accepted_job_kinds.include?(job_kind.to_s)
-  end
-
   def accepts?(job_kind)
     accepted_job_kinds.include?(job_kind.to_s)
   end
