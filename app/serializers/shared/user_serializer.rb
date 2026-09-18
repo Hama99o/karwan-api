@@ -33,6 +33,20 @@ module Shared
       user.user_roles.map(&:role) & Roles::MOBILE
     end
 
+    # ── THE MARK THE PROFILE SCREEN SHOWS ────────────────────────────────
+    #
+    # `docs/design/customer/profile/SPEC.md`: "Status as a mark, not prose — ✓
+    # verified, ⚠ needs attention. We already hold `verification_status` on the
+    # courier." We did hold it, and `/me` did not serve it, so the screen was
+    # blocked on the API. Found by the design-SPEC sweep.
+    #
+    # NIL FOR ANYBODY WHO IS NOT A COURIER, which is most people — the profile
+    # screen shows the mark only when there is something to mark, and a
+    # customer has no verification state to be in.
+    field :courier_verification_status do |user|
+      user.courier_profile&.verification_status
+    end
+
     view :detailed do
       field :phone_verified do |user|
         user.phone_verified?

@@ -13,6 +13,31 @@ Two rules from the wider workspace that apply to this file:
 
 ## Open problems — not yet fixed
 
+### `pin_far_from_road` ON A SAVED ADDRESS — UNMEASURED, AND IT IS A DECISION
+
+`docs/design/customer/addresses/SPEC.md` asks for it, and the reasoning is
+sound: *"the API measures it (an airport pin snapped 548.9 m); the copy already
+exists — 'A courier may not find this from the pin alone' — and has never been
+wired to the signal."*
+
+**It is not a missing field. It is an unmeasured one.** On an order the answer
+comes from snap distances FROZEN at quote time, and an order has a route. A
+saved address has a pin and no route, so answering it at all means asking OSRM
+where the nearest road is.
+
+| When to measure | What it costs | What it gets wrong |
+|---|---|---|
+| **On save**, stored on the address | one OSRM call per address save — rare, and the answer is frozen like every other quoted input | the map improves and the stored answer does not; a pin that was off the network in September may be on it in March |
+| **On read**, per address | one call per address per list render — the browse-screen mistake in a new place | nothing, but it is the per-request third-party cost correction 6 forbids on a path an order touches |
+| **Never** (today) | nothing | a customer keeps saving a pin a courier cannot reach, and finds out at the gate |
+
+**On save is the right shape** — it matches the frozen-amount discipline and the
+cost is bounded — but it wants a column, a service change and a decision about
+re-measuring, so it is recorded rather than built. **The staleness is the part
+worth his attention:** a warning that was true when the pin was saved and is
+false now is worse than no warning, and OSM data for Kabul does change.
+
+
 ### THE LEDGER CANNOT NAME AN OPERATOR — `recorded_by` POINTS AT THE WRONG TABLE
 
 Audited 2026-09-18 against one-way door 5 (*"who credited a wallet, before and

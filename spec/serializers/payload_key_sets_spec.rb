@@ -78,8 +78,8 @@ RSpec.describe "payload key sets" do
       get "/api/v1/me", headers: auth
 
       expect(keys_of(JSON.parse(response.body)["user"])).to eq(%w[
-        active_role avatar_url can_switch_roles id locale name phone
-        phone_verified roles
+        active_role avatar_url can_switch_roles courier_verification_status id
+        locale name phone phone_verified roles
       ])
     end
 
