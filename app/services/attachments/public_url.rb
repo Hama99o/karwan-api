@@ -65,6 +65,24 @@ module Attachments
         # Development and test. The port is the one `config/puma.rb` picks, not
         # Rails' 3000 — another app on this box holds 3000, which cost a
         # morning once.
+        #
+        # ── AND `localhost` IS WRONG INSIDE AN EMULATOR, WHICH IS NOT A BUG ──
+        #
+        # An Android emulator's `localhost` is the EMULATOR, so every photo URL
+        # this returns resolves to nothing there and a photo-led browse screen
+        # reads as broken. The emulator reaches the host at `10.0.2.2`, and a
+        # physical handset needs the machine's LAN address instead — two
+        # different answers, so neither can be the hardcoded one.
+        #
+        # `APP_BASE_URL` above is the knob, and it already exists:
+        #
+        #   APP_BASE_URL=http://10.0.2.2:3017 bin/rails server   # emulator
+        #   APP_BASE_URL=http://192.168.x.x:3017 bin/rails server # real phone
+        #
+        # Written here because this is where somebody looking at a blank card
+        # ends up, and `config.action_mailer.default_url_options` — the setting
+        # that looks like the answer in `development.rb` — has nothing to do with
+        # these URLs.
         "http://localhost:#{ENV.fetch('PORT', 3017)}"
       end
 

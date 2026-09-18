@@ -363,16 +363,57 @@ seed_section "stress merchant photos" do
   # A shop with no hours must read as "hours not given, ring them" and a closed
   # shop with hours as "opens at". Those are different cards and only one of
   # them existed. Same reasoning as the four board states.
-  first_screen.each_with_index do |merchant, index|
-    next if merchant.opening_hours.any?
+  # ── AND THE COMMENT ABOVE WAS A PROMISE THIS LOOP DID NOT KEEP ─────────────
+  #
+  # It named both missing cards and then gave hours to EVERY shop on the first
+  # screen, so "hours not given, ring them" had no subject. The behaviour existed
+  # only in the comment — `docs/NOTES.md`, "a comment describing what the code
+  # SHOULD do was never true", which is this exact shape.
+  #
+  # THE SECOND ONE IS SUBTLER AND WAS WORSE. `is_open` is the MANUAL toggle;
+  # `#next_opens_at` reads `open_per_schedule?`, which reads these rows and not
+  # that column. So the shop shut below was, during any working hour, still OPEN
+  # PER SCHEDULE — `next_opens_at` returned nil and "opens at ۸:۰۰" was
+  # unreachable at exactly the hours anybody photographs it.
+  #
+  # The old summary line measured `!is_open && opening_hours.any?`, which is the
+  # proxy rather than the thing, so it printed 1 and agreed with itself.
+  #
+  # Fixed by giving one shop DAWN-ONLY hours. A 05:00-08:00 bakery is ordinary in
+  # Kabul, and it is shut for every hour a person would look at the screen, so
+  # the card has a subject at any normal time rather than only after 23:00.
+  #
+  # Chosen among the STRESS rows by identity rather than by position, because
+  # `first_screen` is ordered by name and one hand-written merchant sits in it.
+  on_page = first_screen.select { |m| m.phone.to_s.start_with?("+9379") }
+  no_hours_shop = on_page[1]
+  dawn_shop = on_page[3]
 
-    # A late-closing shop every fourth, so "open until 23:00" exists too.
-    opens, closes = (index % 4).zero? ? [ "11:00", "23:00" ] : [ "08:00", "21:00" ]
-    MerchantOpeningHour::DAYS.each do |day|
-      MerchantOpeningHour.find_or_create_by!(merchant: merchant, day_of_week: day) do |hours|
-        hours.opens_at = opens
-        hours.closes_at = closes
+  first_screen.each_with_index do |merchant, index|
+    # Left deliberately without hours, so `hours_known` is false for one card.
+    if merchant == no_hours_shop
+      merchant.opening_hours.destroy_all
+      next
+    end
+
+    opens, closes =
+      if merchant == dawn_shop
+        [ "05:00", "08:00" ]
+      elsif (index % 4).zero?
+        # A late-closing shop every fourth, so "open until 23:00" exists too.
+        [ "11:00", "23:00" ]
+      else
+        [ "08:00", "21:00" ]
       end
+
+    # Assigned rather than created-if-missing: a re-run must CONVERGE on these
+    # windows, and `find_or_create_by!` would leave a shop seeded yesterday on
+    # yesterday's hours while the summary claimed today's.
+    MerchantOpeningHour::DAYS.each do |day|
+      row = MerchantOpeningHour.find_or_initialize_by(merchant: merchant, day_of_week: day)
+      row.opens_at = opens
+      row.closes_at = closes
+      row.save! if row.changed?
     end
   end
 
@@ -389,8 +430,12 @@ seed_section "stress merchant photos" do
     first_screen[2]&.update!(is_open: false)
   end
 
-  puts "  hours on #{first_screen.count { |m| m.opening_hours.any? }} of #{first_screen.size} listed, " \
-       "#{first_screen.count { |m| !m.is_open && m.opening_hours.any? }} closed-with-hours"
+  # Counts what the CARD branches on, not the proxy. `next_opens_at` is nil while
+  # a shop is open per schedule, so a non-nil one is the "opens at" state itself
+  # rather than a stand-in that agrees with itself.
+  puts "  hours on #{first_screen.count { |m| m.reload.hours_known? }} of #{first_screen.size} listed, " \
+       "#{first_screen.count { |m| !m.hours_known? }} with none, " \
+       "#{first_screen.count { |m| m.next_opens_at.present? }} showing 'opens at'"
   puts "  photos on #{first_screen.count { |m| m.storefront_photo.attached? }} of #{first_screen.size} listed, " \
        "#{CatalogItem.joins(:photo_attachment).where(merchant_id: first_screen.map(&:id)).count} dishes"
 end
