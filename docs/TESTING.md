@@ -376,6 +376,31 @@ does, and drive that.
 
 ### THE EIGHTH SHAPE: A PERFECT INSTRUMENT POINTED AT SOMEBODY ELSE'S DOMAIN
 
+> **Two receipts from 2026-09-18, and the second says the shape is not confined
+> to tests.** The pattern in one line: **ask what chose the domain.** If the
+> answer is "whoever wrote it", the instrument covers the author's memory rather
+> than the subject, and the gap is invisible from inside.
+>
+> **It appeared INSIDE the instrument built to find it.** The negation sweep
+> read 37 assertions and hardened 13, and it found them by grepping
+> `not_to include`. Four tenancy checks written as `to be_empty` or `be_nil`
+> were never looked at — the same weakness in a different matcher. **The
+> sweep's domain was chosen by the MATCHER rather than by the claim**, so it
+> reported a clean result over a subset it had picked without saying so.
+>
+> **And once in production code, where it cost more.**
+> `Search::Transliteration::LETTERS` claims to romanise Pashto and Dari. It had
+> `ک`, `ك` and `گ` and no `ګ` — the Pashto gaf — because the table's domain was
+> whatever its author typed, not the alphabet. An unmapped letter is silently
+> dropped, so `ننګرهار` indexed as "nnrhar" and Nangarhar was unfindable. Four
+> letters were missing, one of them used by our own dictionary.
+>
+> **The fix that generalises is the same in both cases: give the instrument a
+> domain that exists independently of it.** The authorisation sweep derives its
+> routes from the class hierarchy; the letter gate iterates the alphabet and
+> fails on any letter the table cannot read. Adding four keys would have fixed
+> today and left the next forgotten letter exactly as invisible.
+
 The other seven describe an instrument that is wrong. **This one has no defect
 at all** — it reads correctly, reports completely, and is honest about
 everything it covers. Its scope was simply inherited from an unrelated artifact,
