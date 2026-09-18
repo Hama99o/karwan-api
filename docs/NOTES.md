@@ -13,6 +13,107 @@ Two rules from the wider workspace that apply to this file:
 
 ## Open problems — not yet fixed
 
+### IMPACT INVENTORY: WHAT SPLITTING `courier` INTO TWO ROLES WOULD COST
+
+Built 2026-09-18 so the split arrives as a known-size change rather than a
+discovery. **Nothing is built and nothing is proposed — this is the map.**
+
+#### The fact that decides the size: `Roles::ALL` is ONE enum behind SEVEN columns
+
+```ruby
+Roles::ALL = { customer: 0, courier: 1, merchant_owner: 2, admin: 3 }
+```
+
+| Column | Rows holding `courier` (dev) | Kind |
+|---|---|---|
+| `user_roles.role` | 607 | live state |
+| `users.last_active_role` | 606 | live state |
+| `user_sessions.active_role` | 15 | live state |
+| `audit_logs.actor_role` | 0 | **history** |
+| `status_transitions.actor_role` | 14 | **history** |
+| `orders.cancelled_by_role` | 0 | **history** |
+| `trips.cancelled_by_role` | 0 | **history** |
+
+**Four of the seven are historical records, and that is the part that is not a
+refactor.** One-way door 3 makes a transition's actor and timestamp evidence
+that cannot be reconstructed. Re-labelling an existing `courier` row as `rider`
+or `driver` is rewriting what was recorded, and the honest answer for old rows
+is that the distinction *was not captured at the time* — the job kind can be
+inferred from the job, but the inference is not the record. **Old rows should
+stay `courier`**, which means the enum has to carry a value the code no longer
+issues. That is a permanent cost, not a migration.
+
+#### The mechanism that already does this, and is in production use
+
+`courier_profiles.accepted_job_kinds` — a `varchar[]` with a GIN index,
+defaulting to `["delivery"]`:
+
+| Site | What it does |
+|---|---|
+| `courier_profile.rb:88` | `scope :accepting(job_kind)`, the dispatch query |
+| `courier_profile.rb:214` | `accepts?(kind)` — consulted by `Dispatch::Eligibility:41` |
+| `courier_profile.rb:238-249` | validation: an approved courier must accept ≥1 known kind |
+| `shifts_controller.rb:55` | served to the app on every shift read |
+| `registration_serializer.rb:18` | set by the courier at application time |
+| `courier_profile_dashboard.rb:15,42` | editable by an operator |
+| `schema.rb:170,194` | column + GIN index |
+| 3 seed files | every seeded courier declares its kinds |
+
+**So "this courier does deliveries, that one does rides" is already answered,
+per courier, queryably, and is what dispatch actually consults.** A role split
+does not add that capability; it adds a second place to express it.
+
+#### Sites that would change, by category
+
+| Category | Count | What it becomes |
+|---|---|---|
+| `Roles::ALL` / `Roles::MOBILE` references | 12 | a 5th and 6th key; `MOBILE` grows |
+| `role?(:courier)` and `:courier` as a role literal | 13 | each becomes "either role" or picks one — **13 decisions, not 13 edits** |
+| `require_courier!` namespace gate | 2 | admits both, or splits the namespace |
+| `ApplicationPolicy#courier?` + 2 policy scopes | 3 | must mean "holds either" or dispatch scopes break |
+| `spec` factory uses of `:user, :courier` | 65 | each picks a role, or the trait keeps granting both |
+| Serializer `roles` / `can_switch_roles` | 2 | the app's role switcher gains an entry |
+
+**Unchanged, and this is the larger half:** `courier_id` and `belongs_to
+:courier` (63 sites), `courier_wallet` (37), `courier_profile` (36). Those name
+the PERSON, not the role, and a split does not touch them.
+
+#### One wallet or two — the brief has already answered this
+
+Correction 8 is explicit: *"One wallet per courier across both demand types —
+that is the whole reason the pool is shared. No separate ride wallet, no
+separate ledger."* And correction 9: the distinction he draws is between **job
+kinds**, not between two kinds of people; the same human takes a ride at 08:00
+and a delivery at 13:00.
+
+**Two wallets would contradict the business thesis rather than a preference.**
+CLAUDE.md puts courier utilisation across two demand streams as the number the
+company turns on; two wallets means two pools, and two pools is the thing the
+single-pool design exists to avoid. If the answer comes back "two", that is a
+change to the thesis and should be recognised as one.
+
+#### The question the inventory actually raises
+
+Not "how much does the split cost" — it costs about 95 sites, most of them
+mechanical, plus one permanent enum value the code stops issuing. It is:
+
+> **What does a role split give that `accepted_job_kinds` does not?**
+
+The one thing it plausibly gives is the SIGN-IN DOOR. Correction 18 has him
+choosing "restaurant or rider or driver" when signing in as a partner, and today
+both partner couriers resolve to `courier`. But a session already knows the
+person's `accepted_job_kinds`, so the app can open the right tab without the
+session's role carrying the distinction — which keeps the split in data, where
+it already is, instead of in an enum behind seven columns and four of them
+history.
+
+**Recommendation, offered as one and not a decision:** if the requirement is
+what a courier SEES at sign-in, it is reachable without touching `Roles::ALL`.
+If the requirement is that a rider and a driver are genuinely different people
+with different onboarding, documents and money, that is a real split — and the
+wallet answer decides it, because one wallet means one person.
+
+
 > **Re-derived against the code on 2026-09-17**, line by line, rather than
 > remembered. The stamp before this one read *2026-09-16, 01:00* and the list
 > had drifted by thirty commits: it pointed a reader at a decision Hamma9900 had
