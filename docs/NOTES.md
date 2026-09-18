@@ -263,6 +263,21 @@ because the fixed base dilutes it and the minimum absorbs it entirely. A number
 quoted from the wrong quantity is worse than no number, because it is the one
 he would have decided against.
 
+**BOTH OF THESE WERE RE-PROPOSED AS WORK ON 2026-09-18 AND REFUSED.** The ride
+front door arrived described as "the biggest gap in the product", and the
+merchant profile write as "no longer waiting for a pair". Neither is a gap: both
+are this section's own entries, and the evidence offered for the first —
+`Trip` exists with pricing, dispatch and an admin console but nothing creates
+one — is **the state PRODUCT.md describes on purpose**: *"the schema is being
+shaped now so that is an addition rather than a rewrite."* A complete schema
+with no front door is what a deliberate deferral looks like from the inside, and
+it will look like a gap to whoever finds it next.
+
+**A peer cannot lift an owner's documented decision, and neither can this
+session.** If Hamma9900 has changed his mind, the change lands in `PRODUCT.md`
+FIRST and the work follows — otherwise the next session re-derives the same
+refusal from the same line, and the one after that builds it by accident.
+
 Two things are deliberately OUT rather than open: **the ride product**
 (PRODUCT.md — "do not build the ride product yet") and **merchant
 self-service profile editing** (PRODUCT.md — "not self-serve in v0, admin
