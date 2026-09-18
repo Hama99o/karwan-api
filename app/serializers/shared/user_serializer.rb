@@ -5,6 +5,12 @@ module Shared
   class UserSerializer < ApplicationSerializer
     fields :id, :phone, :name, :locale
 
+    # THE VARIANT, not the original. Nil when they have not set one, which the
+    # app already renders as initials or a placeholder.
+    field :avatar_url do |user|
+      Attachments::PublicUrl.for(user.avatar, variant: :thumb)
+    end
+
     # WHICH MODE THIS DEVICE IS IN — read from the session that made the
     # request, not from the user, because a merchant's counter tablet and his
     # pocket phone can be in two modes at once.

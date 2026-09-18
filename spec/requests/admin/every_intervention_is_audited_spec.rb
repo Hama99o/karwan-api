@@ -104,6 +104,15 @@ RSpec.describe "every admin intervention is audited", type: :request do
       patch "/admin/users/#{courier.id}/suspend", params: { reason: "cash never settled" }
     when "admin/users#reinstate"
       patch "/admin/users/#{courier.id}/reinstate"
+    # Restoring is only an intervention when there is something to restore. On
+    # a live record it bails out early and writes no row — correctly — which is
+    # this block's own warning, so both cases discard first.
+    when "admin/merchants#restore"
+      merchant.discard!
+      patch "/admin/merchants/#{merchant.id}/restore"
+    when "admin/users#restore"
+      courier.discard!
+      patch "/admin/users/#{courier.id}/restore"
     else
       raise "no case for #{key} — add one, or this gate is lying about it"
     end
@@ -124,6 +133,7 @@ RSpec.describe "every admin intervention is audited", type: :request do
     admin/courier_wallets#top_up admin/courier_wallets#adjust
     admin/courier_wallets#reimburse admin/courier_wallets#settle
     admin/users#suspend admin/users#reinstate
+    admin/merchants#restore admin/users#restore
   ].freeze
 
   it "drives every custom admin action the routes define" do

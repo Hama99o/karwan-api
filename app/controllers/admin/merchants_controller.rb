@@ -6,6 +6,10 @@
 # must be one click with an audit row, not a form save.
 module Admin
   class MerchantsController < Admin::ApplicationController
+    def restore
+      restore_resource(admin_merchants_path)
+    end
+
     def scoped_resource
       Merchant.includes(:merchant_kind, :owner).order(:name)
     end

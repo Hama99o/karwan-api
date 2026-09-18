@@ -2,6 +2,23 @@
 # only way in is an OTP to this phone.
 class User < ApplicationRecord
   include SoftDeletable
+  include AttachableDocuments
+
+  # HIS WORDS: "we should have user edit profile photo etc also man".
+  #
+  # Ships WITH its variant rather than joining the problem NOTES.md records —
+  # eight attachments, no variants, originals served at full camera resolution.
+  # An avatar renders at about 96 px, so 192 px covers a 2x screen and costs
+  # ~8 KB against a ~3 MB original.
+  #
+  # `has_one_attached` validates NOTHING on its own (merchant.rb:43 says so
+  # plainly), which is why `validates_attached` is below rather than trusted to
+  # the macro.
+  has_one_attached :avatar do |attachable|
+    attachable.variant :thumb, resize_to_limit: [ 192, 192 ], saver: { quality: 80 }
+  end
+
+  validates_attached :avatar
   LOCALES = %w[ps fa en].freeze
 
   # ── THE CREDENTIAL IS DEVISE'S; THE SESSION IS OURS ─────────────────────────

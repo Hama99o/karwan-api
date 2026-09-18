@@ -112,6 +112,43 @@ module Admin
     # Records a staff action. Failures here must never break the action itself
     # — but they are logged rather than swallowed, because an audit trail that
     # silently stops is worse than one that was never claimed.
+    # ── UNDO, AND WHY IT IS HERE RATHER THAN COPIED INTO EACH CONTROLLER ────
+    #
+    # The caller sweep found `SoftDeletable#undiscard!` had no caller anywhere:
+    # no route, no controller, no dashboard action. One-way door 6 makes a
+    # delete recoverable IN THE DATA, and the operator still had to ring a
+    # developer — on the console Hamma9900 says five to ten people will work in.
+    #
+    # Restoring is audited for the same reason discarding is. "An operator can
+    # undo a delete" and "nobody can tell who did" are two different states, and
+    # only one of them is acceptable on a surface that touches money.
+    def restore_resource(redirect_to_path)
+      resource = requested_resource
+
+      unless resource.respond_to?(:undiscard!)
+        return redirect_back fallback_location: redirect_to_path,
+                             alert: "That record cannot be restored."
+      end
+
+      # Idempotent, and it says so: an operator who clicks twice, or two
+      # operators on the same record, must not see a failure for a thing that
+      # is already true.
+      if resource.kept?
+        return redirect_back fallback_location: redirect_to_path,
+                             notice: "That record was not deleted."
+      end
+
+      deleted_at = resource.deleted_at
+      resource.undiscard!
+
+      log_intervention(
+        "#{resource.model_name.singular}.restored", target: resource,
+        before: { deleted_at: deleted_at.to_s },
+        after: { deleted_at: nil }
+      )
+      redirect_back fallback_location: redirect_to_path, notice: "Restored."
+    end
+
     def pundit_user
       current_admin_user
     end

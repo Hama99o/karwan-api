@@ -36,7 +36,12 @@ class MerchantDashboard < Administrate::BaseDashboard
     created_at: Field::DateTime
   }.freeze
 
-  COLLECTION_ATTRIBUTES = %i[name merchant_kind status owner_phone is_open phone commission_rate].freeze
+  # `deleted_at` is in the LIST, not only on the show page. A discarded
+  # merchant already appeared here — `scoped_resource` is not scoped to
+  # `kept` — and looked identical to a live one, so an operator scanning for
+  # the shop they just deleted by mistake had nothing to scan FOR. An undo
+  # you cannot navigate to is the dead path it replaces.
+  COLLECTION_ATTRIBUTES = %i[name merchant_kind status owner_phone is_open phone commission_rate deleted_at].freeze
   SHOW_PAGE_ATTRIBUTES = %i[
     name merchant_kind phone status is_open prep_time_minutes commission_rate
     latitude longitude landmark_note owner owner_name owner_phone

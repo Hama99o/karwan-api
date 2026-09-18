@@ -17,7 +17,9 @@ class UserDashboard < Administrate::BaseDashboard
     created_at: Field::DateTime
   }.freeze
 
-  COLLECTION_ATTRIBUTES = %i[phone name last_active_role status created_at].freeze
+  # `deleted_at` in the list for the same reason as on MerchantDashboard: a
+  # discarded courier is already listed here and looked live.
+  COLLECTION_ATTRIBUTES = %i[phone name last_active_role status deleted_at created_at].freeze
   SHOW_PAGE_ATTRIBUTES = %i[
     phone name locale last_active_role status phone_verified_at user_roles addresses
     courier_profile courier_wallet deleted_at created_at

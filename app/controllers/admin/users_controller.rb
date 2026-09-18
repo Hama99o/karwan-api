@@ -1,5 +1,9 @@
 module Admin
   class UsersController < Admin::ApplicationController
+    def restore
+      restore_resource(admin_users_path)
+    end
+
     def scoped_resource
       User.includes(:user_roles).order(created_at: :desc)
     end

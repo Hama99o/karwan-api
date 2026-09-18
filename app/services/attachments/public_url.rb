@@ -27,10 +27,31 @@ module Attachments
     class << self
       # Nil when nothing is attached, which every caller already handles: a URL
       # to nothing is the same lie as a boolean claiming a file exists.
-      def for(attachment)
+      # `variant:` names a variant DECLARED ON THE MODEL. Without one the
+      # original blob is served, which is what every attachment in this app did
+      # until 2026-09-18 — see docs/NOTES.md: a merchant card carries two
+      # images, the default page is 20, and our own cap is 5 MB per image, so
+      # one Home screen could pull 200 MB of originals to render them at about
+      # 96 px. On a metered Kabul connection that is the user's own money.
+      #
+      # The URL is LAZY. `rails_representation_path` does not process anything;
+      # the variant is generated on first fetch and cached thereafter. So this
+      # works on a box with no libvips (which is every dev box here) and the
+      # production image has libvips in both stages.
+      #
+      # FAILS OPEN to the original when the blob cannot be varied — an audio
+      # note, or a type Active Storage will not process. A missing thumbnail
+      # must never mean a missing photo.
+      def for(attachment, variant: nil)
         return nil if attachment.nil? || !attachment.attached?
 
-        path = Rails.application.routes.url_helpers.rails_blob_path(attachment, only_path: true)
+        path =
+          if variant && attachment.blob.variable?
+            Rails.application.routes.url_helpers
+                 .rails_representation_path(attachment.variant(variant), only_path: true)
+          else
+            Rails.application.routes.url_helpers.rails_blob_path(attachment, only_path: true)
+          end
         "#{base_url}#{path}"
       end
 

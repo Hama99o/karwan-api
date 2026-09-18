@@ -41,6 +41,9 @@ Rails.application.routes.draw do
         patch :close_merchant
         patch :approve
         patch :suspend
+        # UNDO. One-way door 6 makes a delete recoverable in the DATA; without
+        # this the recovery needs a developer and a Rails console.
+        patch :restore
       end
     end
 
@@ -67,6 +70,7 @@ Rails.application.routes.draw do
       member do
         patch :suspend
         patch :reinstate
+        patch :restore
       end
     end
 
@@ -149,6 +153,9 @@ Rails.application.routes.draw do
         post :switch_role
         post :register_device
         delete :unregister_device
+        # Setting it is a PATCH to `me` like any other profile field; removing
+        # it is its own verb, because it must be as easy as setting it.
+        delete :avatar, action: :destroy_avatar
       end
 
       namespace :couriers, path: "courier" do

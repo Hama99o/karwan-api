@@ -26,6 +26,27 @@ class Api::V1::MeController < Api::V1::BaseController
     end
   end
 
+  # ── REMOVING MUST BE AS EASY AS SETTING ─────────────────────────────────
+  #
+  # Hamma9900's requirement, and it is a product one rather than a nicety:
+  # people change their mind about a photograph of their own face, and a user
+  # who cannot take it down has to ring support — on a platform whose support
+  # is a human with a phone, in Dari, in Kabul. So removal is its own verb on
+  # its own route, not a PATCH with a magic empty string that a client has to
+  # know to send.
+  #
+  # Idempotent: removing an avatar that is not there is a 200, not a 404.
+  # A client retrying after a dropped connection must not get an error for
+  # having succeeded the first time.
+  def destroy_avatar
+    authorize current_user, :update?
+
+    current_user.avatar.purge_later if current_user.avatar.attached?
+
+    render_blue(Shared::UserSerializer, current_user.reload, view: :detailed,
+                options: { session: current_session })
+  end
+
   # ONE ACCOUNT, SEVERAL ROLES, AND THE SWITCH IS PER DEVICE.
   #
   # It switches THIS session, so a merchant flipping his pocket phone to the
@@ -122,6 +143,6 @@ class Api::V1::MeController < Api::V1::BaseController
   # shared. An invalid value is refused by the model's own validation rather
   # than filtered here, so the client gets told which field was wrong.
   def profile_params
-    params.permit(:name, :locale)
+    params.permit(:name, :locale, :avatar)
   end
 end
