@@ -76,12 +76,17 @@ RSpec.describe "Api::V1::Customers::Addresses", type: :request do
     end
 
     # A saved address is where somebody lives.
+    # `be_empty` catches a leak but passes just as happily on an endpoint that
+    # returns nothing to anybody. His own pin makes the difference observable.
     it "never returns another customer's pins" do
-      create(:address, user: create(:user, :customer), label: "Someone Else")
+      mine = create(:address, user: customer, label: "خانه")
+      theirs = create(:address, user: create(:user, :customer), label: "Someone Else")
 
       get "/api/v1/customer/addresses", headers: auth
 
-      expect(json["addresses"]).to be_empty
+      ids = json["addresses"].map { |a| a["id"] }
+      expect(ids).to include(mine.id), "his own pins are missing — the exclusion below would be weak"
+      expect(ids).not_to include(theirs.id)
     end
 
     it "excludes a discarded pin" do

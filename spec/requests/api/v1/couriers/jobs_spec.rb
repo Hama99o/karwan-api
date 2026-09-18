@@ -150,12 +150,23 @@ RSpec.describe "Api::V1::Couriers::Jobs", type: :request do
       expect(json["code"]).to eq("not_approved")
     end
 
+    # A nil is the right answer here, but on its own it is also the answer a
+    # dead endpoint gives. So the same example first shows a job DOES reach the
+    # courier it belongs to, then shows the other courier's does not reach him.
     it "never returns another courier's job" do
-      create(:order, :picked_up, merchant: merchant)
+      mine = create(:order, :picked_up, merchant: merchant, courier: courier)
+
+      get "/api/v1/courier/job", headers: auth
+      expect(json.dig("job", "code")).to eq(mine.code),
+                                         "his own job does not reach him — the nil below would prove nothing"
+
+      mine.update!(status: :delivered, delivered_at: Time.current)
+      theirs = create(:order, :picked_up, merchant: merchant)
 
       get "/api/v1/courier/job", headers: auth
 
       expect(json["job"]).to be_nil
+      expect(theirs.reload.courier).not_to eq(courier)
     end
   end
 

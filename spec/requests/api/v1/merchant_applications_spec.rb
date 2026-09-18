@@ -41,9 +41,16 @@ RSpec.describe "Api::V1::MerchantApplications", type: :request do
       expect(json.dig("merchant_application", "waiting_for_a_call")).to be true
     end
 
+    # The nil is correct — somebody with no application has none. But a nil is
+    # also what a broken endpoint returns to everyone, so the application is
+    # shown reaching its own applicant first, in this same example.
     it "does not return somebody else's" do
       apply
       other = create(:user, phone: "+93700000888")
+
+      get "/api/v1/merchant_application", headers: auth
+      expect(json["merchant_application"]).to be_present,
+                                             "the applicant cannot see his own — the nil below would prove nothing"
 
       get "/api/v1/merchant_application",
           headers: { "Authorization" => "Bearer #{UserSession.issue!(other).last}" }

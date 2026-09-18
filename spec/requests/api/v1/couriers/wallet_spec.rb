@@ -251,12 +251,20 @@ RSpec.describe "Api::V1::Couriers::Wallet", type: :request do
       expect(json["settlements"].first["balanced"]).to be true
     end
 
+    # Paired for the same reason the entries example above was: asserting the
+    # list is EMPTY catches a leak, but it cannot tell a correct scope from an
+    # endpoint that returns nothing at all — and "nothing at all" is what a
+    # broken scope returns. Giving him one of his own turns "empty" into
+    # "exactly mine", which is the claim the title actually makes.
     it "never shows another courier's settlements" do
-      create(:settlement, courier: create(:user, :courier), counted_amount: 12_345)
+      mine = create(:settlement, courier: courier)
+      theirs = create(:settlement, courier: create(:user, :courier), counted_amount: 12_345)
 
       get "/api/v1/courier/wallet/settlements", headers: auth
 
-      expect(json["settlements"]).to be_empty
+      ids = json["settlements"].map { |s| s["id"] }
+      expect(ids).to include(mine.id), "his own settlements are missing — the exclusion below would be weak"
+      expect(ids).not_to include(theirs.id)
     end
 
     # A courier cannot record their own settlement: the whole point is that the
