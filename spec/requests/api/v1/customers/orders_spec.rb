@@ -687,4 +687,47 @@ RSpec.describe "Api::V1::Customers::Orders", type: :request do
 
     expect(json["order"]).to have_key("suggested_notes")
   end
+  # ── THE ARRIVAL RANGE, ON THE WIRE ──────────────────────────────────────────
+  #
+  # The key-set spec pins the KEY, using a delivered order where the value is
+  # correctly null. These pin the VALUE, on an order that is actually live —
+  # which is the only state the tracking screen ever shows one in.
+  describe "the arrival window" do
+    let!(:live) do
+      create(:order, :picked_up, customer: customer, merchant: merchant, distance_km: 6.0)
+    end
+
+    it "is a range on a live order, on the order payload and the track payload alike" do
+      get "/api/v1/customer/orders/#{live.id}", headers: auth
+      detail = json.dig("order", "arrival_window")
+
+      get "/api/v1/customer/orders/#{live.id}/track", headers: auth
+      track = json.dig("track", "arrival_window")
+
+      [ detail, track ].each do |window|
+        expect(window).to be_present
+        expect(Time.zone.parse(window["from"])).to be < Time.zone.parse(window["to"])
+        expect(window["basis"]).to be_in(%w[measured assumed])
+      end
+    end
+
+    it "is null once the order is terminal, because there is no arrival left to estimate" do
+      live.update!(status: :delivered, delivered_at: Time.current)
+
+      get "/api/v1/customer/orders/#{live.id}", headers: auth
+
+      expect(json["order"]).to have_key("arrival_window")
+      expect(json.dig("order", "arrival_window")).to be_nil
+    end
+
+    it "says `measured` once the courier is reporting, and `assumed` before that" do
+      get "/api/v1/customer/orders/#{live.id}", headers: auth
+      expect(json.dig("order", "arrival_window", "basis")).to eq("assumed")
+
+      live.courier.courier_profile.record_location!(latitude: 34.5480, longitude: 69.1900)
+
+      get "/api/v1/customer/orders/#{live.id}", headers: auth
+      expect(json.dig("order", "arrival_window", "basis")).to eq("measured")
+    end
+  end
 end

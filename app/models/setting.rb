@@ -78,6 +78,21 @@ class Setting < ApplicationRecord
     "cash_in_hand_limit"     => { type: :decimal, default: "3000.0", currency: "AFN", description: "Above this a rider must settle before taking more work" },
     "default_credit_line"    => { type: :decimal, default: "500.0", currency: "AFN", description: "How far a new rider's wallet may go below zero" },
     "eta_average_speed_kmh"  => { type: :decimal, default: "18.0", description: "Straight-line distance / this = ETA. Calibrate from real deliveries." },
+    # ── THE ARRIVAL WINDOW THE TRACKING SCREEN SHOWS ─────────────────────────
+    #
+    # A RANGE, never a single minute — the order-tracking SPEC's first decision.
+    # Two spreads rather than one, because the honesty is in the WIDTH: before a
+    # courier is assigned the ride to the shop is a guess about a person who does
+    # not exist yet, and after it the legs are measured from where he is.
+    #
+    # THE DEFAULTS ARE GUESSES AND SHOULD BE TREATED AS ONE, like the 8 below.
+    # Nothing has been delivered yet, so 25/50 are shaped to be plausible rather
+    # than calibrated. The first week of real deliveries replaces them from the
+    # console with no deploy, which is the whole reason they are rows.
+    "eta_courier_approach_minutes"        => { type: :integer, default: "8",  description: "Assumed minutes for a courier to reach the shop while none is assigned or reporting a position. A stand-in, not a measurement." },
+    "eta_window_spread_percent"           => { type: :integer, default: "25", description: "Half-width of the arrival window, as a % of the remaining estimate, once the courier's position is known." },
+    "eta_window_spread_percent_unassigned" => { type: :integer, default: "50", description: "The same, while no courier position is known. Wider on purpose: the window must show what we do not know." },
+    "eta_window_minimum_minutes"          => { type: :integer, default: "10", description: "The arrival window is never narrower than this. A two-minute window is a precise lie however confident the arithmetic feels." },
     "dispatch_offer_ttl_sec" => { type: :integer, default: "60", description: "How long a rider has to answer an offer before it moves on" },
     "dispatch_max_offers"    => { type: :integer, default: "5", description: "Riders tried before the order is surfaced to admin" },
     # ── HOW FAR IS TOO FAR TO ASK ────────────────────────────────────────────

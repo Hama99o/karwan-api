@@ -109,6 +109,23 @@ module Customers
         order.pin_far_from_road?
       end
 
+
+      # ── WHEN IT ARRIVES, AS A RANGE ────────────────────────────────────────
+      #
+      # `docs/design/customer/order-tracking/SPEC.md`'s first decision, and the
+      # screen was blocked on it: neither payload carried an arrival estimate of
+      # any kind, so the progress bar had nothing to reassure about.
+      #
+      # Nil on a terminal order, and nil when the distance was never measured —
+      # an absent range is a state the screen can render, where a made-up one is
+      # a number about somebody else's kitchen shown as if we had said it.
+      field :arrival_window do |order|
+        window = Orders::ArrivalWindow.for(order)
+        next nil if window.nil?
+
+        { from: window.from, to: window.to, basis: window.basis }
+      end
+
       fields :delivery_landmark_note, :customer_phone, :notes
 
       field :delivery_location do |order|

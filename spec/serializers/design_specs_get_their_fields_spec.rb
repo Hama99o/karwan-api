@@ -75,6 +75,12 @@ RSpec.describe "every design SPEC gets the fields it names", type: :request do
       "distances frozen at quote time; an address has a pin and no route, so answering it means an OSRM " \
       "call per address. Sized and recorded in NOTES.md rather than built: it is a decision about when " \
       "we measure, not a missing field.",
+    [ "customer/order-tracking", "eta_minutes" ] =>
+      "the SPEC names it to say where it ISN'T — \"`eta_minutes` exists only on the merchant " \
+      "serializer\" — in the paragraph explaining what the screen was blocked on. What it ASKS for is " \
+      "the opposite of a minute count: \"the arrival time is a RANGE - 13:30 - 13:40 - not a single " \
+      "minute\", now served as `arrival_window` {from, to, basis} on the order detail and the track " \
+      "payload. Serving `eta_minutes` here would be the precise lie that SPEC rejected.",
     [ "customer/home", "opening_hours" ] =>
       "superseded. The SPEC asks in prose for one line — \"opens at ۸:۰۰\" when the shop is " \
       "closed — and the list now serves `hours_known` + `next_opens_at`, which is that answer. " \

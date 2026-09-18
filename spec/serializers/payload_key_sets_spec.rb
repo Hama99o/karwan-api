@@ -89,7 +89,7 @@ RSpec.describe "payload key sets" do
       get "/api/v1/customer/orders/#{order.id}", headers: auth
 
       expect(keys_of(JSON.parse(response.body)["order"])).to eq(%w[
-        amount_to_pay_in_cash can_cancel code courier courier_arrived_at currency
+        amount_to_pay_in_cash arrival_window can_cancel code courier courier_arrived_at currency
         customer_phone customer_total delivery_fee delivery_landmark_note
         delivery_location distance_source id is_live item_count items items_total
         merchant_id merchant_name merchant_phone notes pin_far_from_road
