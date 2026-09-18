@@ -59,9 +59,52 @@ history survives and the number is free. Cheap to run: `solid_queue` is already
 the adapter and `config/recurring.yml` already schedules two jobs, so this is one
 more entry in a file that exists.
 
-**Still open and still his: which option, and if C, how long the window is**
-(7 days? 30?). Apple and Google require deletion to be available and honoured,
-not instantaneous, so a stated grace period is ordinary practice.
+**THE TOMBSTONE HAS TWO TRAPS, both verified by running it rather than reading:**
+
+1. **It must be written past the callback.** `user.rb:71` runs
+   `before_validation :canonicalise_identifiers`, which calls
+   `PhoneNumbers.normalise`. Measured:
+
+   ```
+   closed-123    -> "+93closed123"
+   closed123     -> "+93closed123"
+   ```
+
+   A tombstone written through `update!` becomes **a string that looks like an
+   Afghan number** in the console and in a support conversation — worse than
+   either option it was meant to resolve. `update_column` bypasses validation
+   and callbacks and is the right tool for a sweep.
+
+2. **And it must survive a later ordinary save.** `UserDashboard::FORM_ATTRIBUTES`
+   is `%i[name locale status]`, so an operator editing a tombstoned user's status
+   runs the callback again. `+93closed123` is stable under a second pass (it
+   starts with `+`, so it returns unchanged) but `closed-123` is not — **the
+   first admin edit silently mangles it.** So `canonicalise_identifiers` needs a
+   guard that skips a tombstone, or the tombstone's legibility depends on nobody
+   ever editing that row.
+
+   Not a validation risk, at least: `plausible?` is NOT a `User` validation —
+   only presence and uniqueness are — so an admin edit on a tombstoned row will
+   not fail.
+
+**AND THE QUESTION THAT MAKES THE WINDOW MEAN SOMETHING: what does deletion
+actually ERASE?** `discard` keeps the row and everything on it — name, avatar,
+saved addresses with their landmark notes and voice notes. A reasonable reading
+of "delete my account" is that the personal data goes, not merely the ability to
+sign in, and that is what the stores are asking for. So the sweep is probably
+not only a phone tombstone but a scrub: name, avatar and its variants, addresses
+and their voice notes, keeping the non-identifying skeleton the books need —
+which the orders already hold anyway as their own `customer_phone` snapshot.
+
+> **This changes what the window LENGTH means.** It is not "how long before the
+> number frees up". It is **"how long an operator has to undo a mistake
+> completely"** — after the sweep there is nothing left to restore a person to.
+> 7 days and 30 days are different answers to that question, not to the first one.
+
+**Still open and still his: which option, and if C, how long the window is.**
+Apple and Google require deletion to be available and honoured, not
+instantaneous, so a stated grace period is ordinary practice. The scope of the
+scrub is engineering and compliance rather than his call.
 
 ### MERCHANT PROFILE IS READ-ONLY — `PATCH merchant/profile` DOES NOT EXIST
 
