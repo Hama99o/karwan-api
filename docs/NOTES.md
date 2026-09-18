@@ -767,6 +767,39 @@ inside the block, so a day-boundary example cannot pass because it happened to
 run at 09:00 and fail at 00:01. That is the seventh shape removed rather than
 mitigated.
 
+### AND ITS SIBLING: A COMMENT DESCRIBING WHAT THE CODE *SHOULD* DO
+
+> **A comment describing what a repo DOES can rot. A comment describing what it
+> SHOULD do was never true.**
+
+The difference is what can catch it. **A stale comment contradicts the code, so
+reading both finds it** — that is the entry below, and the trap CLAUDE.md
+already records. **An unimplemented one never disagrees with anything**, because
+the comment is the only place the behaviour exists. No amount of reading finds
+it; only walking the path does.
+
+Found 2026-09-18 while asserting PRODUCT.md's "order history — re-orderable".
+`Customers::OrderSerializer` said:
+
+> *"FOR RE-ORDERING ONLY. Nil when the dish has since been removed from the
+> menu, which the app must handle rather than assume."*
+
+It served `item.catalog_item_id` — the raw foreign key, which **survives a soft
+delete**. So a discarded dish handed the app a pointer that looks usable and can
+never resolve, because `Orders::CartResolver` looks in `catalog_items.kept`.
+
+**The user-facing shape is the sharpest version:** a greyed-out *"order again"*
+versus a button that fails when tapped. **A pointer that looks usable and cannot
+resolve is worse than a null**, because a null is a state the screen can render.
+
+Both entries are one family — **a sentence doing the work of a mechanism.** One
+asserts something about a consumer nobody here can see; the other asserts
+something about this code that nobody implemented. Neither can rot visibly, and
+neither is found by comparison.
+
+> **When a comment states a behaviour, it is a claim about code that must exist
+> somewhere. Find it, or the comment is the only thing that is true.**
+
 ### A PREMISE WRITTEN AS A COMMENT, IN A REPO THAT CANNOT SEE WHAT IT ASSUMES
 
 Its own class of stale, found 2026-09-18. Both catalog dashboards carried
