@@ -18,4 +18,17 @@ module ServiceTiers
   def self.batchable?(tier)
     tier.to_s == "normal"
   end
+
+  # Whether this tier may be ORDERED at all, which is a different question from
+  # whether it may be batched: `batchable?` is a property of the tier, this one
+  # is a business switch.
+  #
+  # `normal` is always orderable. `premium` waits on MONEY_AND_SETTLEMENT.md §2,
+  # because the uplift it charges is the platform's revenue and nothing collects
+  # it — see the `premium_tier_enabled` row for the measurement.
+  def self.orderable?(tier)
+    return true unless tier.to_s == "premium"
+
+    Setting.fetch("premium_tier_enabled")
+  end
 end

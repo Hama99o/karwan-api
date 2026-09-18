@@ -47,6 +47,21 @@ class Setting < ApplicationRecord
     # The uplift is the platform's, because what premium buys is the CAPACITY
     # we hold empty for it.
     "premium_price_multiplier" => { type: :decimal, default: "1.3", description: "Premium costs this much more than normal (1.3 = +30%). Applies to the customer's fee or fare, never to the courier's pay." },
+    # ── AND PREMIUM IS OFF UNTIL THE MONEY QUESTION BEHIND IT IS ANSWERED ─────
+    #
+    # DEFAULT OFF, which is the unusual half. The uplift above is the platform's
+    # revenue and NOTHING COLLECTS IT: the courier takes it in cash with the rest
+    # of the customer's money, his wallet is charged only the commission, and
+    # `CashPosition` counts only the commission too — so both exposure controls
+    # are blind to it. Measured on a real quote: 35.02 AFN uncharged on one
+    # premium order, 0.00 on a normal one. `docs/NOTES.md` has the table.
+    #
+    # Fixing that means deciding WHO collects it, which is
+    # MONEY_AND_SETTLEMENT.md §2 and is Hamma9900's. This row decides nothing
+    # about that — it stops a path that is reachable today and has never once
+    # fired (2,020 normal orders, zero premium) from writing its first wrong
+    # ledger row before he chooses. One flip undoes it.
+    "premium_tier_enabled"     => { type: :boolean, default: "false", description: "Whether a customer may order the premium tier. OFF until MONEY_AND_SETTLEMENT §2 decides who collects the premium uplift — today nothing does." },
     # ── THE MANUAL SHORTAGE SWITCH — a storm, or a night with no couriers ────
     #
     # UNLIKE premium, this one raises the COURIER'S PAY TOO, and that is what

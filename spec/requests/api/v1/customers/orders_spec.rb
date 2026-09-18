@@ -730,4 +730,85 @@ RSpec.describe "Api::V1::Customers::Orders", type: :request do
       expect(json.dig("order", "arrival_window", "basis")).to eq("measured")
     end
   end
+  # ── PREMIUM IS OFF UNTIL SOMETHING COLLECTS ITS UPLIFT ──────────────────────
+  #
+  # `premium_price_multiplier` is the platform's revenue and NOTHING charges it:
+  # the courier takes it in cash, his wallet is charged only the commission, and
+  # `CashPosition` counts only the commission — 35.02 AFN uncharged on one real
+  # premium quote, 0.00 on a normal one. Deciding who collects it is
+  # MONEY_AND_SETTLEMENT §2 and is Hamma9900's; this gate decides nothing about
+  # that and only stops a reachable path with zero traffic from writing its first
+  # wrong ledger row first.
+  #
+  # TESTED FROM THE PARAM SIDE, because the failure that matters is a SILENT
+  # DOWNGRADE: an ordinary 200 carrying normal pricing is indistinguishable from
+  # a customer who never asked for premium, and it would keep the gate invisible
+  # until the day it flipped.
+  describe "the premium tier gate" do
+    let(:premium_cart) { { order: cart[:order].merge(service_tier: "premium") } }
+
+    def enable_premium!(on)
+      Setting.seed_defaults!
+      Setting.find_by!(key: "premium_tier_enabled").update!(value: on ? "true" : "false")
+    end
+
+    it "is OFF by default, so a fresh box cannot sell one" do
+      expect(Setting.fetch("premium_tier_enabled")).to be(false)
+    end
+
+    it "REFUSES a premium quote rather than quietly pricing it as normal" do
+      enable_premium!(false)
+
+      post "/api/v1/customer/orders/quote", params: premium_cart, headers: auth
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(json["code"]).to eq("tier_unavailable")
+      # The assertion that makes this a gate and not a coincidence: no quote came
+      # back at all. A 200 here would be the silent downgrade.
+      expect(json["quote"]).to be_nil
+    end
+
+    it "refuses to PLACE one too, and creates nothing" do
+      enable_premium!(false)
+
+      expect {
+        post "/api/v1/customer/orders", params: premium_cart, headers: auth
+      }.not_to change(Order, :count)
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(json["code"]).to eq("tier_unavailable")
+    end
+
+    it "lets one through when he switches it on, priced as premium" do
+      enable_premium!(true)
+
+      post "/api/v1/customer/orders/quote", params: cart, headers: auth
+      normal_fee = json.dig("quote", "delivery_fee").to_f
+
+      post "/api/v1/customer/orders/quote", params: premium_cart, headers: auth
+
+      expect(response).to have_http_status(:ok)
+      expect(json.dig("quote", "delivery_fee").to_f).to be > normal_fee
+    end
+
+    it "leaves a normal order alone while the gate is shut" do
+      enable_premium!(false)
+
+      post "/api/v1/customer/orders/quote", params: cart, headers: auth
+
+      expect(response).to have_http_status(:ok)
+    end
+
+    # The existing rule, which this must not have broken: an UNRECOGNISED tier
+    # still becomes `normal`, because a stale client sending a retired word must
+    # not fail an order over it. Only a recognised-and-disabled tier is refused.
+    it "still downgrades an unrecognised tier instead of refusing it" do
+      enable_premium!(false)
+
+      post "/api/v1/customer/orders/quote",
+           params: { order: cart[:order].merge(service_tier: "platinum") }, headers: auth
+
+      expect(response).to have_http_status(:ok)
+    end
+  end
 end

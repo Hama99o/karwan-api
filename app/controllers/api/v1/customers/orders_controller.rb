@@ -13,6 +13,18 @@ class Api::V1::Customers::OrdersController < Api::V1::BaseController
   throttle to: 1_200, within: 1.hour, by: :user, only: :track
 
   before_action :set_order, only: %i[show cancel track]
+  # REFUSED, NOT DOWNGRADED, and that is the opposite of what `tier_param` does
+  # one screen below — so the difference is worth stating.
+  #
+  # `tier_param` turns an UNRECOGNISED tier into `normal` on purpose: a stale
+  # client sending a word we retired must not fail an order, and the cheaper
+  # tier is the safe landing. That reasoning does not carry here. `premium` is
+  # recognised and switched OFF, and a silent downgrade would mean **nobody ever
+  # finds out** — the client keeps asking, the screen keeps showing normal, and
+  # the day §2 is answered and this flips, behaviour changes with no one having
+  # known the gate was there. An explicit refusal is the only version anybody
+  # can see.
+  before_action :refuse_disabled_tier, only: %i[quote create]
 
   def index
     orders = policy_scope(Order).includes(:merchant, :order_items).newest_first
@@ -156,6 +168,20 @@ class Api::V1::Customers::OrdersController < Api::V1::BaseController
   def tier_param
     tier = order_params[:service_tier].to_s
     ServiceTiers::ALL.key?(tier.to_sym) ? tier : "normal"
+  end
+
+  # Only a tier that is BOTH recognised and switched off is refused. An
+  # unrecognised one falls through to `tier_param`'s downgrade, untouched.
+  def refuse_disabled_tier
+    tier = order_params[:service_tier].to_s
+    return if tier.blank?
+    return unless ServiceTiers::ALL.key?(tier.to_sym)
+    return if ServiceTiers.orderable?(tier)
+
+    render_unprocessable_entity(
+      "the #{tier} tier is not available",
+      code: "tier_unavailable"
+    )
   end
 
   # A stable marker per failure, so a client with three locales renders its own
