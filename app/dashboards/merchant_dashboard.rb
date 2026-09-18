@@ -31,6 +31,7 @@ class MerchantDashboard < Administrate::BaseDashboard
     verified_by_admin_user: Field::BelongsTo.with_options(class_name: "AdminUser"),
     rejection_reason: Field::Text,
     deleted_at: Field::DateTime,
+    opening_hours: Field::HasMany,
     catalog_categories: Field::HasMany,
     catalog_items: Field::HasMany,
     created_at: Field::DateTime
@@ -46,7 +47,7 @@ class MerchantDashboard < Administrate::BaseDashboard
     name merchant_kind phone status is_open prep_time_minutes commission_rate
     latitude longitude landmark_note owner owner_name owner_phone
     owner_national_id_number license_number contact_person_name contact_person_phone
-    verified_at verified_by_admin_user rejection_reason deleted_at
+    verified_at verified_by_admin_user rejection_reason deleted_at opening_hours
     logo storefront_photo license_photo catalog_categories catalog_items created_at
   ].freeze
   # Admin onboards merchants, so unlike orders the form IS the workflow — but

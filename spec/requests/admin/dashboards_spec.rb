@@ -38,6 +38,7 @@ RSpec.describe "Every ops console page renders", type: :request do
     when "audit_logs" then create(:audit_log)
     when "wallet_entries" then create(:wallet_entry)
     when "settlements" then create(:settlement)
+    when "merchant_opening_hours" then create(:merchant_opening_hour)
     else raise ArgumentError, "no row defined for #{resource}"
     end
   end
@@ -47,8 +48,12 @@ RSpec.describe "Every ops console page renders", type: :request do
   RESOURCES = %w[
     orders trips merchants courier_profiles courier_wallets users
     settings pricing_rates audit_logs wallet_entries settlements
+    merchant_opening_hours
   ].freeze
-  EDITABLE = %w[merchants courier_profiles courier_wallets users settings pricing_rates].freeze
+  EDITABLE = %w[
+    merchants courier_profiles courier_wallets users settings pricing_rates
+    merchant_opening_hours
+  ].freeze
 
   # ── THE HAND-WRITTEN LIST MUST STILL MATCH THE ROUTER ────────────────────
   #

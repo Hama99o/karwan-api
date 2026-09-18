@@ -608,6 +608,35 @@ which is the one claim a list like this cannot support.
 
 ## Solved, with the reasoning
 
+### A SHOP'S OPENING HOURS HAD NO WAY IN — CLOSED
+
+`opening_hours` has been served to the customer app since the serializer was
+written, and **201 of 205 merchants had none**. Not a data-entry oversight:
+`MerchantOpeningHour` had **no dashboard, no route, and no place on the
+merchant's show page**, so nobody could enter any. The four that had hours were
+seeded.
+
+PRODUCT.md settles where they should come from — **admin onboards restaurants**,
+and the shop does not edit its own identity in v0 — so the console was the only
+possible source and it had no door. **The missing write path is why the read
+path meant nothing**, which is the same lesson as `Merchant.fuzzy`: a field
+serialized to a client is not a feature until something can produce a value for
+it.
+
+Closed with a dashboard, a controller, a route and a `HasMany` on the merchant's
+own page. The spec drives the whole chain in one file — an operator creates
+hours, the shop's page shows them, and the CUSTOMER's payload carries what was
+entered — because each half is convincing alone and wrong.
+
+**Kept honest about what it is not:** hours are advisory. `Merchant#is_open` is
+the manual toggle that decides whether orders are accepted, and an example
+asserts that setting hours does not open a shop.
+
+**Checked and NOT a finding:** 10 of 21 dashboards have no route. Almost all are
+Administrate's nested renderers for a parent's show page — `order_item` on an
+order, `catalog_item` on a merchant — so they are used, not dead. Worth
+recording because the count looks alarming and is not.
+
 ### THE MERCHANT ALERT DOES NOT FAIL SILENTLY — BUT NOBODY COULD SEE THAT IT FAILED
 
 Traced 2026-09-18. The question was whether a push with no FCM credentials

@@ -66,6 +66,12 @@ Rails.application.routes.draw do
       end
     end
 
+    # Opening hours had no route at all, so a shop's hours could be neither seen
+    # nor set — and `opening_hours` has been serialized to customers the whole
+    # time, returning [] for 201 of 205 merchants. Admin onboards restaurants
+    # (PRODUCT.md), so this is the only place they can come from.
+    resources :merchant_opening_hours, only: %i[index show new create edit update destroy]
+
     resources :users, only: %i[index show edit update] do
       member do
         patch :suspend
