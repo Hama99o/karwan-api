@@ -125,6 +125,31 @@ RSpec.describe "db/seeds/e2e.rb" do
     expect(merchant.catalog_items.kept).to be_present
   end
 
+  # ── THE BOARD BRANCHES ON FOUR STATES ────────────────────────────────────
+  #
+  # The flow failed on `تیار دی` — the action for a `preparing` order — and no
+  # fixture produced one. Asserting all four LIVE states rather than the one
+  # that was missing, because the same gap hid a second problem: two seeded
+  # orders rendered identically while one had a courier and one did not. A
+  # fixture covering every state a screen branches on is the seed equivalent of
+  # asserting a whole key set.
+  describe "the merchant board's states" do
+    let(:merchant) { Merchant.find_by!(phone: "+93700000804") }
+
+    it "seeds every live state the board renders" do
+      states = merchant.orders.live.pluck(:status).uniq
+
+      expect(states).to include("placed", "accepted", "preparing", "ready"),
+                        "the board branches on a state no fixture produces: #{%w[placed accepted preparing ready] - states}"
+    end
+
+    # The rig customer's single live order is this file's premise, and these
+    # extra states must not have touched it.
+    it "leaves the rig customer with exactly one live order" do
+      expect(customer.orders.live.count).to eq(1)
+    end
+  end
+
   describe "the one live order" do
     let(:order) { Order.find_by(code: "KQA00001") }
 

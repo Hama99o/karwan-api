@@ -16,7 +16,7 @@ module Admin
 
       return reject_amount(wallet, "A top-up must be a positive amount.") unless amount.positive?
 
-      entry = wallet.record_entry!(kind: :top_up, amount: amount, note: params[:note])
+      entry = wallet.record_entry!(kind: :top_up, amount: amount, recorded_by_admin_user: current_admin_user, note: params[:note])
       log_intervention("wallet.topped_up", target: wallet,
                                            before: { balance: (wallet.balance - amount).to_s },
                                            after: { balance: wallet.balance.to_s },
@@ -37,7 +37,7 @@ module Admin
       return reject_amount(wallet, "An adjustment needs a non-zero amount.") if amount.zero?
       return reject_amount(wallet, "An adjustment needs a reason.") if note.blank?
 
-      entry = wallet.record_entry!(kind: :adjustment, amount: amount, note: note)
+      entry = wallet.record_entry!(kind: :adjustment, amount: amount, recorded_by_admin_user: current_admin_user, note: note)
       # BOTH SIDES. "What was his balance before somebody adjusted it" is the
       # question this row exists to answer, and an `after` alone cannot answer
       # it — one-way door 5 asks for actor, action, BEFORE and after. This is
@@ -59,7 +59,7 @@ module Admin
 
       return reject_amount(wallet, "A reimbursement must be a positive amount.") unless amount.positive?
 
-      entry = wallet.record_entry!(kind: :reimbursement, amount: amount, note: params[:note])
+      entry = wallet.record_entry!(kind: :reimbursement, amount: amount, recorded_by_admin_user: current_admin_user, note: params[:note])
       log_intervention("wallet.reimbursed", target: wallet,
                                             before: { balance: (wallet.balance - amount).to_s },
                                             after: { balance: wallet.balance.to_s },

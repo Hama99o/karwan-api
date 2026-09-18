@@ -480,6 +480,55 @@ end
 # The window is deliberately generous (30 minutes, not the production 60
 # seconds) so a human running the capture by hand is not racing it.
 #
+# ── THE MERCHANT BOARD BRANCHES ON FOUR STATES AND THE SEED HAD TWO ───────
+#
+# The board flow failed on `تیار دی` — the action for a `preparing` order — and
+# no fixture ever produced one. Seeding all four LIVE states the board renders
+# rather than only the missing one, because the same gap hid a second problem:
+# two of the seeded live orders rendered IDENTICALLY while one was waiting for a
+# courier and the other had one. A fixture that covers every state a screen
+# branches on is the seed equivalent of asserting a whole key set.
+#
+# ── ON A DIFFERENT CUSTOMER, WHICH IS THIS FILE'S OWN PRECEDENT ───────────
+#
+# The rig customer keeps **one** live order — that is what makes the status
+# screen, the merchant board and the map point at the same thing, and this file
+# already records `KQA00003` being moved off that account for exactly this
+# reason. The board is the MERCHANT's screen and does not care whose orders
+# they are, so these hang off the offer customer.
+seed_section "e2e merchant board states" do
+  merchant = Merchant.find_by!(phone: "+93700000804")
+  item     = merchant.catalog_items.first
+  board_customer = e2e_user!(E2E[:offer_customer], name: "QA Offer Customer", role: :customer,
+                             email: "qa.offer.customer@karwan.af")
+
+  # `ready` already exists as KQA00003. These are the three the board could not
+  # render, each with the timestamps its card reads.
+  [
+    { code: "KQA00004", status: :placed,    placed: 3.minutes.ago,  accepted: nil,            preparing: nil },
+    { code: "KQA00005", status: :accepted,  placed: 12.minutes.ago, accepted: 9.minutes.ago,  preparing: nil },
+    { code: "KQA00006", status: :preparing, placed: 20.minutes.ago, accepted: 17.minutes.ago, preparing: 14.minutes.ago }
+  ].each do |row|
+    order = Order.find_or_initialize_by(code: row[:code])
+    order.assign_attributes(
+      customer: board_customer, merchant: merchant, status: row[:status],
+      items_total: 260, delivery_fee: 100, commission: 35, courier_fee: 100,
+      merchant_payout: 225, customer_total: 360, currency: "AFN",
+      payment_method: :cash, payment_status: :pending,
+      delivery_latitude: 34.5290, delivery_longitude: 69.1610,
+      delivery_landmark_note: "QA fixture — board state #{row[:status]}",
+      customer_phone: board_customer.phone,
+      placed_at: row[:placed], accepted_at: row[:accepted], preparing_at: row[:preparing]
+    )
+    order.save!
+
+    if order.order_items.empty?
+      order.order_items.create!(catalog_item: item, name: item.name, unit_price: 260,
+                                quantity: 1, options_total: 0, line_total: 260, currency: "AFN")
+    end
+  end
+end
+
 # ── THE DEDICATED COURIER HOLDS IT, NOT THE RIG'S OWN ACCOUNT ─────────────
 #
 # `E2E[:courier]` gets the offer, while the customer account keeps the live JOB

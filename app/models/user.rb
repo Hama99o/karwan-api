@@ -82,6 +82,31 @@ class User < ApplicationRecord
   has_many :user_sessions, dependent: :destroy
   has_many :device_tokens, dependent: :destroy
 
+  # ── FOR THE CONSOLE, AND NEVER THE TOKEN ITSELF ──────────────────────────
+  #
+  # Two summaries an operator needs and could not get. Same shape as
+  # `OrderItem#options_summary`: a computed string, because the thing an
+  # operator must read is a fact ABOUT the rows, not the rows.
+  #
+  # `user_sessions.token_digest` and `device_tokens.token` are credentials. A
+  # console that prints either is a console that leaks a working session or a
+  # push target, so neither of these returns one — they answer "how many" and
+  # "when", which is the whole operational question.
+  def live_session_count
+    user_sessions.live.count
+  end
+
+  # The first question when a merchant's board stayed silent: is there a tablet
+  # registered at all? Pairs with the landing page's "shops to ring" count.
+  def registered_devices_summary
+    active = device_tokens.active.order(updated_at: :desc)
+    return "none registered" if active.empty?
+
+    platforms = active.map(&:platform).tally.map { |p, n| n > 1 ? "#{n} #{p}" : p.to_s }
+    "#{active.size} active (#{platforms.join(', ')}) — last #{active.first.updated_at.to_date}"
+  end
+
+
   has_many :owned_merchants, class_name: Merchant.name, foreign_key: :owner_id,
                                inverse_of: :owner, dependent: :restrict_with_error
   # Demand side: what this person ordered or booked.

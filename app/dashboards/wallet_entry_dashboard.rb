@@ -13,6 +13,10 @@ class WalletEntryDashboard < Administrate::BaseDashboard
     source_type: Field::String,
     source_id: Field::Number,
     recorded_by: Field::BelongsTo.with_options(class_name: "User"),
+    # The operator who made it, when it was made in the console. A second
+    # column because the console's actor is an `AdminUser` and `recorded_by`
+    # points at `users` — see WalletEntry.
+    recorded_by_admin_user: Field::BelongsTo.with_options(class_name: "AdminUser"),
     note: Field::Text,
     created_at: Field::DateTime
   }.freeze
@@ -20,7 +24,7 @@ class WalletEntryDashboard < Administrate::BaseDashboard
   COLLECTION_ATTRIBUTES = %i[created_at courier_wallet kind amount balance_after].freeze
   SHOW_PAGE_ATTRIBUTES = %i[
     courier_wallet kind amount balance_after currency source_type source_id
-    recorded_by note created_at
+    recorded_by recorded_by_admin_user note created_at
   ].freeze
   FORM_ATTRIBUTES = [].freeze
 

@@ -96,13 +96,18 @@ class CourierWallet < ApplicationRecord
 
   # Single entry point for every balance change, so no code path can move money
   # without leaving a ledger row saying who moved it.
-  def record_entry!(kind:, amount:, recorded_by: nil, source: nil, note: nil)
+  # `recorded_by` is a User (the courier's own actions); `recorded_by_admin_user`
+  # is an AdminUser (the console). Two columns because they are two tables —
+  # see WalletEntry. Exactly one of them should be set, and neither is required:
+  # a commission charged by the system is authored by no human.
+  def record_entry!(kind:, amount:, recorded_by: nil, recorded_by_admin_user: nil, source: nil, note: nil)
     transaction do
       lock!
       new_balance = balance + amount
       entry = wallet_entries.create!(
         kind: kind, amount: amount, currency: currency, balance_after: new_balance,
-        recorded_by: recorded_by, source: source, note: note
+        recorded_by: recorded_by, recorded_by_admin_user: recorded_by_admin_user,
+        source: source, note: note
       )
       update!(balance: new_balance)
       entry

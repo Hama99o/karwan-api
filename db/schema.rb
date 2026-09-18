@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_17_150210) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_18_134443) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -603,12 +603,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_17_150210) do
     t.string "currency", default: "AFN", null: false
     t.integer "kind", null: false
     t.text "note"
+    t.bigint "recorded_by_admin_user_id"
     t.bigint "recorded_by_id"
     t.bigint "source_id"
     t.string "source_type"
     t.index ["courier_wallet_id", "created_at"], name: "index_wallet_entries_on_courier_wallet_id_and_created_at"
     t.index ["courier_wallet_id"], name: "index_wallet_entries_on_courier_wallet_id"
     t.index ["kind"], name: "index_wallet_entries_on_kind"
+    t.index ["recorded_by_admin_user_id"], name: "index_wallet_entries_on_recorded_by_admin_user_id"
     t.index ["recorded_by_id"], name: "index_wallet_entries_on_recorded_by_id"
     t.index ["source_type", "source_id"], name: "index_wallet_entries_on_source"
   end
@@ -651,6 +653,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_17_150210) do
   add_foreign_key "trips", "users", column: "passenger_id"
   add_foreign_key "user_roles", "users"
   add_foreign_key "user_sessions", "users"
+  add_foreign_key "wallet_entries", "admin_users", column: "recorded_by_admin_user_id"
   add_foreign_key "wallet_entries", "courier_wallets"
   add_foreign_key "wallet_entries", "users", column: "recorded_by_id"
 end

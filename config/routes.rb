@@ -88,6 +88,9 @@ Rails.application.routes.draw do
         patch :suspend
         patch :reinstate
         patch :restore
+        # A lost phone in a cash business: somebody can go on shift as that
+        # courier and collect our money. Revoke, never display.
+        patch :revoke_sessions
       end
     end
 

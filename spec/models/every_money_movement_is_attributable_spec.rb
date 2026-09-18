@@ -50,6 +50,10 @@ RSpec.describe "every money movement is attributable", type: :request do
   before { wallet.update!(balance: 100, credit_line: 500) }
 
   def attribution_for(entry)
+    # The ledger first, and since 2026-09-18 the console can use it too: a
+    # second nullable FK, `recorded_by_admin_user`, because the operator lives
+    # in `admin_users` and `recorded_by` points at `users`.
+    return { by: entry.recorded_by_admin_user, how: :ledger } if entry.recorded_by_admin_user_id.present?
     return { by: entry.recorded_by, how: :ledger } if entry.recorded_by_id.present?
 
     log = AuditLog.where(target_type: "CourierWallet", target_id: entry.courier_wallet_id)
@@ -77,6 +81,12 @@ RSpec.describe "every money movement is attributable", type: :request do
                              "a #{action} moved #{entry.amount} and nothing records who did it — " \
                              "neither wallet_entries.recorded_by nor an audit row carrying entry_id"
       expect(attribution[:by]).to eq(admin)
+      # It must be the LEDGER now, not the audit-log fallback. The whole point
+      # of the FK is that a courier's statement can name the person without a
+      # join to `audit_logs` — and the fallback would hide a regression here.
+      expect(attribution[:how]).to eq(:ledger),
+                                   "attributable only through the audit log — the ledger is anonymous again"
+      expect(entry.recorded_by_name).to eq(admin.name)
     end
 
     it "records the balance BEFORE and after a #{action}" do

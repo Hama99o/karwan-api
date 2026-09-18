@@ -13,6 +13,14 @@ class UserDashboard < Administrate::BaseDashboard
     addresses: Field::HasMany,
     courier_profile: Field::HasOne,
     courier_wallet: Field::HasOne,
+    # Counts and dates, never a credential — see User#live_session_count.
+    # `searchable: false` on both, and the reason is not style: Administrate
+    # builds its search as a SQL LIKE over every string attribute, and these two
+    # are COMPUTED METHODS rather than columns. Without it, searching users dies
+    # on `column users.registered_devices_summary does not exist` — which is how
+    # the full suite caught it after the admin folder alone had passed.
+    live_session_count: Field::Number.with_options(searchable: false),
+    registered_devices_summary: Field::String.with_options(searchable: false),
     deleted_at: Field::DateTime,
     created_at: Field::DateTime
   }.freeze
@@ -21,7 +29,8 @@ class UserDashboard < Administrate::BaseDashboard
   # discarded courier is already listed here and looked live.
   COLLECTION_ATTRIBUTES = %i[phone name last_active_role status deleted_at created_at].freeze
   SHOW_PAGE_ATTRIBUTES = %i[
-    phone name locale last_active_role status phone_verified_at user_roles addresses
+    phone name locale last_active_role status phone_verified_at
+    live_session_count registered_devices_summary user_roles addresses
     courier_profile courier_wallet deleted_at created_at
   ].freeze
   FORM_ATTRIBUTES = %i[name locale status].freeze
