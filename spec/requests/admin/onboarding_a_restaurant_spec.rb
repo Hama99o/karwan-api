@@ -67,6 +67,10 @@ RSpec.describe "onboarding a restaurant from the console", type: :request do
   # and PRODUCT.md:78 names it as part of menu management. It was not on this
   # dashboard at all, so an operator could neither see nor set one.
   it "accepts a photo, and serves it resized" do
+    # libvips is in the production image and on no dev box here, so the variant
+    # DECISION is pinned rather than read off the machine — both branches are
+    # driven in spec/serializers/served_images_are_resized_spec.rb.
+    allow(Attachments::PublicUrl).to receive(:variants_processable?).and_return(true)
     category = create(:catalog_category, merchant: merchant)
 
     post "/admin/catalog_items", params: {

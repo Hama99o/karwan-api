@@ -97,7 +97,21 @@ RSpec.describe "images served to a client are resized" do
                            filename: "logo.png", content_type: "image/png")
     end
 
-    it "sends the resized logo, not the original blob" do
+    # ── STUBBED ON PURPOSE, AND IT IS NOT A SHORTCUT ──────────────────────
+    #
+    # Whether a variant can be MADE depends on the machine: `libvips` is in both
+    # Dockerfile stages and is absent from every dev box here. An example that
+    # read the real answer would assert "variant" in CI and "original" locally,
+    # which is a test that reports the environment rather than the code.
+    #
+    # So both branches are driven deterministically. The decision under test is
+    # "serve the variant when one can be made, and degrade to the original
+    # rather than to a URL that 500s when one cannot" — and both halves matter,
+    # because getting the second wrong is how a phone gets a broken image from a
+    # change that is correct in production.
+    it "sends the resized logo when a variant can be made" do
+      allow(Attachments::PublicUrl).to receive(:variants_processable?).and_return(true)
+
       get "/api/v1/public/merchants"
 
       url = JSON.parse(response.body).fetch("merchants").first["logo_url"]
@@ -105,6 +119,16 @@ RSpec.describe "images served to a client are resized" do
       expect(url).to include("/representations/"),
                      "the Home screen is serving original blobs — this is the 120 MB case"
       expect(url).not_to match(%r{/blobs/redirect/})
+    end
+
+    it "degrades to the original rather than a URL nothing can fulfil" do
+      allow(Attachments::PublicUrl).to receive(:variants_processable?).and_return(false)
+
+      get "/api/v1/public/merchants"
+
+      url = JSON.parse(response.body).fetch("merchants").first["logo_url"]
+      expect(url).to be_present, "no image at all — a missing thumbnail became a missing photo"
+      expect(url).not_to include("/representations/")
     end
   end
 end

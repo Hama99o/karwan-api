@@ -204,6 +204,35 @@ else
   note "empty: $BLANK"
 fi
 
+# ── CAN THIS BOX ACTUALLY MAKE A THUMBNAIL? ───────────────────────────────
+#
+# Every image a phone fetches is served as a VARIANT: measured through libvips
+# on a real photograph, a merchant logo goes from ~1 MB to 16.8 KB and a
+# storefront to 65.9 KB. `rails_representation_path` is lazy, so a box with no
+# image library would serve a URL that 500s on first fetch — which is why
+# `Attachments::PublicUrl` degrades to the ORIGINAL instead.
+#
+# THAT FALLBACK IS A KINDNESS ON A LAPTOP AND A DISASTER ON A SERVER. Degraded,
+# the Home screen serves twenty camera frames — ~20 MB measured against the dev
+# seed — to users paying Kabul data prices. So a deployed box FAILS here while a
+# dev box is told once and left alone.
+#
+# The production image has `libvips` in both Dockerfile stages; this catches the
+# day somebody trims it out of the runtime layer to save 40 MB.
+step "Image variants"
+VARIANTS=$(bin/rails runner 'print Attachments::PublicUrl.variants_processable? ? "yes" : "no"' 2>/dev/null)
+
+if [ "$VARIANTS" = "yes" ]; then
+  ok "thumbnails can be generated"
+elif [ -n "${APP_BASE_URL:-}${KAMAL_HOST:-}" ] || [ "${RAILS_ENV:-development}" = "production" ]; then
+  bad "no image library on a DEPLOYED box — every photo would be served at full camera resolution."
+  note "the Home screen measured ~20 MB of originals against ~1.3 MB of variants"
+  note "install libvips (it is in both Dockerfile stages; check the runtime layer)"
+else
+  say "  · no libvips here, so photos are served unresized — fine locally, fails on a deployed box."
+  note "the API degrades to the original rather than serving a URL that 500s"
+fi
+
 # ── A DECLARED SECRET IS NOT A SUPPLIED ONE ───────────────────────────────
 #
 # The step above covers `Setting` rows. It cannot see ENV, and two of the keys

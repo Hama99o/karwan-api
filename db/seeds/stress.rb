@@ -222,19 +222,6 @@ seed_section "stress merchants and catalogs" do
 
   merchant_ids = Merchant.where("phone LIKE '+9379%'").order(:id).pluck(:id)
 
-  # ── A FEW PHOTOS, SO THE FIRST SCREEN LOOKS LIKE A FOOD APP ────────────────
-  #
-  # Not all of them: this seed exists for VOLUME, and attaching thousands of
-  # blobs would defeat its purpose and fill the disk. But the browse screen is
-  # the first thing anybody looks at — Hamma9900 saw a page of empty grey boxes
-  # taking 60% of every card — and a load-test database is still the database
-  # somebody demos from. The first dozen is enough to fill one screen.
-  Merchant.where(id: merchant_ids.first(12)).each_with_index do |merchant, index|
-    set = %w[kabab bakery store][index % 3]
-    Attachments::SeedPhoto.attach!(merchant, :storefront_photo, "storefront_#{set}.jpg")
-    Attachments::SeedPhoto.attach!(merchant, :logo, "logo_#{set}.jpg")
-  end
-
   # Browse categories, so filtering by cuisine has something to filter.
   category_ids = MerchantCategory.order(:position).pluck(:id)
   bulk(MerchantCategoryAssignment, merchant_ids.each_with_index.flat_map do |mid, i|
@@ -270,6 +257,44 @@ seed_section "stress merchants and catalogs" do
       }
     end
   end)
+end
+
+# ── PHOTOS ON THE FIRST SCREEN — ITS OWN SECTION, AND THAT IS THE FIX ───────
+#
+# This used to live inside "stress merchants and catalogs", which opens with
+# `next if Merchant.where("phone LIKE '+9379%'").any?`. That guard made the
+# section idempotent in the WRONG DIRECTION: it skipped improvements, not just
+# duplicates. The photo loop was added after those merchants already existed on
+# the dev database, so **it never ran, and re-seeding could never make it run** —
+# the browse screen showed 4 photos across 151 merchants and `db:seed` was
+# powerless to change it.
+#
+# The guard has to stay where it is: everything else in that section is
+# `insert_all` with no conflict handling, so re-running it would duplicate every
+# catalog category and item. Only the photos are safe to repeat, because
+# `SeedPhoto.attach!` returns early when something is already attached.
+#
+# **The general rule, which cost an afternoon of unmeasurable device work:** a
+# `next if X.any?` guarding a whole section makes every later addition to that
+# section dead on every database that already has X. Put anything idempotent in
+# its own section.
+#
+# Not all merchants: this seed exists for VOLUME and attaching thousands of
+# blobs would defeat its purpose and fill a disk already at 94%. The first
+# screen is what anybody looks at — Hamma9900 saw a page of empty grey boxes
+# taking 60% of every card — and a load-test database is still the one somebody
+# demos from.
+seed_section "stress merchant photos" do
+  first_screen = Merchant.orderable.order(:id).limit(20).to_a
+  next if first_screen.empty?
+
+  first_screen.each_with_index do |merchant, index|
+    set = %w[kabab bakery store][index % 3]
+    Attachments::SeedPhoto.attach!(merchant, :storefront_photo, "storefront_#{set}.jpg")
+    Attachments::SeedPhoto.attach!(merchant, :logo, "logo_#{set}.jpg")
+  end
+
+  puts "  photos on #{first_screen.count { |m| m.storefront_photo.attached? }} of the first #{first_screen.size}"
 end
 
 merchant_ids = Merchant.where("phone LIKE '+9379%'").order(:id).pluck(:id)

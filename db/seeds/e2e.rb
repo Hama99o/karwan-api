@@ -33,6 +33,31 @@
 # THE PHONES AND THE PASSWORD ARE THE CONTRACT. `qa/lib/common.sh` in
 # karwan-mobile holds the same values and has to be changed with this file.
 
+# ── WHAT THIS SEED DOES NOT OWN, AND WHO DOES ─────────────────────────────
+#
+# **A precondition belongs to whoever CAN set it: the dependent flow first, the
+# producing flow never, and the rig when neither has the reach. An assumption
+# written as a comment is never allowed.** Three separate problems in this
+# file's vicinity on 2026-09-18 were all this rule being broken, and each cost a
+# debugging session on a screen that was working correctly.
+#
+#   * A board run leaves the shop **CLOSED** — `merchant_board_no_tabs` closes
+#     it in section 4 and cancels the reopen. The damage lands off its own
+#     screen: the customer's Home then shows a dimmed card, and the next person
+#     to open Home debugs a restaurant that is fine. **The rig reopens it** in
+#     `require_rig` via `qa.sh shop-open`, so the shop's open state is a rig
+#     BASELINE like the seeded addresses — not any flow's precondition, because
+#     a Maestro flow cannot call the API to set one.
+#   * The board renders four live states and this seed produced two, so a flow
+#     failed on an action label for a state no fixture could reach. Fixed by
+#     seeding every state the screen branches on.
+#   * A photo step lived inside a section guarded by `next if X.any?`, so it was
+#     dead on every database that already had X — see `db/seeds/stress.rb`.
+#
+# **The consequence for anyone writing a spec here: never read `is_open` off the
+# dev database.** Use a factory. That value is a rig baseline and a board run
+# moves it; a spec that reads it is asserting on somebody else's fixture.
+#
 # `||=` rather than a bare assignment: this file is re-loadable by design (the
 # rig re-seeds between runs, and a spec loads it twice to prove it is
 # idempotent), and a bare constant assignment warns on every reload.

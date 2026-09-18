@@ -46,7 +46,7 @@ module Attachments
         return nil if attachment.nil? || !attachment.attached?
 
         path =
-          if variant && attachment.blob.variable?
+          if variant && attachment.blob.variable? && variants_processable?
             Rails.application.routes.url_helpers
                  .rails_representation_path(attachment.variant(variant), only_path: true)
           else
@@ -66,6 +66,41 @@ module Attachments
         # Rails' 3000 — another app on this box holds 3000, which cost a
         # morning once.
         "http://localhost:#{ENV.fetch('PORT', 3017)}"
+      end
+
+      # ── CAN THIS MACHINE ACTUALLY MAKE A VARIANT? ────────────────────────
+      #
+      # `rails_representation_path` is LAZY: it returns a URL and processes on
+      # first fetch. So a box with no image library serves a URL that 500s when
+      # a phone asks for it — and the phone shows a broken image where an
+      # unresized one used to work.
+      #
+      # That is exactly what happened on 2026-09-18. The variants shipped, the
+      # production image has `libvips` in both Dockerfile stages, and the DEV
+      # box has neither libvips nor an ImageMagick binary — so the device
+      # testing against dev got broken images from a change that is correct in
+      # production. A regression introduced by an optimisation, visible only on
+      # the machine nobody deploys.
+      #
+      # So this degrades to the ORIGINAL rather than serving a URL that cannot
+      # be fulfilled. Same posture the rest of this method already takes: a
+      # missing thumbnail must never mean a missing photo. Memoised because the
+      # answer cannot change inside a process.
+      #
+      # `bin/preflight` FAILS a deployed box on this, because there the fallback
+      # is not a kindness — it is every phone downloading camera frames.
+      def variants_processable?
+        return @variants_processable if defined?(@variants_processable)
+
+        @variants_processable = begin
+          case Rails.application.config.active_storage.variant_processor
+          when :vips then require "vips" && true
+          when :mini_magick then require "mini_magick" && MiniMagick.cli.present?
+          else false
+          end
+        rescue LoadError, StandardError
+          false
+        end
       end
 
       # Whether the address is configured rather than inferred. `bin/preflight`

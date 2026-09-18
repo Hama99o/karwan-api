@@ -39,7 +39,14 @@ RSpec.describe "Api::V1::Me avatar", type: :request do
     # THE VARIANT, not the original. A URL that points at the full-size blob is
     # the defect this shipped to avoid, and the two are only distinguishable by
     # the route they use — `representations` is the resized one.
+    # Stubbed because whether a variant can be MADE depends on the machine —
+    # libvips is in the production image and on no dev box here. Reading the
+    # real answer would make this assert "variant" in CI and "original" locally,
+    # which reports the environment rather than the code. Both branches are
+    # driven in `spec/serializers/served_images_are_resized_spec.rb`.
     it "returns the resized variant rather than the original blob" do
+      allow(Attachments::PublicUrl).to receive(:variants_processable?).and_return(true)
+
       patch "/api/v1/me", params: { avatar: photo }, headers: auth
 
       expect(json.dig("user", "avatar_url")).to include("/representations/"),

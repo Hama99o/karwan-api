@@ -43,6 +43,10 @@ RSpec.describe "the first restaurant, from console to customer", type: :request 
   end
 
   it "walks the whole sequence, and the customer can order at the end of it" do
+    # libvips is in the production image and on no dev box here; the variant
+    # DECISION is tested in served_images_are_resized_spec. This rehearsal cares
+    # that a photo reaches the customer, so it pins the branch and moves on.
+    allow(Attachments::PublicUrl).to receive(:variants_processable?).and_return(true)
     sign_in_admin!
 
     # ── 1 · THE SHOP ───────────────────────────────────────────────────────
