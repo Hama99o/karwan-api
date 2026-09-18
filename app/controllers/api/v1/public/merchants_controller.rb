@@ -11,7 +11,7 @@ class Api::V1::Public::MerchantsController < Api::V1::PublicController
 
   def index
     merchants = policy_scope(Merchant)
-    merchants = merchants.search(params[:q]) if params[:q].present?
+    merchants = matching(merchants, params[:q]) if params[:q].present?
     merchants = merchants.by_merchant_category(params[:category_id]) if params[:category_id].present?
     # A closed merchant is shown greyed rather than hidden, so `open_now` is
     # opt-in rather than the default.
@@ -49,6 +49,32 @@ class Api::V1::Public::MerchantsController < Api::V1::PublicController
   end
 
   private
+
+  # ── THE FALLBACK THAT WAS BUILT AND NEVER WIRED ─────────────────────────
+  #
+  # `Merchant.fuzzy` says of itself: "Fallback for when `search` returns nothing
+  # because of a typo or a different transliteration." It had no caller. So the
+  # trigram column, the tuned 0.3 threshold and the whole romanisation fallback
+  # were unreachable from the API — `search` is a LIKE, which needs the typed
+  # string to appear literally in the column.
+  #
+  # The dictionary still worked, because it puts exact Latin forms in the
+  # column. Romanisation did not: `ننګرهار` indexes as "nngrhar" and
+  # "nanagarahar", and `LIKE '%nangarhar%'` matches neither, though
+  # `word_similarity` scores them 0.6 against the column.
+  #
+  # Which is the failure this whole subsystem exists to prevent, in the
+  # comments' own words: the customer types, sees nothing, and concludes there
+  # are no restaurants. The app looks EMPTY rather than broken, so nobody
+  # reports it.
+  #
+  # Exact first, always — fuzzy only when exact finds nothing, so a precise
+  # query is never diluted by near-misses.
+  def matching(scope, query)
+    exact = scope.search(query)
+
+    exact.exists? ? exact : scope.fuzzy(query)
+  end
 
   # ROAD DISTANCES FOR THE PAGE, in one request.
   #

@@ -399,6 +399,57 @@ which is the one claim a list like this cannot support.
 
 ## Solved, with the reasoning
 
+### THE PASHTO GAF WAS NOT IN THE ROMANISATION TABLE — AND `fuzzy` HAD NO CALLER
+
+Two findings, 2026-09-18, the second larger than the first. Found by checking
+our letters against Unicode CLDR at Hamma9900's suggestion.
+
+**One.** `Search::Transliteration::LETTERS` carried `ک`, `ك` and `گ` — the
+PERSIAN gaf — and had no entry for `ګ`, U+06AB, the Pashto one. `variants`
+silently drops an Arabic character it does not know, so `ننګرهار` romanised to
+`"nnrhar"`: the g deleted, and nobody typing `nangarhar` could find Nangarhar.
+`ى`, `ئ` and `ة` were missing too, and `TermDictionary` ships `بولانى` and
+`آشګ` — **our own dictionary held words our own romaniser could not read**, so
+those synonym families were half dead.
+
+Fixed by FOLDING variants to one canonical letter before romanising, not by
+adding a key per variant: a key per variant makes the two spellings romanise to
+two different strings, which puts one merchant in two places in the index — the
+mismatch moves rather than closes. Folding is applied to the romanisation, to
+the stored column and to the query, and **each of those three is proven by an
+example that fails without it**; the reverse-direction case needed the query
+fold specifically, and a two-letter name needed the stored fold.
+
+The cause was not four missing keys. **The table's domain was chosen by whoever
+typed it rather than by the alphabet it claims to cover** — the eighth shape, in
+a different instrument. So the gate iterates the Pashto and Dari letter set and
+fails on any letter the romaniser cannot read, which is the only version that
+survives the next forgotten letter.
+
+**Two, and it made the first invisible.** `Merchant.fuzzy` documents itself as
+"Fallback for when `search` returns nothing because of a typo or a different
+transliteration" and **had no caller anywhere in `app/`**.
+`public/merchants_controller:14` called `search`, which is a LIKE — it needs the
+typed string to appear literally in the column. So the trigram column, the
+measured 0.3 threshold and the entire romanisation fallback were unreachable
+from the API. The dictionary still worked, because it puts exact Latin forms in
+the column, which is why cross-script search looked healthy.
+
+Measured: `word_similarity("nangarhar", column)` is 0.6, well over threshold,
+while `LIKE '%nangarhar%'` matches nothing. Now wired as the documented
+fallback — exact first, fuzzy only when exact is empty, so a precise query is
+never diluted.
+
+**The lesson worth keeping is the sequencing.** The gaf fix was green at the
+unit layer and still changed nothing a customer would experience, because the
+layer that would have carried it had no caller. A romanisation improvement
+asserted only through `romanisations` is two layers from the person typing.
+
+**Deploy action, recorded in RUNBOOK.md:** `search_text` is stored, so neither
+fix reaches an existing row until `Merchant.rebuild_search_text!` and
+`CatalogItem.rebuild_search_text!` are run.
+
+
 ### `git add -A` SWEPT ANOTHER SESSION'S WORK INTO COMMIT `21dffee`
 
 **`21dffee` is not what its message says.** Titled *"the before-balance two

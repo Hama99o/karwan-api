@@ -211,6 +211,25 @@ kamal migrate        # bin/rails db:prepare — creates cache/queue/cable too
 kamal seed           # bin/rails db:seed — reference data only in production
 ```
 
+### A FOURTH STEP, but only after a search change — and it is also silent
+
+`search_text` is a STORED column, built when a record is saved. So a change to
+the romanisation table, the fold table or `TermDictionary` **does not reach a
+single existing row**: new merchants get the new spelling coverage and every
+merchant already in the database keeps whatever the old code produced. Nothing
+errors, nothing logs, and the only symptom is a merchant nobody can find.
+
+After deploying any change under `app/services/search/`:
+
+```
+kamal app exec 'bin/rails runner "Merchant.rebuild_search_text!; CatalogItem.rebuild_search_text!"'
+```
+
+Idempotent, and it rewrites `search_text` only. **Required for the 2026-09-18
+variant-letter fix**: every merchant whose name carries `ګ`, `ى`, `ئ` or `ة` was
+indexed with that letter silently deleted, and rebuilding is the only thing
+that repairs those rows.
+
 **Step 3 is the one that gets forgotten, and forgetting it is silent.**
 `Setting.fetch` falls back to each definition's default when no row exists, so
 the app boots, prices orders and delivers food perfectly — on values **nobody

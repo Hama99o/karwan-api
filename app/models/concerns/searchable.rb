@@ -57,6 +57,15 @@ module Searchable
 
     forms = sources.dup
     sources.each do |text|
+      # THE CANONICAL SPELLING, stored beside the original. One letter can be
+      # written with several codepoints (Pashto gaf vs Persian gaf, four yehs),
+      # and a query is folded through the same function before it is compared —
+      # so the column must carry the folded form or the two never meet. Storing
+      # BOTH means a query in either spelling matches: the original catches one,
+      # the folded form catches the other.
+      folded = Search::Transliteration.fold(text)
+      forms << folded unless folded == text
+
       forms.concat(Search::TermDictionary.expansions_for(text))
       # Romanise word by word rather than whole-string, so a mixed name like
       # "Kabab کباب House" contributes both halves.

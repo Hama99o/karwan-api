@@ -24,6 +24,36 @@ module Search
   module Transliteration
     ARABIC_SCRIPT = /[؀-ۿݐ-ݿﭐ-﷿ﹰ-﻿]/
 
+    # ── ONE LETTER, SEVERAL CODEPOINTS ───────────────────────────────────
+    #
+    # The same sound is written with different Unicode characters depending on
+    # which keyboard produced it, and Kabul phones carry both Pashto and
+    # Persian layouts. **Both spellings circulate in the wild** — CLDR ships
+    # `غبرگولی` for Pashto with the PERSIAN gaf, while correct Pashto
+    # orthography writes `غبرګولی` with U+06AB.
+    #
+    # Folding here rather than adding a key per variant is deliberate. A key
+    # per variant makes the two spellings romanise to two different strings,
+    # which puts one merchant in two places in the index — the mismatch moves
+    # instead of closing. Folded, both spellings produce ONE romanisation.
+    #
+    # THE BUG THIS CLOSES, found 2026-09-18 by checking our letters against
+    # Unicode CLDR: `ګ` had no entry at all, and `variants` silently DROPS an
+    # Arabic character it does not know. So `ننګرهار` romanised to "nnrhar" —
+    # the g deleted — and nobody typing "nangarhar" could find Nangarhar. Our
+    # own `TermDictionary` shipped `بولانى` and `آشګ`, words this table could
+    # not read, so those synonym families were half dead.
+    FOLD = {
+      "ګ" => "گ",              # U+06AB Pashto gaf  → U+06AF Persian gaf
+      "ك" => "ک",              # U+0643 Arabic kaf  → U+06A9 keheh
+      "ي" => "ی",              # U+064A Arabic yeh  → U+06CC farsi yeh
+      "ى" => "ی",              # U+0649 alef maksura
+      "ئ" => "ی",              # U+0626 yeh with hamza
+      "ة" => "ه",              # U+0629 teh marbuta
+      "أ" => "ا", "إ" => "ا",  # U+0623 / U+0625
+      "ؤ" => "و"               # U+0624
+    }.freeze
+
     # Per-character romanisation. Several letters have more than one plausible
     # Latin form and every one is emitted, because a search index may hold
     # alternatives cheaply where a display name may not.
@@ -56,6 +86,13 @@ module Search
       # The vowel guess is what rescues `kabab` from کباب: the script writes
       # k-b-a-b, so an inserted "a" between the leading consonants produces
       # "kabab" exactly rather than relying on trigram to bridge "kbab".
+      # Canonical spelling. Public because the STORED COLUMN and the QUERY must
+      # both pass through it — normalising only one side moves the mismatch
+      # rather than closing it. A no-op on Latin text.
+      def fold(text)
+        text.to_s.gsub(/[#{FOLD.keys.join}]/, FOLD)
+      end
+
       def romanisations(text)
         return [] unless arabic_script?(text)
 
@@ -68,7 +105,7 @@ module Search
       def variants(text)
         forms = [ "" ]
 
-        text.to_s.each_char do |char|
+        fold(text).each_char do |char|
           options = LETTERS[char]
 
           if options.nil?

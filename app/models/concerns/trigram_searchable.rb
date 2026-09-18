@@ -52,6 +52,12 @@ module TrigramSearchable
     def fuzzy_on(column, query, threshold: SIMILARITY_THRESHOLD)
       return none if query.blank?
 
+      # Folded through the SAME function that built the column. Normalising one
+      # side only moves the mismatch — a merchant written with the Pashto gaf
+      # and a customer typing the Persian one are the same word and must land
+      # in the same place. A no-op for Latin queries, which is most of them.
+      query = Search::Transliteration.fold(query)
+
       score = word_similarity_score(column, query)
 
       where(score.gt(threshold)).order(Arel::Nodes::Descending.new(score))
