@@ -27,26 +27,37 @@ Two rules from the wider workspace that apply to this file:
 
 ### WHAT IS OPEN IS HAMMA9900'S — EXCEPT ONE LINE OF OURS
 
-The backend is functionally complete for v0: **1,523 examples, 0 failures**, as
-recorded by `5d86ce8` — that is the last measured count, not a run made for
-this rewrite, and the box was too loaded to re-run it honestly.
+The backend is functionally complete for v0: **1,944 examples, 0 failures, 2
+pending**, measured on 2026-09-18 at `99a0a8b`. The two pendings are the §2
+collection-channel question and are Hamma9900's to answer, not defects. (The
+previous stamp read 1,523 from `5d86ce8` and was already 400 examples stale
+when it was written, for the reason this section's own header gives.)
 
 | Open | What it needs | Where it stands in the code |
 |---|---|---|
 | **SMS gateway** | His choice and his money | The one true per-unit cost in v0. The seam and the message exist — `Notifications::SmsClient` picks an adapter from `SMS_PROVIDER`, which defaults to `log` and writes codes to the log; `bin/preflight:130` warns that nobody can sign in that way. Choosing a gateway is an afternoon. |
-| **SMTP credentials — the SECOND gateway, and this list did not have it** | A host, a user and a password | `config/environments/production.rb:75` sets `delivery_method = :smtp` with every value from ENV and `SMTP_ADDRESS` **defaulting to `localhost`**. It is reached whenever somebody types an EMAIL into the reset form — `Users::PasswordResetService.deliver` picks the channel from the shape of the identifier, then `UserMailer#password_reset`. Because it is `deliver_later`, an unset SMTP host does **not** fail the request: the endpoint answers 200, the app says "check your email", and the code dies in a job. `bin/preflight` warns about SMS and says **nothing** about SMTP. |
 | **The support phone number** | One row in the admin console | `Setting::DEFINITIONS["support_phone"]` defaults to `""`; `/public/app_config` serves it and every installed app picks it up with no rebuild. Blank today, so the app correctly hides the button. |
 | **Eight Pashto and Dari strings — not two** | His words, once | The login changed under this row and nobody updated it. `app/models/setting.rb` now carries **8** keys marked `AWAITING TRANSLATION`: `otp_sms_body_{ps,fa}`, `password_reset_sms_body_{ps,fa}`, `password_reset_email_subject_{ps,fa}` and `password_reset_email_body_{ps,fa}` — the last four exist because `c7c8d21` replaced the OTP login with a password and a reset flow. An SMS has no device to translate it, so the server holds the words; English placeholders ship until he pastes the real text. |
 | **New-courier credit line and the guarantor policy** | His numbers | `default_credit_line` is a `Setting` at 500 AFN, chosen as a placeholder. |
 | **Renaming the karwan-api GitHub repo** | His account | — |
 
-**The one line of ours in that table is the SMTP warning.** Every other row
-waits on him. `bin/preflight` exists precisely so that a stack which is not
-ready says so out loud, and it covers the SMS gateway and says nothing about
-the mail one — so the failure it was built to prevent is reachable through the
-door it does not watch. It is three lines beside the SMS check; it is not done
-here because this rewrite is a doc pass and quietly widening it is how a doc
-pass becomes something nobody reviewed.
+**Every row left in that table waits on him. Nothing in it is ours.**
+
+**The SMTP warning was the one line of ours, and it is CLOSED by `bb85421`** —
+`bin/preflight:202` now checks `SMTP_ADDRESS`, warning locally and **failing on
+a deployed box**, beside the SMS check that was already there. The gap it
+closes: `config/environments/production.rb` sets `delivery_method = :smtp` with
+`SMTP_ADDRESS` defaulting to `localhost`, and because the mailer is
+`deliver_later`, an unset host does not fail the request — the endpoint answers
+200, the app says "check your email", and the code dies in a job nobody is
+watching. The credentials themselves are still Hamma9900's to supply; what is
+closed is the stack failing silently about it.
+
+**That row had to be re-derived to notice, which is the point of this section.**
+It was written during a doc pass that deliberately did not widen `preflight`,
+the work was done hours later under its own commit, and the list kept saying it
+was open — the identical drift the header above warns about, inside a day, in
+the entry that names the rule. **Re-read the code, not the list.**
 
 **Closed since the last stamp, and worth naming because the old row misled
 twice.** *OSRM distance for pricing* sat here as his decision, and he made it:
