@@ -473,3 +473,120 @@ anything you care about:
 ```bash
 kamal accessory exec db "pg_dump -U karwan karwan_production" > karwan-$(date +%F).sql
 ```
+
+---
+
+# ONBOARDING A RESTAURANT — the operator's sequence
+
+**Different reader from everything above.** The rest of this file is for
+somebody deploying the software. This part is for whoever is sitting in a shop
+with its owner, signing them up. No terminal, no commands — the ops console in a
+browser, on a laptop, on the table.
+
+It is the same chain as `spec/requests/admin/first_restaurant_rehearsal_spec.rb`,
+which runs on every commit. **If a step here stops working, that spec goes red
+before anybody drives to a shop.**
+
+## Before you go
+
+- You need the shop's **phone number**, the **owner's own phone number**, and a
+  way to **stand outside and drop a pin** on the front door.
+- The owner should have **their own phone with them**. Step 6 needs it and there
+  is no way around it — see *If the owner's phone is not there*.
+
+## 1 · Create the shop
+
+**Merchants → New.** Name, kind, phone, opening prep time, commission rate.
+
+- **Latitude and longitude are the front door**, not the street. Stand at the
+  entrance and read them off a maps app. Afghan addresses are unreliable and the
+  courier navigates to this pin.
+- **Landmark note** in the owner's own words — *"opposite the Shar-e-Naw
+  mosque, blue shutters"*. This is what actually finds the place.
+- **Owner name and owner phone are TEXT here**, and that is deliberate. They
+  record who the shop belongs to before that person has an account.
+
+## 2 · Put it in a browse category
+
+On the same form, **Merchant categories** — Kabab, Pizza, Grocery, Pharmacy.
+
+This is how customers **filter** the browse screen. A shop in no category is
+findable only by scrolling or searching its name. Pick every one that honestly
+applies; picking none is the commonest way a new shop gets no orders.
+
+## 3 · Set its opening hours
+
+**Merchant opening hours → New**, one row per day. Sunday is `0`.
+
+**Read this out to the owner, because it is the thing they will ring about:**
+
+> **Hours are ADVISORY. The open/closed switch is what decides.** Hours tell a
+> customer when to come back. They do **not** stop orders arriving. If the shop
+> closes early, somebody must press **Close now** — otherwise orders keep
+> coming and a courier arrives at a locked door.
+
+Hours are also optional. A shop with none shows no hours rather than showing
+"closed", which is the honest answer.
+
+## 4 · Build the menu
+
+**Catalog categories → New** for each part of the menu — *Kababs*, *Cold
+drinks*. Then **Catalog items → New** for each dish.
+
+- **Photograph the dish.** The photo is not decoration: a large share of
+  customers do not read fluently, so **the photo is the label**. Take it in
+  daylight, one dish per frame. Upload it on the item form — the server resizes
+  it, so a phone photo straight from the camera is correct.
+- **Price** in afghanis. There is no currency field because everything is AFN;
+  if that ever changes it is a developer's job, not a typing one.
+- **Prep time** per item only where it genuinely differs from the shop's.
+- **Sold out** is the toggle the shop will use most. Show them where it is
+  before you leave.
+
+## 5 · Open the shop
+
+On the merchant's page, **Open now**. Until this, nothing the customer sees
+includes it.
+
+Check it yourself: the shop should now appear on the customer app's browse
+screen, and under the category you picked.
+
+## 6 · The owner registers — ON THEIR OWN PHONE, while you are there
+
+**You cannot create their account for them, and that is on purpose.** The phone
+number IS the identity in this platform: it proves the person holds that
+handset. An account made by an operator for somebody who never held the phone
+would break the thing every sign-in depends on.
+
+So: the owner installs the app, signs up with **the phone number you typed in
+step 1**, and chooses **partner → restaurant**.
+
+Then, on the shop's page in the console, set **Owner** to the account that has
+just appeared. **That link is what puts orders on their board.** Until it is
+made, the shop is live to customers and the owner sees nothing.
+
+### If the owner's phone is not there
+
+It will happen. Do steps 1–5 anyway — the shop is real and the menu is real. Do
+**not** open it. Leave **Open now** off, agree a time to ring them, and finish
+step 6 by telephone: they register, they tell you the number they used, you set
+**Owner**, then you open the shop.
+
+**Never invent a phone number to get past this step.** A shop whose owner
+account belongs to a number nobody holds cannot be recovered without a
+developer, and the first order will go to a board nobody is watching.
+
+## 7 · Place one real order before you leave
+
+Order something cheap from the shop on your own phone, and watch it appear on
+their board. This is the only step that proves all six of the others.
+
+If it does not arrive:
+
+- **Nothing on the board** — the owner link in step 6 is missing or points at
+  the wrong account.
+- **The shop is not in the app at all** — it was never opened (step 5), or it
+  has no category and you were looking at a filtered list (step 2).
+- **The board is silent but the order is there** — the alert did not reach
+  them. The console's front page counts *shops to ring*; that is this, and the
+  remedy is a telephone.

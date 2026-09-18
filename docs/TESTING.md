@@ -543,6 +543,30 @@ compares against a count taken from the filesystem, and the authorisation sweep
 opens with "found the routes to sweep" — because a route-derived example group
 that derives **zero** routes is a green suite asserting nothing at all.
 
+#### THE UMBRELLA: AN ASSERTION KEYED ON SOMETHING THE SUBJECT ITSELF CONTROLS
+
+Three instances in three days, in three languages, and they are one defect:
+
+| Keyed on | What else produced it | Found in |
+|---|---|---|
+| an **amount** (`include(500.0)`) | another courier's ledger row | `wallet_spec` |
+| a **substring** (`assertVisible: "کور"`) | the flow's own previous run, appending | a Maestro flow |
+| a **clock** (`Time.zone.parse("01:00")`) | the app's own `config.time_zone` | `today_figures_spec` |
+
+> **If the thing under test can produce, extend or move the value you match on,
+> the assertion agrees with it instead of checking it.**
+
+Each looks like a normal assertion and each is green for the wrong reason. The
+question that finds all three: **who else can produce this value — and is one of
+them the subject?** Yesterday's run of the same test counts. So does the
+framework the subject is configured by.
+
+The remedy is the same in each language: key on something the subject does not
+control. A row's **id**. An **equality** rather than a containment. A **fixed
+point on the clock** rather than one the app resolves.
+
+The three sections below are that rule in its three languages; read them as one.
+
 #### AND THE SUBJECT MUST BE AN IDENTITY, NOT A VALUE SOMEBODY ELSE CAN PRODUCE
 
 A paired positive fixes the empty-room problem. It does **not** fix a positive
@@ -601,6 +625,32 @@ There the other writer was a second courier's row; here it was the flow's own
 previous run. When you find one of these, ask who else can produce the value
 you are matching on — and remember that "yesterday's version of this same test"
 is one of the candidates.
+
+#### AND THE THIRD LANGUAGE: AN EXAMPLE EXPRESSED IN THE ZONE UNDER TEST
+
+`config.time_zone` was never set, so every "today" in this app meant the UTC day
+— 04:30 to 04:30 in Kabul. The spec written to pin that down said:
+
+```ruby
+travel_to(Time.zone.parse("2026-09-18 01:00")) do   # moves WITH the app
+```
+
+**It passed under UTC too.** `Time.zone.parse` resolves in whatever zone the app
+is configured with, so the instant moved when the configuration moved, and the
+only thing catching a reversion was a separate assertion on `Time.zone.name` —
+a config check standing in for a behaviour check.
+
+> **An example that expresses its instants in the zone under test cannot detect
+> a change to that zone.**
+
+Rewritten against fixed points — `Time.utc(2026, 9, 17, 21, 30)` is 02:00 Kabul,
+`Time.utc(2026, 9, 18, 0, 30)` is 05:00 the same morning — it fails on its own.
+The re-plant is the proof: reverting the zone went from **one** failure to
+**two**, and the second one is behaviour rather than configuration.
+
+**The general form, beyond clocks:** any example whose fixture is derived
+through the same setting it is testing is checking that the setting agrees with
+itself. Locale, currency, rounding mode and page size all have this shape.
 
 **And note which direction the lesson runs.** That example was one of the two
 vacuous assertions found by the negation sweep hours earlier. **A vacuous

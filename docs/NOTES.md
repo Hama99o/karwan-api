@@ -89,11 +89,29 @@ That is the second shape worth watching for: **a model with a dashboard whose
 `FORM_ATTRIBUTES` omit what an operator needs to fix**, which is invisible in a
 count of dashboards.
 
-**Sized, not proposed:** menu CRUD in the console is a dashboard, a controller
-and a route per model (two, or four with options), plus the parent-page links —
-about the size of the opening-hours fix times three. Whether it belongs in the
-console at all depends on whether the merchant's own menu screen ships first,
-which is Karwan's and Hamma9900's to sequence.
+**CLOSED by `decec69`** — menu CRUD, and by `616ee20` for the rehearsal that
+proves the chain. Both catalog dashboards are routed and their forms carry the
+fields PRODUCT.md:78 names, including the `photo` that was not on the dashboard
+at all. `CatalogItem`'s form deliberately withholds `currency` (manual entry is
+the front door to the mixed-currency total CLAUDE.md records as shipped once
+elsewhere) and `deleted_at` (soft delete is an action, not a date), each with a
+paired positive asserting the fields menu management NEEDS are editable —
+without which those two are indistinguishable from forgetting.
+
+`MerchantCategory` is closed in the same commit: routed, and assignable from the
+merchant's own page, so the customer's category filter returns shops instead of
+nothing for every category forever.
+
+**Still open from this table:** `CatalogItemOption` and `CatalogItemOptionValue`
+have no door anywhere — an operator can create an item but not its sizes or
+extras. `DeviceToken` and `UserSession` were closed by `c5057fe` (read-only
+visibility and a revoke action, never a credential shown).
+
+**The sequencing question answered itself.** It was recorded as depending on
+whether the merchant's own menu screen ships first; it does not, because
+PRODUCT.md:22 puts the console in phase 1 precisely so an order can be tested at
+all, and :78's merchant screen is *mid-rush* work — sold-out in one tap, a price
+fix — which presupposes a menu that already exists. The two do not compete.
 
 
 ### IMPACT INVENTORY: WHAT SPLITTING `courier` INTO TWO ROLES WOULD COST
