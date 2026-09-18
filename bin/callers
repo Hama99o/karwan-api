@@ -36,14 +36,46 @@ end
 
 defs.reject! { |name, _| FRAMEWORK.include?(name) }
 
+# A `def` or `scope` line usually IS a declaration rather than a call, which is
+# why they were dropped whole. But **Ruby 3's endless method puts a real call on
+# a `def` line** — `def create? = customer? || admin?` — and dropping it reported
+# `ApplicationPolicy#customer?` as referenced NOWHERE while two policies call it.
+#
+# So strip the DECLARATION HEADER and judge what is left. A plain `def foo` has
+# nothing left and is still not a caller; an endless one keeps its body.
+def without_declaration_header(body)
+  body
+    .sub(/\A\s*def\s+(?:self\.)?[a-z_][\w]*[?!]?(?:\([^)]*\))?/, "")
+    .sub(/\A\s*scope\s+:[a-z_][\w]*[?!]?\s*,?/, "")
+end
+
+# ── THE BLIND SPOT A GREP CANNOT CLOSE, SO IT IS DERIVED INSTEAD ─────────────
+#
+# `Merchants::OrdersController#transition!` authorizes with
+# `authorize @order, :"#{to_status}?"` — the symbol is BUILT AT RUNTIME, so no
+# literal `ready?` exists anywhere in app/ to find. This reported `OrderPolicy`'s
+# `preparing?` and `ready?` as spec-only, and "mark ready" is the merchant's main
+# action: deleting it on that advice would raise Pundit::NotDefinedError on every
+# tap.
+#
+# Derived from the `transition!(:x)` call sites rather than hand-listed, so a
+# sixth board button is covered the day it is written and a deleted one stops
+# excusing its policy method.
+DYNAMIC_POLICY_METHODS = `grep -rhoE 'transition!\\(:[a-z_]+' app/controllers --include=*.rb`
+  .lines.map { |l| "#{l[/:([a-z_]+)/, 1]}?" }.uniq.freeze
+
 def refs(name, dirs, exclude_files)
   # A trailing `?` or `!` is NOT a word character, so `\b` after it never
   # matches — which made every predicate and bang method look unreferenced.
   tail = name.end_with?("?", "!") ? "" : "\\b"
   pattern = "(\\.|:|\\b)#{Regexp.escape(name)}#{tail}"
+  rx = Regexp.new(pattern)
   out = `grep -rnE '#{pattern}' #{dirs.join(' ')} --include=*.rb --include=*.erb 2>/dev/null`
   out.lines.reject { |l| exclude_files.any? { |f| l.start_with?("#{f}:") } }
-     .reject { |l| l =~ /^\S+:\d+:\s*(#|def\s|scope\s)/ }
+     .map    { |l| [ l, l.sub(/\A\S+:\d+:/, "") ] }
+     .reject { |_, body| body =~ /\A\s*#/ }
+     .select { |_, body| rx.match?(without_declaration_header(body)) }
+     .map(&:first)
 end
 
 spec_only = []
@@ -56,6 +88,7 @@ defs.each do |name, locations|
   # throttle — is called by `issue!` eleven lines below it.
   in_app = refs(name, %w[app lib config db], [])
   next if in_app.any?
+  next if DYNAMIC_POLICY_METHODS.include?(name) && locations.any? { |l| l.include?("app/policies/") }
 
   in_spec = refs(name, %w[spec], [])
   (in_spec.any? ? spec_only : dead) << [ name, locations, in_spec.size ]
