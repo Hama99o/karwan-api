@@ -1,0 +1,71 @@
+#!/usr/bin/env ruby
+# For every public method defined outside controllers, who reaches it?
+#
+#   app_callers  : referenced in app/ or lib/ outside its own file  -> reachable
+#   spec_only    : referenced ONLY from spec/                       -> THE FINDING
+#   none         : referenced nowhere                               -> dead
+#
+# Controllers are the entry points, so they are the ROOT, not the subject.
+ROOT = File.expand_path(".", __dir__)
+Dir.chdir("/home/hama99o/Apps/Personal/Karwan/karwan-api")
+
+# Rails/ActiveRecord/Ruby hooks and overrides: called by the framework, never by name.
+FRAMEWORK = %w[
+  call to_s to_str as_json to_json inspect initialize each map hash ==
+  perform show index create update destroy edit new
+  up down change value_type_for_database deserialize serialize cast
+  job_kind code name title
+].freeze
+
+files = Dir.glob("app/**/*.rb").reject { |f| f.start_with?("app/controllers/") }
+
+defs = {}   # name => [files]
+files.each do |file|
+  visibility = :public
+  File.readlines(file).each_with_index do |line, i|
+    visibility = :private  if line =~ /^\s*(private|protected)\s*$/
+    visibility = :public   if line =~ /^\s*public\s*$/
+
+    if (m = line.match(/^\s*def\s+self\.([a-z_][\w]*[?!]?)/))
+      (defs[m[1]] ||= []) << "#{file}:#{i + 1}"           # class method
+    elsif (m = line.match(/^\s*def\s+([a-z_][\w]*[?!]?)/)) && visibility == :public
+      (defs[m[1]] ||= []) << "#{file}:#{i + 1}"
+    end
+  end
+end
+
+defs.reject! { |name, _| FRAMEWORK.include?(name) }
+
+def refs(name, dirs, exclude_files)
+  # A trailing `?` or `!` is NOT a word character, so `\b` after it never
+  # matches — which made every predicate and bang method look unreferenced.
+  tail = name.end_with?("?", "!") ? "" : "\\b"
+  pattern = "(\\.|:|\\b)#{Regexp.escape(name)}#{tail}"
+  out = `grep -rnE '#{pattern}' #{dirs.join(' ')} --include=*.rb --include=*.erb 2>/dev/null`
+  out.lines.reject { |l| exclude_files.any? { |f| l.start_with?("#{f}:") } }
+     .reject { |l| l =~ /^\S+:\d+:\s*(#|def\s|scope\s)/ }
+end
+
+spec_only = []
+dead = []
+defs.each do |name, locations|
+  own = locations.map { |l| l.split(":").first }.uniq
+  # SAME-FILE CALLERS COUNT. Excluding the defining file answers "is this used
+  # outside its class", which is a visibility question. Reachability is a
+  # different one, and `OtpVerification.send_allowance` — the OTP billing
+  # throttle — is called by `issue!` eleven lines below it.
+  in_app = refs(name, %w[app lib config db], [])
+  next if in_app.any?
+
+  in_spec = refs(name, %w[spec], [])
+  (in_spec.any? ? spec_only : dead) << [ name, locations, in_spec.size ]
+end
+
+puts "PUBLIC METHODS EXAMINED: #{defs.size}"
+puts "REACHED FROM app/lib/config/db: #{defs.size - spec_only.size - dead.size}"
+puts
+puts "══ SPEC-ONLY (#{spec_only.size}) — built and tested, nothing in the app calls them ══"
+spec_only.sort_by { |n, _, _| n }.each { |n, l, c| puts format("  %-34s %-46s %d spec refs", n, l.first, c) }
+puts
+puts "══ NO REFERENCE ANYWHERE (#{dead.size}) ══"
+dead.sort_by { |n, _, _| n }.each { |n, l, _| puts format("  %-34s %s", n, l.first) }

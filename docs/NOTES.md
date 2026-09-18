@@ -399,6 +399,50 @@ which is the one claim a list like this cannot support.
 
 ## Solved, with the reasoning
 
+### THE CALLER SWEEP — 194 PUBLIC METHODS, 26 REACHED BY NOTHING IN THE APP
+
+Run 2026-09-18 after `Merchant.fuzzy` turned out to have no caller, on the
+argument that a thing found twice sideways is worth looking for on purpose.
+**Counts: 194 public methods outside controllers, 168 reached from
+`app/lib/config/db`, 9 reached only from `spec/`, 17 reached by nothing at
+all.** Controllers are the roots, not the subject.
+
+**The instrument was wrong twice before it was right, both times in ways that
+would have produced a confident wrong report.**
+
+1. `\b` does not anchor after `?` or `!`, so every predicate and bang method
+   looked unreferenced — 119 false positives including `contains?`, which is
+   called from a controller written an hour earlier.
+2. Excluding the defining file answers *"is this used outside its class"*,
+   which is a VISIBILITY question. Reachability is a different one, and the
+   difference nearly produced the worst claim in the run:
+   `OtpVerification.send_allowance` — the OTP send throttle, which correction 6
+   calls a billing control — appeared unwired and is called by `issue!` eleven
+   lines below it.
+
+Validated by planting the known bug: with `Merchant.fuzzy` unwired it appears as
+spec-only with 11 spec refs, and disappears when wired.
+
+**What is actually unreachable, after reading each candidate:**
+
+| Finding | Consequence |
+|---|---|
+| **`undiscard!` has no caller anywhere** — no route, no controller, no dashboard action | **A soft delete cannot be undone from the ops console.** One-way door 6 makes deletion recoverable *in the data*; an operator who deletes a merchant by mistake still has to ring a developer. Operator-facing, and the console is the surface Hamma9900 says five to ten people will work in. |
+| **The admin policies are never consulted** — `CourierWalletPolicy#top_up?/adjust?/settle?`, `CourierProfilePolicy#approve?/reject?` | Not a hole **today**: `Admin::ApplicationController` gates on `authenticate_admin_user!` and every one of those methods is `= admin?`, so the session gate enforces the same rule. The trap is latent and exactly edu-safi's: a file that READS as the authorization for crediting a wallet is not what enforces it, so adding a read-only admin later would mean editing a policy that changes nothing. |
+| `dispatchable_for?` | Superseded. `Dispatch::Eligibility:41` uses `profile.accepts?(kind)` and checks approval and availability separately so it can name the reason. Delete or use — two implementations of one gate is how they diverge. |
+| `vehicle_types_seating` | Ahead of its consumer, legitimately: its comment says it filters the classes a passenger is offered, and a passenger cannot request a ride yet (the ride product is deliberately OUT of v0). Same shape as `/courier/wallet/entries`. |
+| `platform_cash_held`, `totals_by_currency`, `states_without_timeout`, `typed_value`, `capped?`, `open_hours_for`, `throttled?`, `straight_line?`, `osrm?`, `phone?`, `production_ready?`, `overdue_condition`, `terminal_status_values` | Helpers and predicates with no current consumer. None encodes a rule that is therefore unenforced — checked individually. Not proposed for deletion here; several are the readable half of a concept used elsewhere in its raw form. |
+
+**The one to act on is `undiscard!`, and it is Hamma9900's call** because it is
+a new console action on a money-adjacent surface.
+
+**Why this sweep is worth keeping rather than being a one-off.** Both instances
+that motivated it — `fuzzy`, and the three quote fields the mobile app parses
+and never renders — were found sideways while looking for something else. A
+feature that is built, documented and tested but unreachable is invisible to
+every green suite, because the tests reach it directly.
+
+
 ### THE PASHTO GAF WAS NOT IN THE ROMANISATION TABLE — AND `fuzzy` HAD NO CALLER
 
 Two findings, 2026-09-18, the second larger than the first. Found by checking
