@@ -13,6 +13,50 @@ Two rules from the wider workspace that apply to this file:
 
 ## Open problems — not yet fixed
 
+### CONSOLE COVERAGE SWEEP — WHAT AN OPERATOR CANNOT REACH
+
+Run 2026-09-18 after `MerchantOpeningHour` turned out to have no door at all.
+PRODUCT.md's phase 1 is the console — *"you cannot operate without being able to
+see and fix"* — so a model an operator cannot reach is a hole in the phase he
+built first.
+
+**29 models. 7 have no door of any kind.** The instrument resolves associations
+**through reflection**, not by name: the first version matched association names
+to model names and reported `StatusTransition` and `OrderItemOption` as
+unreachable when both are on a parent's show page (`transitions` is a HasMany
+whose class is `StatusTransition`; options are reachable through
+`OrderItem#options_summary`). Two false positives out of nine, caught before
+reporting — the third time this week an instrument of mine was wrong on its
+first run.
+
+| No door | Verdict |
+|---|---|
+| `OtpVerification` | **Correct.** Codes are secrets; a console that displays them is worse than one that does not. |
+| `UserSession` | Session tokens are HMAC digests and must not be displayed. But **revoking** one has no path, and a lost phone in a cash business is a real event. |
+| `DeviceToken` | An operator cannot see whether a shop has a registered tablet — which is the first question to ask when the alert did not arrive. Directly relevant to `needs_human_contact`. |
+| **`MerchantCategory` + `MerchantCategoryAssignment`** | **A live broken path.** `public/merchants_controller:15` lets a customer filter by `category_id`, and **nothing can assign a merchant to a category.** Same shape as the hours: a read path whose write path does not exist. |
+| **`CatalogItemOption` + `CatalogItemOptionValue`** | Menu options — size, extras, price deltas. CLAUDE.md: *"bigger than it looks; keep it simple but do not skip it."* No door anywhere. |
+
+**And the bigger one, which a per-model count does not show because the models
+ARE reachable:** `CatalogCategory` and `CatalogItem` are on the merchant's show
+page **read-only**. There are no admin routes for either — lines 219-220 of
+`routes.rb` are the *merchant API*, not the console. So **an operator can see a
+restaurant's menu and cannot enter or correct one**, while PRODUCT.md:66 says
+*admin onboards restaurants*. The merchant's own app can write a menu through
+`api/v1/merchants/catalog_items`, but that screen does not exist yet either — so
+today a menu can only arrive from a seed.
+
+That is the second shape worth watching for: **a model with a dashboard whose
+`FORM_ATTRIBUTES` omit what an operator needs to fix**, which is invisible in a
+count of dashboards.
+
+**Sized, not proposed:** menu CRUD in the console is a dashboard, a controller
+and a route per model (two, or four with options), plus the parent-page links —
+about the size of the opening-hours fix times three. Whether it belongs in the
+console at all depends on whether the merchant's own menu screen ships first,
+which is Karwan's and Hamma9900's to sequence.
+
+
 ### IMPACT INVENTORY: WHAT SPLITTING `courier` INTO TWO ROLES WOULD COST
 
 Built 2026-09-18 so the split arrives as a known-size change rather than a
