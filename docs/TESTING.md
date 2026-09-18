@@ -694,6 +694,45 @@ confirmed unreachable method that morning: unwiring it made it appear with 11
 spec refs, wiring it made it vanish. A sweep that cannot find the case that
 motivated it is not ready to report on cases nobody has checked.
 
+### A SUBSET THAT COVERS THE FILES YOU TOUCHED IS NOT THE SUITE
+
+The obvious way to run less is to run the directory you edited. It is also the
+way to miss a failure in a file you have never opened — because **what your
+change breaks is not decided by where you made it.**
+
+Measured on 2026-09-18. Two fields were added to `UserDashboard`:
+`live_session_count` and `registered_devices_summary`, both **computed methods**
+rather than columns. `spec/requests/admin/` was **green**, 411 examples. The
+full suite was not:
+
+```
+PG::UndefinedColumn: column users.registered_devices_summary does not exist
+```
+
+Administrate builds its search as a SQL `LIKE` over **every string attribute a
+dashboard declares**. So declaring a method broke `/admin/users?search=…` — a
+query in code I did not write, exercised by examples in files I did not open,
+in the same directory I had just run green. The fix was one option
+(`searchable: false`); the lesson is that I could not have predicted which
+directory to run, because **the framework chose the blast radius, not me.**
+
+> That is the eighth shape from the other end. Usually an instrument is correct
+> over a domain somebody else chose. Here the *test run* was correct over a
+> domain a **framework** chose — and the domain that mattered was "every query
+> Administrate generates from a dashboard constant".
+
+**The rule:** run the full suite before you commit. Not because subsets are
+wrong to use while iterating — they are the only sane way to work — but because
+the green they produce is a statement about the subset, and the commit message
+is a statement about the suite. When those two disagree, the commit message is
+the one people believe.
+
+**And when a subset and the suite disagree, that gap is itself the finding.**
+Ask what connected the file you changed to the file that broke. Here it was a
+framework reading a constant; elsewhere it has been a shared constant landing on
+`Object`, a seed committed by another session, and a stored column nothing
+rebuilds. Each of those is invisible from inside the directory you edited.
+
 ### A CHECK NOBODY RUNS IS INDISTINGUISHABLE FROM A CHECK NOBODY WROTE
 
 The five shapes are about instruments that **lie**. This one is about an

@@ -691,6 +691,73 @@ which is the one claim a list like this cannot support.
 
 ## Solved, with the reasoning
 
+### "TODAY" MEANT 04:30 TO 04:30 — `config.time_zone` WAS NEVER SET
+
+Found 2026-09-18 while specifying the merchant's `today` figures. Rails defaults
+to UTC, Kabul is **UTC+4:30**, and three figures were computed from
+`Time.zone.now.beginning_of_day`: the merchant's day (PRODUCT.md:80 — orders,
+items sold, cash received, our commission), the courier's day, and the console's
+commission-today. All three meant **the UTC day, which runs 04:30 to 04:30 in
+Kabul.**
+
+**The sharp end is a shop trading past midnight.** An order at 02:00 Kabul was
+counted in the previous day's figures, so a restaurant's late trade belonged to
+yesterday while it was still being cooked — and an owner reconciling a cash
+drawer at closing would find the screen and the drawer disagreeing with no way
+to see why. For a 09:00–22:00 shop the two windows happen to contain the same
+orders, which is why it could sit there unnoticed.
+
+Fixed by setting `config.time_zone = "Kabul"`. One city, one zone. Timestamps
+are stored in UTC either way — this changes what a DAY means, not what is
+written down.
+
+**The spec has a lesson in it worth more than the fix.** The first version of
+the boundary example used `Time.zone.parse("2026-09-18 01:00")` — which moves
+WITH the app's zone, so it passed under UTC too, and the only thing catching a
+reversion was an assertion on `Time.zone.name`. **An example that expresses its
+instants in the zone under test cannot detect a change to that zone.** Rewritten
+against absolute UTC instants (21:30 UTC is 02:00 Kabul; 00:30 UTC is 05:00
+Kabul the same morning), it now fails on its own when the zone is reverted.
+
+`spec/support/time_helpers.rb` was added for it — `travel_to` freezes the clock
+inside the block, so a day-boundary example cannot pass because it happened to
+run at 09:00 and fail at 00:01. That is the seventh shape removed rather than
+mitigated.
+
+### A PREMISE WRITTEN AS A COMMENT, IN A REPO THAT CANNOT SEE WHAT IT ASSUMES
+
+Its own class of stale, found 2026-09-18. Both catalog dashboards carried
+`FORM_ATTRIBUTES = []` and a comment explaining it:
+
+> *"Not routed: a merchant owns their menu and edits it in the app."*
+
+Read on its own it is reasonable, specific and confident. It was also **a claim
+about another repository** — that a merchant menu screen exists in
+`karwan-mobile` — made in a repo that cannot see that screen, by a session that
+could not check it. The screen does not exist. Nothing in this repo could ever
+have contradicted the comment, because nothing here can observe the thing it
+asserts.
+
+The consequence was not an inconvenience: **a menu could only arrive from a
+seed, so the first real restaurant could not be onboarded at all**, while two
+dashboards explained calmly why that was fine.
+
+**What makes this different from an ordinary stale comment.** A stale comment
+about THIS code is contradicted by this code the moment somebody reads both —
+that is the trap CLAUDE.md already records, and reading fixes it. A comment
+asserting a division of labour across a repo boundary has no local contradiction
+available. It cannot rot visibly.
+
+> **Treat a cross-repo claim in a comment as an unverified assumption, and say
+> so in the comment.** "The merchant edits this in the app" is a design
+> intention; "the merchant edits this in the app (unverified from here — see
+> karwan-mobile)" is the same sentence that cannot quietly become false.
+
+Related in shape and found the same week: `Merchant.fuzzy` documented as a
+fallback with no caller, and eleven serialized fields no screen reads. All three
+are a claim about a consumer, made where the consumer cannot be seen.
+
+
 ### A SHOP'S OPENING HOURS HAD NO WAY IN — CLOSED
 
 `opening_hours` has been served to the customer app since the serializer was

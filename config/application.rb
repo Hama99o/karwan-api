@@ -38,7 +38,23 @@ module KarwanApi
     # These settings can be overridden in specific environments using the files
     # in config/environments, which are processed later.
     #
-    # config.time_zone = "Central Time (US & Canada)"
+    # KABUL, AND IT IS A CORRECTNESS SETTING RATHER THAN A DISPLAY ONE.
+    #
+    # Left unset, Rails runs in UTC and every "today" in this app meant the UTC
+    # day — which in Kabul runs **04:30 to 04:30**, because the offset is +4:30.
+    # Three figures are computed from `Time.zone.now.beginning_of_day`: the
+    # merchant's day (PRODUCT.md:80 — orders, items sold, cash received, our
+    # commission), the courier's day, and the console's commission-today. All
+    # three answered a question nobody asked.
+    #
+    # The sharp end is a shop trading past midnight: an order at 01:00 Kabul
+    # fell into the PREVIOUS day's figures, so a restaurant's late trade
+    # belonged to yesterday while it was still being cooked.
+    #
+    # One city, one zone (CLAUDE.md: one neighbourhood in Kabul). Timestamps are
+    # stored in UTC either way — this changes what a DAY means, not what is
+    # written down.
+    config.time_zone = "Kabul"
     # config.eager_load_paths << Rails.root.join("extras")
 
     # Only loads a smaller set of middleware suitable for API only apps.
