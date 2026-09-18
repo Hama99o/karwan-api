@@ -1,60 +1,9 @@
-#!/usr/bin/env ruby
-Rails.application.eager_load!
-
-OURS = ActiveRecord::Base.descendants.reject { |m|
-  m.abstract_class? || m.name.nil? ||
-    m.name.start_with?("ActiveStorage::", "ActiveRecord::", "SolidQueue::", "SolidCache::", "SolidCable::", "ActionText::", "ActionMailbox::")
-}.uniq(&:name).sort_by(&:name)
-
-routes = Hash.new { |h, k| h[k] = [] }
-Rails.application.routes.routes.each do |r|
-  c = r.defaults[:controller].to_s
-  next unless c.start_with?("admin/")
-  routes[c.sub("admin/", "")] << r.defaults[:action].to_s
-end
-
-# RESOLVE THROUGH REFLECTION, not by name. `transitions` is a HasMany whose
-# class is StatusTransition; matching names missed it and reported a model as
-# unreachable when it is on the order page.
-on_parent = Hash.new { |h, k| h[k] = [] }
-Dir.glob("app/dashboards/*_dashboard.rb").each do |file|
-  parent_key = File.basename(file, "_dashboard.rb")
-  parent = parent_key.camelize.safe_constantize
-  next unless parent.respond_to?(:reflect_on_association)
-
-  src = File.read(file)
-  shown = src[/SHOW_PAGE_ATTRIBUTES\s*=\s*%i\[(.*?)\]/m, 1].to_s.split
-  src.scan(/^\s*(\w+):\s*Field::(HasMany|HasOne|BelongsTo)/) do |assoc, kind|
-    reflection = parent.reflect_on_association(assoc.to_sym)
-    klass = (reflection&.klass rescue nil)
-    next if klass.nil?
-
-    on_parent[klass.name] << { parent: parent_key, kind: kind, on_show: shown.include?(assoc) }
-  end
-end
-
-no_door = []
-rows = OURS.map do |m|
-  plural = m.name.underscore.pluralize
-  verbs = routes[plural].uniq
-  parents = on_parent[m.name].select { |p| p[:on_show] }
-  reachable = verbs.any? || parents.any?
-  no_door << m.name unless reachable
-  [ m, verbs, parents, reachable ]
-end
-
-puts format("%-26s %-34s %s", "MODEL WITH NO DOOR", "own route", "on a parent's show page")
-puts "-" * 90
-rows.reject { |_m, _v, _p, ok| ok }.each { |m, _v, _p, _ok| puts "  #{m.name}" }
-puts
-puts "MODELS: #{OURS.size}   NO DOOR: #{no_door.size}"
-puts
-puts "── creatable/correctable, for the ones that ARE reachable ──"
-rows.select { |_m, _v, _p, ok| ok }.each do |m, verbs, parents, _ok|
-  can_create = (verbs & %w[new create]).any?
-  can_edit   = (verbs & %w[edit update]).any?
-  next if can_create && can_edit
-
-  via = parents.map { |p| "#{p[:parent]} page" }.uniq.join(", ")
-  puts format("  %-26s create:%-3s edit:%-3s  %s", m.name, can_create ? "yes" : "NO", can_edit ? "yes" : "NO", via.presence || "own route only")
-end
+#!/usr/bin/env bash
+# WHICH MODELS CAN AN OPERATOR REACH?
+#
+# Needs the Rails environment, so it re-execs itself through `bin/rails runner`.
+# The first version carried a `#!/usr/bin/env ruby` shebang and was chmod +x,
+# which made it LOOK runnable and fail with `uninitialized constant Rails` —
+# a tool that cannot be invoked, in a week spent finding code that cannot be
+# reached.
+exec "$(dirname "$0")/rails" runner "$(dirname "$0")/../script/console_doors.rb"

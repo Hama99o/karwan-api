@@ -83,6 +83,12 @@ Rails.application.routes.draw do
     resources :catalog_categories, only: %i[index show new create edit update destroy]
     resources :catalog_items, only: %i[index show new create edit update destroy]
 
+    # "Size", "Extras", and the values inside them. CLAUDE.md's data model says
+    # of these "do not skip it" — and nothing anywhere could create one, so a
+    # shop selling "large, +100" had no way to say so.
+    resources :catalog_item_options, only: %i[index show new create edit update destroy]
+    resources :catalog_item_option_values, only: %i[index show new create edit update destroy]
+
     resources :users, only: %i[index show edit update] do
       member do
         patch :suspend

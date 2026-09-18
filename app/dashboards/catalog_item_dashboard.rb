@@ -21,6 +21,9 @@ class CatalogItemDashboard < Administrate::BaseDashboard
     photo: AttachmentField,
     currency: Field::String,
     is_available: Field::Boolean,
+    # The choices on this dish, reachable from the dish rather than only from a
+    # list — an operator building a menu is on the item's page already.
+    options: Field::HasMany,
     # Decides which vehicles may be offered the order (`VehicleTypes::CARRIES`).
     # A restaurant never touches it — food is always `small` — but a furniture
     # shop sets `bulky` on beds once, at onboarding, which is here.
@@ -33,7 +36,7 @@ class CatalogItemDashboard < Administrate::BaseDashboard
 
   COLLECTION_ATTRIBUTES = %i[name price currency is_available].freeze
   SHOW_PAGE_ATTRIBUTES = %i[
-    merchant catalog_category name description price currency photo is_available
+    merchant catalog_category name description price currency photo options is_available
     prep_time_minutes position deleted_at created_at
   ].freeze
   # WHAT IS DELIBERATELY NOT HERE, because the wallet taught the lesson: what an

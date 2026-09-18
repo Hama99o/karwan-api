@@ -794,6 +794,73 @@ confirmed unreachable method that morning: unwiring it made it appear with 11
 spec refs, wiring it made it vanish. A sweep that cannot find the case that
 motivated it is not ready to report on cases nobody has checked.
 
+### WHEN TWO CORRECT OPERATIONS MEET, ASSERT WHAT MUST *NOT* HAPPEN
+
+The sharpest money assertion in this repo:
+
+```ruby
+expect(Couriers::CashPosition.new(courier).held).to eq(0)
+expect(courier.courier_wallet.reload.balance).to eq(balance_before),
+                                                 "settling moved the wallet — the commission has been refunded"
+```
+
+**Both halves are individually correct.** Clearing the cash at settlement is
+right. Crediting a wallet is right — it is what a top-up and a reimbursement do.
+Doing both pays the courier twice for the same money, and **no assertion about
+either operation alone can see it**, because neither is wrong.
+
+> A step that is broken fails loudly. A HANDOVER that is wrong is two correct
+> steps, and the only thing that catches it is an assertion about what must not
+> have happened in between.
+
+So when you write a pipeline test, the interesting assertions are not the
+statuses. They are the negatives at the joins: the commission charged **once**,
+the wallet **unmoved** by a settlement, the ledger's total movement accounting
+for every entry, the second delivery tap changing **nothing**.
+
+**And plant the red at a join, not at a step.** Removing a step fails every
+version of the test; running a handover twice fails only the version that was
+looking. The plants that proved the lifecycle spec were a settlement that also
+credited the balance, and a delivery that charged commission twice — both of
+them made of correct parts.
+
+### A DELIBERATE ABSENCE CAN BE ASSERTED, AND THEN IT STOPS BEING INVISIBLE
+
+A thing this repo does not do is as real as a thing it does, and it has no
+natural home: a comment rots, `NOTES.md` is read by whoever thinks to look, and
+the code is silent by construction.
+
+**Twice in one day a deferral was read as a gap.** `Trip` has a full table,
+pricing, dispatch, a courier job view and an admin console, and nothing creates
+one — which looks exactly like an omission and is `PRODUCT.md:12` working as
+written: *"Do not build the ride product yet."* The schema is complete ahead of
+the feature on purpose, so that rides are an addition rather than a rewrite.
+
+The answer is an example that fails **when the deferral ends**:
+
+```ruby
+it "cannot walk a ride, because a passenger has no way to request one" do
+  expect(customer_routes).not_to include("api/v1/customers/trips"),
+                                 "a customer can request a ride — PRODUCT.md:12 must change before this spec does"
+  expect(Rails.root.join("docs/PRODUCT.md").read).to include("Do not build the ride product yet")
+end
+```
+
+Three things that buys, none of which a comment does:
+
+- **The refusal stops depending on the next person reading the same document.**
+  It was commissioned twice from a correct reading of the evidence.
+- **It names the file that must change first**, so the day the decision changes,
+  whoever builds it starts in the right place — and the spec turning red is the
+  reminder to update the document rather than route around it.
+- **It fails if the DOCUMENT changes too**, which is the half that makes it
+  honest: asserting only the absent route would let somebody delete the
+  deferral and keep the test green.
+
+> **If you refuse work because a document defers it, write the refusal as an
+> example.** A deferral nobody can see gets rediscovered as a gap, and the
+> rediscovery costs more each time.
+
 ### A DOCUMENTED REASON FOR AN EXCLUSION IS A CLAIM WITH A DATE ON IT
 
 The mirror of the rule below. That one is a suite you chose not to run; this is

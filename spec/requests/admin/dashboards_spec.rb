@@ -42,6 +42,8 @@ RSpec.describe "Every ops console page renders", type: :request do
     when "catalog_categories" then create(:catalog_category)
     when "catalog_items" then create(:catalog_item)
     when "merchant_categories" then create(:merchant_category)
+    when "catalog_item_options" then create(:catalog_item_option)
+    when "catalog_item_option_values" then create(:catalog_item_option_value)
     else raise ArgumentError, "no row defined for #{resource}"
     end
   end
@@ -52,10 +54,12 @@ RSpec.describe "Every ops console page renders", type: :request do
     orders trips merchants courier_profiles courier_wallets users
     settings pricing_rates audit_logs wallet_entries settlements
     merchant_opening_hours catalog_categories catalog_items merchant_categories
+    catalog_item_options catalog_item_option_values
   ].freeze
   EDITABLE = %w[
     merchants courier_profiles courier_wallets users settings pricing_rates
     merchant_opening_hours catalog_categories catalog_items merchant_categories
+    catalog_item_options catalog_item_option_values
   ].freeze
 
   # ── THE HAND-WRITTEN LIST MUST STILL MATCH THE ROUTER ────────────────────
