@@ -77,6 +77,30 @@ module Couriers
       field :place_name do |job|
         job.is_a?(Order) ? job.merchant.name : nil
       end
+
+      # ── AND HOW FAR HE THEN CARRIES IT ──────────────────────────────────────
+      #
+      # PRODUCT.md names both on the offer card — "restaurant name and distance,
+      # CUSTOMER DISTANCE" — and only the first was served. `distance_km` above
+      # is the ride TO the pickup; this is the leg after it, which is most of the
+      # courier's time and none of it was on the card.
+      #
+      # It changes the answer. One kilometre to the shop and twelve to the door
+      # is a different job from one and one, at the same fee, and he was deciding
+      # accept-or-decline without the number that separates them.
+      #
+      # `distance_km` is NOT renamed to match, though the pair reads asymmetric.
+      # The app already parses it, and a rename is a client break for a cosmetic
+      # gain — so the name carries the disambiguation instead.
+      #
+      # One field for both demand types: on a delivery it is merchant to
+      # customer, on a ride it is passenger to destination. Both are "how far he
+      # carries it after pickup", and both are the FROZEN column the fare was
+      # quoted from — never re-measured, for the reason `Orders::ArrivalWindow`
+      # gives at length.
+      field :onward_distance_km do |job|
+        job.distance_km
+      end
     end
 
     view :active do

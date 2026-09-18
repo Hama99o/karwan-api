@@ -767,6 +767,82 @@ inside the block, so a day-boundary example cannot pass because it happened to
 run at 09:00 and fail at 00:01. That is the seventh shape removed rather than
 mitigated.
 
+### OPEN — "RESTAURANT NOT READY" HAS NO PATH, AND IT MUST NOT BE A FAILURE
+
+Found 2026-09-18 walking PRODUCT.md phase 4. **For Hamma9901 / Hamma9900 — not
+decided here**, because the answer is a money decision.
+
+PRODUCT.md names four problem buttons on the courier's active-job screen:
+
+> *customer not answering*, *customer refused*, *restaurant not ready*, *call
+> support*
+
+Three of the four are reachable. `call support` is a phone number rather than an
+endpoint, which is right. **`restaurant not ready` exists nowhere** — not in
+`Order.failure_reason` (`customer_refused`, `nobody_home`,
+`customer_unreachable`, `wrong_address`, `other` — every one of them about the
+customer end), and not as any other route. `jobs_controller#problem`'s own
+comment lists only three, so the gap is invisible from inside the file.
+
+**And it cannot simply be added to that enum,** which is the part worth reading
+twice. `#problem` transitions the job to `:failed`. A shop that is slow is not a
+failed delivery — the courier is standing at the counter with a live order that
+is going to complete. Adding the reason there would let one tap kill a good
+order, refund nothing, and strand a customer who is still expecting food.
+
+**What it actually is:** the courier is being made to wait, unpaid, by somebody
+else's kitchen. That is the platform's problem to see, not the courier's to
+absorb, and it is the case `support is a human` in CLAUDE.md exists for.
+
+**Proposal, roughly one day, brought rather than built:**
+
+- a `courier_waiting_at` timestamp on the order, set by a new non-terminal
+  endpoint, cleared on pickup — the job stays live and nothing about the money
+  changes
+- an `AuditLog` row and a dashboard tile beside `orders overdue`, so a human can
+  ring the shop while the courier is still standing there
+- it composes with `is_overdue`, which already exists and already reaches admin
+
+**The decisions that are NOT mine, and are why this is written rather than
+merged:**
+
+1. **Does a waiting courier get paid for the wait?** A waiting-time fee is on
+   correction 13's explicit OUT list for v0. If the answer is no, the honest
+   thing is that the button informs the office and nothing else, and the courier
+   should be told that plainly rather than left to infer it.
+2. **May he abandon the job after waiting, and does that cost him?** Today the
+   only exit is `:failed` with a reason that blames the customer, which would be
+   a lie in the record — and the record is what settles a dispute.
+3. **Does it count against the merchant?** It is the same fact as a merchant
+   accepting orders it cannot cook, which is a merchant-quality signal nobody is
+   collecting yet.
+
+Until it is decided, a courier facing a slow kitchen has a screen with no honest
+button on it.
+
+### `git checkout <path>` REVERTS A PLANT *AND* THE WORK IT WAS PLANTED IN
+
+Twice on 2026-09-18, in one session, after the rule was already known.
+
+The plant discipline says: break it, watch the gate go red, put it back. The
+"put it back" was `git checkout <path>` — which restores from **HEAD**, not from
+the state before the plant. When the file also held uncommitted work, that work
+went with the plant, silently, exit code 0.
+
+First time it restored a deleted `AddressPolicy#index?` I had just removed.
+Second time it deleted an `onward_distance_km` field I had just written. Both
+were caught only because the next command happened to look.
+
+**So: back the file up before planting, and restore from the backup.**
+
+    cp app/x.rb "$SCRATCH/x.bak"   # then plant, run, and
+    cp "$SCRATCH/x.bak" app/x.rb   # restore what YOU had, not what HEAD has
+
+`git checkout` is the right tool only when the file is otherwise clean, and
+"otherwise clean" is exactly the assumption that fails during a long change.
+**The tell is that reverting a plant should never change more than the plant
+did** — so if the diff after restoring is not empty, read it.
+
 ### AND ITS SIBLING: A COMMENT DESCRIBING WHAT THE CODE *SHOULD* DO
 
 > **A comment describing what a repo DOES can rot. A comment describing what it

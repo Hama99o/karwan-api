@@ -234,4 +234,47 @@ RSpec.describe "Api::V1::Couriers::Offers", type: :request do
       expect(offer.offerable.reload.courier).to be_nil
     end
   end
+  # ── THE OFFER CARD CARRIES BOTH LEGS, NOT ONE ───────────────────────────────
+  #
+  # PRODUCT.md names "restaurant name and distance, customer distance" on the
+  # card, and only the ride TO the shop was served. The leg after pickup is most
+  # of his time and was missing from the decision.
+  describe "GET /api/v1/courier/offer — the two distances" do
+    it "carries the onward leg beside the ride to the pickup, and they are different numbers" do
+      order = delivery
+      # The shop is where the courier already is, so the ride to it is ~0 and
+      # only the onward leg can account for the distance he is being asked for.
+      order.update!(distance_km: 9.0)
+      create(:offer, courier: courier, offerable: order)
+
+      get "/api/v1/courier/offer", headers: auth
+
+      job = json.dig("offer", "job")
+      expect(job["onward_distance_km"].to_f).to eq(9.0)
+      expect(job["distance_km"].to_f).to be < 1.0
+    end
+
+    it "reads the frozen column rather than re-measuring, so it agrees with the fare" do
+      order = delivery
+      order.update!(distance_km: 9.0)
+      create(:offer, courier: courier, offerable: order)
+      # Moving the shop must not move a distance the fare was already quoted on.
+      merchant.update!(latitude: 34.9000, longitude: 69.9000)
+
+      get "/api/v1/courier/offer", headers: auth
+
+      expect(json.dig("offer", "job", "onward_distance_km").to_f).to eq(9.0)
+    end
+
+    it "is nil when the job was never measured, rather than a zero that reads as next door" do
+      order = delivery
+      order.update!(distance_km: nil)
+      create(:offer, courier: courier, offerable: order)
+
+      get "/api/v1/courier/offer", headers: auth
+
+      expect(json.dig("offer", "job")).to have_key("onward_distance_km")
+      expect(json.dig("offer", "job", "onward_distance_km")).to be_nil
+    end
+  end
 end
