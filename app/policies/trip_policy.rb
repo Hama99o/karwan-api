@@ -6,7 +6,6 @@
 # a shared policy would become the conditional this architecture exists to
 # avoid. Duplication between demand types is cheaper than coupling between them.
 class TripPolicy < ApplicationPolicy
-  def index?  = true
   def create? = customer? || admin?
 
   def show?

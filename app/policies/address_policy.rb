@@ -1,5 +1,4 @@
 class AddressPolicy < ApplicationPolicy
-  def index?   = true
   def create?  = own?
   def show?    = own?
   def update?  = own?

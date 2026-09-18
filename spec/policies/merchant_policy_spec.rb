@@ -9,12 +9,22 @@ RSpec.describe MerchantPolicy do
   describe "browsing" do
     # Open, including to guests. Correction 10: let them see a merchant before
     # asking for anything.
+    #
+    # `#show?` AND THE SCOPE, and deliberately not `#index?`, which used to be
+    # asserted here and has been deleted. Pundit never reached it: every index
+    # action in this API is gated by `policy_scope` under `verify_policy_scoped`,
+    # and `verify_authorized` is skipped for index precisely so that is the rule.
+    # Asserting a predicate nothing consults is a green check on an unused gate.
     it "is allowed for everyone, including a guest with no user at all" do
       [ nil, customer, owner, admin ].each do |actor|
-        policy = described_class.new(actor, merchant)
+        expect(described_class.new(actor, merchant).show?).to be true
+      end
+    end
 
-        expect(policy.index?).to be true
-        expect(policy.show?).to be true
+    # What actually decides the listing, for the same four actors.
+    it "lists live approved merchants for everyone, guest included" do
+      [ nil, customer, owner, admin ].each do |actor|
+        expect(described_class::Scope.new(actor, Merchant.all).resolve).to include(merchant)
       end
     end
   end

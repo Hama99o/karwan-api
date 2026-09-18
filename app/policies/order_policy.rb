@@ -1,5 +1,4 @@
 class OrderPolicy < ApplicationPolicy
-  def index?  = true
   def create? = customer? || admin?
 
   # Three audiences, three different reasons to be allowed near one record —

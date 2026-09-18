@@ -1,7 +1,6 @@
 class MerchantPolicy < ApplicationPolicy
   # Browsing is open, including to guests. Correction 10: let them see a
   # merchant before asking for anything.
-  def index? = true
   def show?  = true
 
   # Merchants are not self-serve in v0 — admin onboards them.
