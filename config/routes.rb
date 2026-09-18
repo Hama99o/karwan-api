@@ -140,6 +140,11 @@ Rails.application.routes.draw do
       # removed.
       # The signed-in person. Not under a role namespace: unlike an order,
       # these mean the same thing to all four roles.
+      # THE DRAWN LINE, by road. Not role-namespaced for the same reason `me`
+      # is not: one map screen serves customer, courier and merchant, and the
+      # question means the same thing to all three.
+      resource :route, only: %i[show], controller: "routes"
+
       resource :me, only: %i[show update], controller: "me" do
         post :switch_role
         post :register_device
