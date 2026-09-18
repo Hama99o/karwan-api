@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_18_134443) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_18_195949) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -584,6 +584,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_18_134443) do
     t.string "name"
     t.string "phone", null: false
     t.datetime "phone_verified_at"
+    t.string "preferred_theme", default: "system", null: false
     t.datetime "reset_password_sent_at"
     t.string "reset_password_token"
     t.integer "status", default: 0, null: false

@@ -21,6 +21,14 @@ class User < ApplicationRecord
   validates_attached :avatar
   LOCALES = %w[ps fa en].freeze
 
+  # THE THREE, in the order the app offers them. `system` leads because it is
+  # the default and the honest one: the OS already knows whether the phone is in
+  # sunlight or in a dark room, and guessing worse than the OS is not a feature.
+  #
+  # On the USER rather than the device, for the reason `locale` is —
+  # AFGHAN_UX.md §7, phones are shared, so a preference belongs to a person.
+  THEMES = %w[system light dark].freeze
+
   # ── THE CREDENTIAL IS DEVISE'S; THE SESSION IS OURS ─────────────────────────
   #
   # Hamma9900: *"we use same as Hatiwal for now."* `hatiwal-api/app/models/user.rb`
@@ -128,6 +136,7 @@ class User < ApplicationRecord
 
   validates :phone, presence: true, uniqueness: true
   validates :locale, presence: true, inclusion: { in: LOCALES }
+  validates :preferred_theme, presence: true, inclusion: { in: THEMES }
 
   scope :with_role, ->(role) { joins(:user_roles).where(user_roles: { role: UserRole.roles[role] }) }
 

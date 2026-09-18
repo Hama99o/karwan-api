@@ -3,7 +3,10 @@ module Shared
   # IS the same thing to all of them — unlike an order, which is three
   # different things.
   class UserSerializer < ApplicationSerializer
-    fields :id, :phone, :name, :locale
+    # `preferred_theme` beside `locale` deliberately: they are the same kind of
+    # fact about the same person, and a client that reads one should not have to
+    # look somewhere else for the other.
+    fields :id, :phone, :name, :locale, :preferred_theme
 
     # THE VARIANT, not the original. Nil when they have not set one, which the
     # app already renders as initials or a placeholder.

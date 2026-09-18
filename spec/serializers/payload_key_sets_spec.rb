@@ -79,7 +79,7 @@ RSpec.describe "payload key sets" do
 
       expect(keys_of(JSON.parse(response.body)["user"])).to eq(%w[
         active_role avatar_url can_switch_roles courier_verification_status id
-        locale name phone phone_verified roles
+        locale name phone phone_verified preferred_theme roles
       ])
     end
 

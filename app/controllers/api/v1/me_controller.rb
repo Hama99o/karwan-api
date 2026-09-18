@@ -176,6 +176,6 @@ class Api::V1::MeController < Api::V1::BaseController
   # shared. An invalid value is refused by the model's own validation rather
   # than filtered here, so the client gets told which field was wrong.
   def profile_params
-    params.permit(:name, :locale, :avatar)
+    params.permit(:name, :locale, :preferred_theme, :avatar)
   end
 end
