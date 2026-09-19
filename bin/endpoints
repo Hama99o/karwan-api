@@ -14,6 +14,14 @@
 # is never quietly out of date — an out-of-date list is worse than none,
 # because a diff against it produces confident nonsense.
 #
+# A ROUTE WITH NO CALLER IS NOT DEAD CODE. Diffing this file against a client's
+# call list answers "does anything call this" and never "why not" — and the why
+# is the whole decision. Of the eight uncalled on 2026-09-19, seven were built
+# ahead of a screen the mobile side is holding deliberately, and the eighth
+# (`POST /auth/otp`) is switched off behind an owner-editable Setting rather
+# than abandoned. None should be retired. See docs/NOTES.md before deleting
+# anything this file reports.
+#
 # Admin is excluded on purpose: Administrate is the ops console, no app calls
 # it, and including ~90 CRUD routes would bury the surface that matters.
 set -euo pipefail

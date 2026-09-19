@@ -3254,3 +3254,50 @@ makes it true.
 brakeman, `zeitwerk:check`, the full suite — now appears in both. The
 2026-09-18 defect (local CI ran no spec at all while the workflow ran the suite)
 is closed, and this is the check that confirms it rather than assuming it.
+
+## "UNCALLED" IS THREE DIFFERENT STATES, AND NONE OF THE EIGHT SHOULD BE RETIRED
+
+The cross-repo diff reports endpoints with no client caller. After the mobile
+session built close-account and remove-photo, eight remain. Asked which are mine
+to retire, the answer is **none**, and the reason is that *uncalled* conflates
+three states that want opposite treatment.
+
+**1 · Built ahead of the client — a commitment, not an orphan.** The six
+merchant catalog write routes (`catalog_items` and `catalog_categories`
+create/update/destroy, plus `available` and `sold_out`) and
+`PATCH /courier/registration`. The mobile side is holding these deliberately:
+the menu forms await references under Rule Zero, and courier registration has no
+screen yet. Deleting an endpoint because the screen is not built is deleting the
+half of the work that IS done.
+
+**2 · Deliberately dormant behind a switch the owner can flip.**
+`POST /auth/otp`. Its controller says so in its own words — *"SWITCHED OFF, not
+deleted. Hamma9900 replaced the code with a password and said 'for now'"* — and
+the switch is the `otp_sign_in_enabled` **Setting**, default false, editable in
+the console with **no deploy**. Retiring the route would convert a one-minute
+flip into a rebuild, and would also remove five published error codes from
+`ErrorCodes`. This is the one that most looks like dead code and is furthest
+from it.
+
+**3 · Genuinely orphaned.** None found.
+
+### Why this matters more than the eight
+
+**A diff that reports "8 uncalled" invites the delete key.** The number is
+useful and the conclusion it suggests is wrong in all eight cases here. An
+endpoint with no caller is evidence of exactly one thing — that no caller
+exists — and *why* is never in the diff. Two of the three states above are
+correct and expected; the third is the only one worth acting on, and it is empty.
+
+**So the diff's job is to raise the question, not to answer it.** The same holds
+in the other direction: the mobile session's `doors.py` reports exports with no
+caller, and its two remaining ones are a deliberate absence and an unused
+helper. Neither tool can tell a commitment from an orphan, because the
+difference is an intention and lives in neither repo.
+
+**One artifact worth knowing:** `resources only: [:update]` routes **both PUT
+and PATCH**, so every updatable resource appears twice in `docs/API_SURFACE.txt`
+while a client sends one. That is a true fact about the routes, not a
+duplication to clean up — collapsing it in the generator would make the file
+disagree with `bin/rails routes`. The mobile side folds PUT into PATCH when
+diffing, which is the right place for it.
