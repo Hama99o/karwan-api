@@ -3205,3 +3205,52 @@ server will refuse.
 `transition_to!`, so the customer's own words are on the `status_transitions`
 row where an operator can read them. That is worse for counting and better for
 understanding, and it is the right trade while the enum means three things.
+
+## `bin/ci`, JUDGED BY PLANTING EACH STEP — 2026-09-19
+
+The last instrument still unjudged. **Two of its six steps are my own work**
+(Autoloading and Tests, added 18 Sept), so those two are a self-review and
+should be weighed as one; the other four I did not write.
+
+| step | planted with | verdict |
+|---|---|---|
+| Setup | — | **NOT PLANTED** — no safe plant for `bin/setup` |
+| Style: Ruby | a badly-spaced method | **fires**, exit 1, 4 offenses |
+| Security: Gem audit | — | **NOT PLANTED** — needs a genuinely vulnerable gem |
+| Security: Brakeman | an SQL injection in a throwaway controller | **fires**, exit 3, 1 warning |
+| Autoloading *(mine)* | a file defining the wrong constant | **fires**, exit 1, names the file |
+| Tests *(mine)* | many, all day | **fires** |
+
+**The runner itself is sound.** `ActiveSupport::ContinuousIntegration#step`
+collects `system(*command)` per step, `success?` is `results.all?`, and `run`
+does `abort unless ci.success?`. A command that does not exist returns **nil**
+from `system`, which is falsy, so a typo'd step counts as a failure rather than
+vanishing. Steps do **not** halt on first failure — everything runs and the
+abort comes at the end — which is a reporting choice, not a leak.
+
+### AND A DIVERGENCE I REPORTED THAT WAS NOT ONE
+
+`.github/workflows/ci.yml` runs `bin/brakeman --no-pager`; `config/ci.rb` runs
+it with `--exit-on-warn --exit-on-error`. I concluded the gate protecting `main`
+could not fail on a warning — a security scan that reports and passes — and was
+ready to write it up.
+
+**Planted an SQL injection and ran both forms. Both exit 3.** This Brakeman
+fails on warnings by default; the extra flags are belt-and-braces, not
+load-bearing. The finding was wrong and the plant is the only reason it never
+left this machine.
+
+**That is three times in one day that a plant corrected a confident hypothesis**
+— the "unreachable" preflight branch (the plant was invalid), and twice a
+regex capture that produced a plausible list from the wrong subject. The pattern
+worth keeping: **the hypotheses that felt most specific were the ones that were
+wrong**, because specificity is what makes a claim persuasive rather than what
+makes it true.
+
+### What the two configs still do not share
+
+`config/ci.rb` runs `bin/setup --skip-server`; the workflow runs
+`bin/rails db:schema:load`. Everything substantive — rubocop, bundler-audit,
+brakeman, `zeitwerk:check`, the full suite — now appears in both. The
+2026-09-18 defect (local CI ran no spec at all while the workflow ran the suite)
+is closed, and this is the check that confirms it rather than assuming it.
