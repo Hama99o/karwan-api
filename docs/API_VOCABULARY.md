@@ -97,7 +97,7 @@ question nobody asked about `roles`.
 ## D · ERROR CODES — the vocabulary that had no owner
 
 `code:` is what lets a client say something in Pashto; the `error` string is for
-a developer reading a log. **35 codes are declared in `ErrorCodes`**
+a developer reading a log. **60 codes are declared in `ErrorCodes`**
 (`app/models/concerns/error_codes.rb`), which exists because until now they had
 no declaration at all — every controller wrote its own inline, so the list could
 only be recovered with a grep, and it drifted to 35 while the app named 7.
@@ -114,6 +114,28 @@ may be undeclared, nothing declared may be unemitted.
 | **dispatch** | `offer_expired` `not_your_job` `cannot_advance` `wrong_step` `too_early_to_arrive` `wallet_blocked` |
 | **geography** | `outside_service_area` `unroutable` |
 | **infrastructure** | `bad_request` `not_found` `bad_platform` `rate_limited` `pending_migration` |
+| **account deletion** — `me#destroy`, 422 | `holding_cash` `wallet_unsettled` `live_job` `live_order` `merchant_orders_in_flight` |
+| **eligibility** — why a courier may not take this job | `no_profile` `not_approved` `off_shift` `wrong_job_kind` `vehicle_too_small` `too_many_passengers` `wrong_vehicle_class` `already_on_a_job` `stale_location` `too_far` `no_wallet` `wallet_blocked` `insufficient_credit` `cash_in_hand` |
+
+### The half a grep could not see
+
+The first version of this section said 35, and that number was produced by an
+instrument that could only read `code: "a_literal"`. **Twenty-five more reach
+clients from expressions** — `code: deletion.reason.to_s`,
+`code: error_code_for(e)`, `code: eligibility.reason.to_s`, `code: refusal.to_s`
+— including the fourteen eligibility reasons a courier meets in an ordinary
+week, and the five fixable refusals on account deletion.
+
+`spec/models/error_codes_spec.rb` now requires **every `code:` that is not a
+literal to be accounted for by name**, so the next dynamic one fails until
+somebody says where its words come from. Also added:
+`not_a_mobile_role`, and the six from `error_code_for` — `item_unavailable`,
+`invalid_options`, `empty_cart`, `no_vehicle_for_this_order`,
+`cannot_price_order`, `merchant_unavailable`.
+
+**`merchant_unavailable` is a word in two different vocabularies** — an error
+code here, and a value of `Order.cancellation_reasons` in category C. They are
+unrelated and must not be mapped to one string on a client.
 
 **`outside_service_area` and `unroutable` are different answers and must not be
 collapsed.** The first says we do not cover that place; the second says we cover
