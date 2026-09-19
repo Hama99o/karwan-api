@@ -110,10 +110,40 @@ module Attachments
       def variants_processable?
         return @variants_processable if defined?(@variants_processable)
 
+        # ── THIS COULD NEVER RETURN TRUE, AND BOTH BRANCHES WERE WRONG ──────
+        #
+        # It read `require "vips" && true`, which Ruby parses as
+        # `require("vips" && true)` — `&&` binds tighter than a parenthesis-less
+        # argument — so it called `require(true)`, raised
+        # `TypeError: no implicit conversion of true into String`, and the
+        # rescue below turned that into `false`. The mini_magick branch had the
+        # same shape and failed earlier still, evaluating `MiniMagick.cli`
+        # before the gem it lives in had been required.
+        #
+        # MEASURED 2026-09-19 in the container, where libvips is installed, the
+        # `ruby-vips` gem resolves and `require "vips"` succeeds: this method
+        # still returned false. It was not detecting a missing library, it was
+        # reporting its own TypeError.
+        #
+        # AND PARENTHESES ALONE DO NOT FIX IT. `(require "vips") && true` is
+        # still false whenever vips was ALREADY loaded, because `require`
+        # returns false for an already-loaded feature — so the answer would
+        # depend on whether something else had touched vips first. The only
+        # honest test is "does the require raise?", so the require stands on
+        # its own line and the truth is stated separately.
+        #
+        # What it cost: on a deployed box `bin/preflight` turns a false here
+        # into a FAILURE, and tells the reader to install libvips — which is
+        # already in both Dockerfile stages. A blocking red with a remedy that
+        # is already applied.
         @variants_processable = begin
           case Rails.application.config.active_storage.variant_processor
-          when :vips then require "vips" && true
-          when :mini_magick then require "mini_magick" && MiniMagick.cli.present?
+          when :vips
+            require "vips"
+            true
+          when :mini_magick
+            require "mini_magick"
+            MiniMagick.cli.present?
           else false
           end
         rescue LoadError, StandardError

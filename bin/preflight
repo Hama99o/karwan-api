@@ -262,18 +262,41 @@ fi
 # The production image has `libvips` in both Dockerfile stages; this catches the
 # day somebody trims it out of the runtime layer to save 40 MB.
 step "Image variants"
-VARIANTS=$(bin/rails runner 'print Attachments::PublicUrl.variants_processable? ? "yes" : "no"' 2>/dev/null)
-
-if [ "$VARIANTS" = "yes" ]; then
-  ok "thumbnails can be generated"
-elif [ -n "${APP_BASE_URL:-}${KAMAL_HOST:-}" ] || [ "${RAILS_ENV:-development}" = "production" ]; then
-  bad "no image library on a DEPLOYED box — every photo would be served at full camera resolution."
-  note "the Home screen measured ~20 MB of originals against ~1.3 MB of variants"
-  note "install libvips (it is in both Dockerfile stages; check the runtime layer)"
-else
-  say "  · no libvips here, so photos are served unresized — fine locally, fails on a deployed box."
-  note "the API degrades to the original rather than serving a URL that 500s"
-fi
+# ── ASK THE API, NOT THIS SHELL ───────────────────────────────────────────
+#
+# Same correction as File URLs above, and the same reason: a host
+# `bin/rails runner` describes THIS box, and since `web` became a container
+# this box is not the process serving :$PORT. It reported "no libvips here"
+# while the app had libvips and was serving variants.
+#
+# The app's own answer is IN THE PAYLOAD. Active Storage serves a variant from
+# `/representations/` and an original from `/blobs/`, so the URL a phone is
+# handed says which happened — no interpreting, no second process to ask.
+#
+# MEASURED on this repo 2026-09-19: page 1 carries 20.73 MB of originals
+# against ~3.5 KB per variant. That is the whole reason this step exists.
+IMG_KIND=$(curl -s -m 10 "$API/api/v1/public/merchants" 2>/dev/null \
+  | grep -oE '/rails/active_storage/(representations|blobs)/' | head -1)
+case "$IMG_KIND" in
+  */representations/)
+    ok "photos are served RESIZED — the app generated a variant"
+    ;;
+  */blobs/)
+    if [ -n "${APP_BASE_URL:-}${KAMAL_HOST:-}" ] || [ "${RAILS_ENV:-development}" = "production" ]; then
+      bad "photos are served at FULL camera resolution on a DEPLOYED box."
+      note "measured here: 20.7 MB of originals on page 1 against ~3.5 KB per variant"
+      note "libvips is in BOTH Dockerfile stages, so the system library is usually not what is missing —"
+      note "check the app process can require its variant processor at all"
+    else
+      say "  · photos are served unresized here — the API degrades to the original"
+      say "    rather than serving a URL that 500s. Fails on a deployed box."
+    fi
+    ;;
+  *)
+    say "  · no photo URL in the payload, so this cannot be answered."
+    note "that means no merchant has a photo yet — it is NOT a variant problem"
+    ;;
+esac
 
 # ── A DECLARED SECRET IS NOT A SUPPLIED ONE ───────────────────────────────
 #

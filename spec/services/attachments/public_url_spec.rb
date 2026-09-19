@@ -142,3 +142,81 @@ RSpec.describe Attachments::PublicUrl do
     end
   end
 end
+
+# ── THE GATE THAT COULD NEVER OPEN ─────────────────────────────────────────
+#
+# `variants_processable?` read `require "vips" && true`. Ruby binds `&&` tighter
+# than a parenthesis-less argument, so that is `require("vips" && true)` —
+# `require(true)` — which raises `TypeError` straight into the method's own
+# `rescue ... false`. The mini_magick branch had the same shape. **Neither
+# branch could return true on any machine**, however well libvips was
+# installed.
+#
+# It hid for two reasons, and the second is the one worth remembering:
+#
+#   1. The method had no spec of its own. This block is that spec.
+#   2. FIVE call-site specs stub it to `true`
+#      (`served_images_are_resized_spec`, `avatar_spec`,
+#      `onboarding_a_restaurant_spec`, `first_restaurant_rehearsal_spec`).
+#      Every place that needed the "variants work" path had to force it, and a
+#      stub that is always needed is evidence about the real method that nobody
+#      read as evidence.
+#
+# WHAT IT COST: `bin/preflight` turns a false here into a FAILING step on a
+# deployed box and tells the reader to install libvips — which is already in
+# both Dockerfile stages. A blocking red whose remedy was already applied.
+RSpec.describe Attachments::PublicUrl, ".variants_processable?" do
+  # THE ASSERTION THAT RUNS EVERYWHERE, and the one that would have caught it.
+  #
+  # The behavioural example below cannot catch this bug on a box with no
+  # libvips — which is this box, and therefore CI — because there the correct
+  # answer and the broken answer are both `false`. A source assertion has no
+  # such blind spot: the defect is in the expression, so the expression is what
+  # is asserted. Keep both; they fail in different places.
+  it "never decides a require succeeded by using its value in a boolean" do
+    source = Rails.root.join("app/services/attachments/public_url.rb").read
+    body = source[/def variants_processable\?.*?\n      end/m]
+
+    # STRIP COMMENTS BEFORE MATCHING. The first version of this example failed
+    # against the FIXED file, because the comment inside the method quotes the
+    # broken expression in order to explain it. A grep-based gate is a tiny
+    # parser, and one that cannot tell a comment from a statement reports the
+    # documentation as the defect. docs/TESTING.md says this in its own words;
+    # this example was written without reading it and reproduced the mistake
+    # within the hour.
+    body = body.to_s.lines.reject { |line| line =~ /\A\s*#/ }.join
+
+    expect(body).not_to match(/require\s+["'][^"']+["']\s*&&/),
+      "`require \"x\" && y` parses as `require(\"x\" && y)`, which raises " \
+      "TypeError and is swallowed by the rescue — the gate can then never open"
+
+    # `require` returns FALSE for an already-loaded feature, so even
+    # `(require "vips") && true` would answer differently depending on whether
+    # something else touched vips first. The only honest test is whether the
+    # require RAISES.
+    expect(body).not_to match(/=\s*require\s/)
+  end
+
+  # Asserts the answer matches reality on whatever box this runs on. On a
+  # machine with libvips it must be true; on one without, false. It is a real
+  # assertion in both directions — it is simply blind to the bug above on a box
+  # where the library is absent.
+  it "agrees with whether the configured processor can actually be loaded" do
+    processor = Rails.application.config.active_storage.variant_processor
+    skip "only :vips and :mini_magick are handled" unless %i[vips mini_magick].include?(processor)
+
+    library = processor == :vips ? "vips" : "mini_magick"
+    loadable =
+      begin
+        require library
+        true
+      rescue LoadError
+        false
+      end
+
+    described_class.remove_instance_variable(:@variants_processable) if
+      described_class.instance_variable_defined?(:@variants_processable)
+
+    expect(described_class.variants_processable?).to eq(loadable)
+  end
+end
