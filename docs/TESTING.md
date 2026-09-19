@@ -90,6 +90,36 @@ the cause. Watch for a spec that was **pinning a bug in place** — when a fix
 turns one red, the question is which of the two is right, and sometimes the
 correct move is to update the expectation. Say so when it happens.
 
+### READ THE PENDINGS, NOT THE COUNT
+
+`N examples, 0 failures, 3 pending` is three facts and most readers take one.
+**The pendings are the repo telling you where its open questions are, out loud,
+on every single run** — and a `pending` here is never idleness: the convention in
+this project is that it marks a defect somebody deliberately declined to hide,
+with the reason and whose decision it is in the message.
+
+Added 2026-09-19 after quoting "0 failures, 3 pending" a dozen times in one day
+and then reporting one of those three pendings upward as a **new discovery**. It
+was `money_conservation_spec.rb`'s *"collects the premium uplift it charged the
+customer for"*, pending on *"OPEN: ... Hamma9900's call"*, under a heading that
+reads **"THE LEAK THIS FILE WAS WRITTEN TO FIND"**. The suite had been saying so
+since before that session started.
+
+```bash
+bundle exec rspec 2>&1 | sed -n '/Pending:/,/^$/p'   # read them, once a day
+```
+
+**The general form, which cost three mistakes in one hour to learn:** before
+proposing a spec, read the spec that already covers the thing. A spec file is
+not only a gate, it is the written record of which assertions have already been
+**considered and refused** — and the reason is usually in a comment above the
+one that was kept. The third mistake in that hour was proposing
+`commission + courier_earnings == fare` for a ride, which that same file rejects
+by name, because `courier_earnings` is computed **as** `fare - commission`: a
+residual, and *"A RESIDUAL CANNOT FAIL"* is the first worked example in this
+document. The doc's opening lesson was reproduced by somebody reasoning about how
+to avoid traps.
+
 ---
 
 ## Prove the suite can fail
