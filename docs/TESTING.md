@@ -1740,3 +1740,61 @@ empty file and pass. It counts the subject first.
 
 **Ask of every equality: what does this say when both sides are empty?** If the
 answer is "it passes", it is not yet an assertion.
+
+## AN INSTRUMENT CORRECT ABOUT EVERYTHING IT CAN SEE, AND SILENT ABOUT ITS BLIND SPOT
+
+The shapes above are instruments that read the wrong thing, or nothing, or the
+wrong subject. This one reads the **right** thing, reports it **accurately**,
+and is confidently **short** — and nothing in its output says so.
+
+**The instance, 2026-09-19.** `spec/models/error_codes_spec.rb` was written to
+stop the error-code vocabulary drifting, and committed with a declaration of
+**35** codes. Every one of the 35 was real. Every assertion about them was true.
+There were **60**.
+
+The scan matched `code: "a_literal"`. Twenty-five codes reach clients from
+expressions — `code: deletion.reason.to_s`, `code: eligibility.reason.to_s`,
+`code: error_code_for(e)`, `code: refusal.to_s` — and fourteen of those are the
+reasons a courier may not take a job, met in an ordinary week. The mobile
+session reported five of them from the outside; the gate that existed to prevent
+exactly this had never seen any.
+
+**The gate was not wrong about what it saw. It was wrong about what it could
+see.** That is worse than a broken instrument, because a broken one is
+eventually noticed: this one produced a clean, specific, checkable list and
+certified the remainder by omission. Nobody re-greps a file that has a spec.
+
+### Why a count is the most dangerous output
+
+**"35 codes" is a claim about the world. The scan could only make a claim about
+its own matches.** The gap between those two sentences is invisible in the
+output, and a number is exactly the shape that gets quoted, diffed and trusted.
+
+The same day, the same repo: `bin/callers` reported live methods as dead because
+it could not see dynamic dispatch, and a flow linter on the mobile side reported
+a clean sweep of a corpus it could not read. Three instruments, one shape.
+
+### The question, and the assertion that answers it
+
+**"What kind of thing would this never match?"** Ask it of the pattern, not of
+the results — the results all look right, which is the trap.
+
+Then assert the answer. A scan that classifies must account for **everything it
+finds, including what it cannot classify**:
+
+```ruby
+it "accounts for every `code:` that is not a literal" do
+  expect(dynamic_expressions - ACCOUNTED_FOR.keys).to be_empty,
+    "these put words on the wire that no grep for `code: \"…\"` can see"
+end
+```
+
+That example does not check the vocabulary. **It checks that the instrument can
+read the whole vocabulary**, and it fails on the *first new expression* rather
+than on the twenty-fifth missing code. A gate that only reads the easy half is
+worse than no gate, because it certifies the hard half.
+
+**Corollary, learned the same evening:** the fix for this was attempted twice
+with a broken capture, and both broken versions produced *plausible lists* rather
+than errors. So the instrument that watches the instrument needs the same
+treatment — assert what the scan **found**, not only what it concluded.
