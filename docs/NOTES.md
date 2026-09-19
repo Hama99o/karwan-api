@@ -3157,3 +3157,51 @@ the plant before believing the finding.** Read the error text rather than the
 branch that was taken; here, one `head` of stderr named
 `InvalidMigrationTimestampError` and ended the theory in a second. A plant that
 fails for its own reasons is a lying instrument aimed at an instrument.
+
+## `Order.cancellation_reasons` IS THREE ACTORS' VOCABULARIES IN ONE ENUM, AND TWO VALUES ARE DEAD
+
+The mobile session asked me to "open the other four" so a customer could pick a
+cancellation reason instead of typing free text. The request assumes the enum is
+one vocabulary with one value reachable. It is not. Traced, value by value:
+
+| value | set by |
+|---|---|
+| `customer_changed_mind` | `customers/orders#cancel` — **the customer** |
+| `no_courier_available` | `dispatch/job_timeouts_job` — **the system** |
+| `other` | `admin/orders#cancel` — **an operator** |
+| `merchant_unavailable` | **nothing, anywhere** |
+| `duplicate` | **nothing, anywhere** |
+
+**So the hard-coding in `#cancel` is not a shortcut, it is the only correct
+thing that endpoint could do with this enum.** A customer must never be able to
+record `no_courier_available` — that is dispatch's determination about dispatch,
+and a customer asserting it would corrupt the one number that says whether
+supply failed.
+
+**And two values are dead.** Nothing sets `merchant_unavailable` or `duplicate`.
+They cost nothing today and they are a trap tomorrow: the first code to use one
+defines its meaning silently, and any report written against the enum before
+then is counting a category that cannot occur.
+
+### What a customer-expressible list needs before it exists
+
+Not four values — **a decision about which claims a customer may make**, and one
+of them is not a technical question:
+
+- `duplicate` — safe. A customer knows whether they ordered twice.
+- `merchant_unavailable` — **Hamma9900's call, not an engineering one.** It is a
+  customer asserting something about a *merchant*, and the count would end up in
+  whatever judges merchant reliability. A self-reported metric that affects a
+  third party needs him to say it is allowed before it is collected.
+- `no_courier_available` — never. Not the customer's to claim.
+
+**The shape when it is built** is the `problem_reasons` one, the only category A
+in `docs/API_VOCABULARY.md`: the server sends the permitted list and the
+controller validates against the same source. Three subsets of one enum —
+customer, operator, system — are exactly how a client comes to offer a value the
+server will refuse.
+
+**Until then the free text is not lost.** `#cancel` passes `params[:reason]` into
+`transition_to!`, so the customer's own words are on the `status_transitions`
+row where an operator can read them. That is worse for counting and better for
+understanding, and it is the right trade while the enum means three things.
