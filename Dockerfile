@@ -88,6 +88,48 @@ RUN bundle exec bootsnap precompile -j 1 app/ lib/
 RUN SECRET_KEY_BASE_DUMMY=1 ./bin/rails assets:precompile
 
 
+# ── DEVELOPMENT IMAGE — the one `docker compose up` runs ───────────────────
+#
+# PLACED BEFORE THE FINAL STAGE ON PURPOSE. Docker takes the LAST stage as the
+# default build target, so a development stage appended to the end of this file
+# would quietly become what `docker build .` and `kamal deploy` produce. It
+# goes here so the production image stays the default and this one is reachable
+# only by `--target development`.
+#
+# EVERYTHING `base` SETS IS WRONG HERE, and all three have to be undone:
+#   RAILS_ENV=production      -> would read karwan_production and precompiled
+#                                assets, not the dev database the seeds fill
+#   BUNDLE_DEPLOYMENT=1       -> refuses any Gemfile.lock change, so adding a
+#                                gem in development fails at boot rather than
+#                                resolving
+#   BUNDLE_WITHOUT=development:test -> drops rspec, factory_bot and faker, so
+#                                the container could not run a single spec
+#
+# Source is BIND-MOUNTED at runtime rather than COPYed, so an edit on the host
+# is live without a rebuild. `BUNDLE_PATH=/usr/local/bundle` is outside /rails
+# and therefore survives the mount shadowing the working directory — gems are
+# baked into the image, the code is not.
+FROM base AS development
+
+ENV RAILS_ENV="development" \
+    BUNDLE_DEPLOYMENT="0" \
+    BUNDLE_WITHOUT=""
+
+# Same set the build stage installs: native gems need a compiler either way.
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y build-essential git libpq-dev libvips libyaml-dev pkg-config && \
+    rm -rf /var/lib/apt/lists /var/cache/apt/archives
+
+COPY vendor/* ./vendor/
+COPY Gemfile Gemfile.lock ./
+RUN bundle install && rm -rf "${BUNDLE_PATH}"/ruby/*/cache
+
+# 3017, not 80. The rig, every doc and the emulator's 10.0.2.2:3017 depend on
+# this number; see docker-compose.yml.
+EXPOSE 3017
+CMD ["./bin/rails", "server", "-b", "0.0.0.0", "-p", "3017"]
+
+
 # Final stage for app image
 FROM base
 

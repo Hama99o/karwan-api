@@ -1582,3 +1582,52 @@ files are exempt **by exact filename**.
 
 Not by a pattern. **An exemption wide enough to catch a third file hides the next violation** —
 and it hides it in the one place the rule was written to protect.
+
+## SHAPE 3 IN THE TOOLING: FOUR RECEIPTS FROM ONE DAY, 2026-09-19
+
+The shapes above were learned from **tests**. Every one of these came from a
+**script, a check or a validator** — the things nobody writes a test for,
+written in a hurry to answer one question, and trusted because they printed
+something reassuring.
+
+All four are the third shape. **An empty result and a clean result are
+identical from the outside**, and the tool cannot tell you which one it handed
+you unless you ask it to count its subject first.
+
+| what was run | what it printed | what was true |
+|---|---|---|
+| `curl … \| grep -c localhost` on an API payload | `0` | the payload had **no URLs at all**; the API was serving nothing yet |
+| a one-off parser asking for `data` on a `{merchants, meta}` envelope | nothing, silently | the key was `merchants`; it iterated an empty list and reported no closed shops in a page containing five |
+| `bin/preflight` step 5, "no merchants — run db:seed" | a seeding remedy | the API was **down**; the database held 45 merchants. A data claim measured through a server |
+| a flow linter globbing `en.ts` (mobile session, same day) | a clean sweep, 0 findings | every flow runs in **Pashto**; it had read a corpus that was not there |
+
+**The antidote is one line and it is always the same: assert the subject count
+before asserting the property.** `grep -c localhost` is worthless without
+"how many URLs were there at all". A sweep reporting zero findings must first
+say how many files it read. A parser must fail loudly on a missing key rather
+than returning `[]` — the mobile client's `at()` helper raises for exactly this
+reason, which is why the same envelope rename is a loud failure in the app and
+a silent empty list in a script.
+
+### THE VARIANT WORTH NAMING: A VALIDATOR THAT PASSED THE FILE I HAD NOT CHANGED
+
+Same day, and it is not shape 3 — it is shape 4, wrong subject, in the one
+place it is hardest to see.
+
+A scripted edit to `docker-compose.yml` failed its anchor assertion and changed
+nothing. The very next command in the same line was `docker compose config -q`,
+which printed **`compose still valid`**.
+
+Both outputs were true. Together they read as "the edit landed and the file is
+good". The validator was correct about a file that **did not contain the
+change** — it validated the version on disk, which was the version before the
+edit that never happened. A green from a tool pointed at the unmodified artifact
+is indistinguishable from a green earned by the modification.
+
+**So: after any scripted or automated edit, verify the change is IN THE FILE
+before, or instead of, validating the file.** `grep -c` for the new text costs
+nothing. Running a linter, a formatter or a schema check straight after a failed
+write is the most convincing way there is to prove nothing.
+
+The general form, and it generalises past editing: **a passing check tells you
+about the artifact it read, never about the action you believe preceded it.**

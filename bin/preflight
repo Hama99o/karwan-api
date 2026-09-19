@@ -70,7 +70,8 @@ if [ "$UP" = "200" ]; then
   ok "/up returns 200"
 else
   bad "/up returned '${UP:-no response}'"
-  note "bin/rails s                 (3017 is the DEFAULT now — do not pass -p)"
+  note "docker compose up -d web   (then \`docker compose ps\` answers 'is it up?')"
+  note "or natively: bin/rails s    (3017 is the DEFAULT — do not pass -p)"
 fi
 
 # ── 4 · …AND IT IS KARWAN ─────────────────────────────────────────────────
@@ -92,7 +93,8 @@ elif [ -z "$BODY" ]; then
   # sends somebody hunting a port conflict that does not exist, when the API is
   # simply not running — and `/up` two steps above already said so plainly.
   bad "nothing answered on :$PORT — this says nothing about which app is there"
-  note "bin/rails s                 (3017 is the DEFAULT now — do not pass -p)"
+  note "docker compose up -d web   (then \`docker compose ps\` answers 'is it up?')"
+  note "or natively: bin/rails s    (3017 is the DEFAULT — do not pass -p)"
 else
   bad "that endpoint is not Karwan's (got: $(printf '%s' "$BODY" | head -c 60))"
   note "something else is on :$PORT — check before believing any green line"
@@ -132,12 +134,34 @@ fi
 # in every log and show nothing on every phone — the failure is invisible from
 # the server side, which is exactly why it is worth saying out loud here.
 step "File URLs (warning only)"
-FILE_BASE=$(RAILS_ENV=${RAILS_ENV:-development} bin/rails runner 'print Attachments::PublicUrl.base_url' 2>/dev/null)
-if [ -z "${APP_BASE_URL:-}${KAMAL_HOST:-}" ]; then
-  say "  · APP_BASE_URL is unset — photo and voice-note URLs will use $FILE_BASE."
-  say "    Fine locally. On a deployed box it means a phone fetches localhost."
+# ── ASK THE API, NOT THIS SHELL ───────────────────────────────────────────
+#
+# This used to read the HOST's $APP_BASE_URL and a HOST `bin/rails runner`.
+# That was right while the app ran on the host, because the two environments
+# WERE the same environment. They stopped being the same the day `web` became a
+# container with its own env, and a host-side answer now describes a process
+# that is not the one serving :$PORT.
+#
+# MEASURED, 2026-09-19: this printed "APP_BASE_URL is unset" while the API was
+# serving http://10.0.2.2:3017 perfectly well — the wrong subject, reported
+# about the exact variable whose absence blanked every merchant card that
+# morning. A check that reads the environment of the wrong process is not a
+# weaker check, it is a false one.
+#
+# So read the ORIGIN THE API ACTUALLY EMITS, out of the same payload a phone
+# receives. That answer is true whether the app runs in a container, on this
+# host, or on a deployed box, and it cannot disagree with what the device gets.
+SERVED_BASE=$(curl -s -m 5 "$API/api/v1/public/merchants" 2>/dev/null \
+  | grep -oE 'https?://[^"/]+' | head -1)
+if [ -z "$SERVED_BASE" ]; then
+  say "  · no file URL in the merchants payload, so this cannot be answered."
+  note "that means no merchant has a photo yet — it is NOT a base-URL problem"
+elif printf '%s' "$SERVED_BASE" | grep -qE 'localhost|127\.0\.0\.1'; then
+  say "  · the API serves file URLs from $SERVED_BASE"
+  say "    A phone or emulator resolves that to ITSELF, so every photo is blank."
+  note "APP_BASE_URL=http://10.0.2.2:$PORT for the emulator; the LAN address for a handset"
 else
-  ok "Files served from $FILE_BASE"
+  ok "files served from $SERVED_BASE"
 fi
 
 # ── A warning, not a failure: SMS ─────────────────────────────────────────
