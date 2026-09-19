@@ -2989,11 +2989,44 @@ result or a fast one; it is not a result.
 2. **One process** — no parallel runner, no second suite, nothing on 3017.
 3. **Named power state** — `/sys/class/power_supply/ADP0/online`. A laptop on
    battery throttles, and this one has already died mid-suite once.
-4. **The seed and the example count** — `1849 examples` at the time of writing;
-   a duration is meaningless once the count moves.
+4. **The seed and the example count** — a duration is meaningless once the
+   count moves, and it has already moved: the entry above records **1849
+   examples**, and a run on 2026-09-19 reported **2269**. Any duration written
+   here without its example count beside it is already stale.
 
 **Do not produce a third contention figure and file it as a baseline.** If the
 box is busy, the honest output is this entry, not a number.
+
+### THE FIRST MEASURED RUN — 2026-09-19, AND IT IS NOT A BASELINE EITHER
+
+| | |
+|---|---|
+| wall time | **10 minutes 5 seconds** |
+| result | **2269 examples, 0 failures, 3 pending** |
+| load average | **6.09** at start, **7.50** at end (5-min average peaked at 10.02) |
+| power | AC connected, battery charging from 51% |
+| process | one, `nice -n 10`, `TEST_DB_SUFFIX=_99` |
+| other work on the box | 4 peer Claude sessions, 23 containers, one Android emulator |
+| command | `nice -n 10 env TEST_DB_SUFFIX=_99 bundle exec rspec` |
+
+**Filed as a contention figure, not a baseline**, because condition 1 of the
+four above was not met and stating the load is what makes the number honest
+rather than what makes it a baseline.
+
+**The interesting part is what it does to the 232-minute story.** Ten minutes
+at load ~6–10 sits close to the ~8 minutes remembered for a quiet box, so the
+cost of moderate load is small. A 23x jump at load 17 is therefore **not a
+linear response to load** and should not be extrapolated as one. Something
+non-linear happens between here and there — swap is the obvious suspect, which
+is why `pswpin` deltas and not free swap are the metric to watch. Whoever
+reproduces the slow case should capture `pswpin` before and after; that, not
+the load average, is likely the number that explains it.
+
+**The 3 pendings are declared, not incidental.** They are the money-conservation
+examples recording that the code and `MONEY_AND_SETTLEMENT.md` §2 disagree about
+who collects the commission — see the entry on that further up. A run reporting
+`0 failures, 3 pending` is the expected result today. **Read the pendings, not
+the count** (`docs/TESTING.md`).
 
 ## `db/seeds/stress.rb` HAS NO SPEC, AND ITS HOURS BLOCK HAS NOW FAILED THREE TIMES
 
