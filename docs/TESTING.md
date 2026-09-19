@@ -1631,3 +1631,61 @@ write is the most convincing way there is to prove nothing.
 
 The general form, and it generalises past editing: **a passing check tells you
 about the artifact it read, never about the action you believe preceded it.**
+
+## A STUB THAT IS ALWAYS NECESSARY IS EVIDENCE ABOUT THE REAL METHOD
+
+When every call site that needs a method to return a particular value has to
+**force** it, the repo is telling you out loud that the real method never
+returns that value. Read the stub as a measurement, because that is what it is.
+
+**The instance, 2026-09-19.** `Attachments::PublicUrl.variants_processable?`
+contained a precedence bug — `require "vips" && true` parses as
+`require("vips" && true)`, raises `TypeError`, and the method's own rescue
+turns that into `false` — so it could **never return true on any machine**.
+
+Five specs stubbed it to `true`:
+
+```
+spec/serializers/served_images_are_resized_spec.rb
+spec/requests/api/v1/avatar_spec.rb
+spec/requests/admin/onboarding_a_restaurant_spec.rb
+spec/requests/admin/first_restaurant_rehearsal_spec.rb
+```
+
+Each stub was written by somebody who needed the "variants work" path and found
+that it would not happen on its own. **Each one was a correct local decision and
+a missed global signal.** Nobody asked the question the fifth stub was
+screaming: *why does this never happen by itself?* Meanwhile every merchant
+photo shipped at full camera resolution — 20.73 MB on page one — and the gate
+meant to catch that was the broken method.
+
+**The method had no spec of its own.** That is the structural half: a method
+nobody tests directly, which everybody stubs, has no way left to tell you it is
+broken. The stubs are not the bug, but they are the anaesthetic.
+
+### The question to ask, and when
+
+**"If I have to force this, what is it doing when I don't?"**
+
+Ask it the *second* time you stub the same method, not the fifth. Two is
+already a pattern; by five it has stopped looking strange, which is precisely
+why it survives. Concretely, when you reach for a stub:
+
+1. **Run the real thing once**, in a console or a runner, in the environment
+   that matters. One line. If it does not return what your stub returns, you
+   have found something.
+2. **If it cannot return your value anywhere**, the stub is hiding a defect
+   rather than isolating a dependency.
+3. **Grep for other stubs of the same method** before adding yours. The count
+   is the signal; a lone stub says nothing.
+
+### Where this is legitimate, so the rule stays usable
+
+Stubbing is right when the real thing is **slow, remote, non-deterministic or
+destructive** — a network call, a clock, a payment gateway. What makes the case
+above different is that `variants_processable?` is a **local, deterministic,
+free** predicate about this machine. There was no reason to stub it except that
+it gave the wrong answer.
+
+**So: stub what you cannot afford to run. When you stub something you could
+have run, run it first.**

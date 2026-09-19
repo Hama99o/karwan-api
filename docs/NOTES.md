@@ -3078,3 +3078,74 @@ justification names a scope should name the scope the code actually uses.**
 flagged as not accepting orders" and "distinguishes a shop with no hours from
 one that is simply shut", 39 examples green. The gap is between a correct API
 and a seed that never puts a merchant into the states the API can describe.
+
+## EVERY `bin/preflight` STEP, JUDGED BY PLANTING ITS FAILURE — 2026-09-19
+
+Not "does it pass", but **could it ever fail, and does it fail for the reason it
+claims**. Eleven of thirteen steps were planted and observed going red. Two
+could not be judged and are marked so rather than passed.
+
+| step | planted with | verdict |
+|---|---|---|
+| 1 · Postgres | `PG_PORT=59999` | **fires** |
+| 2 · Schema | a real migration file, unrun | **fires** — all three branches |
+| 3 · API | server stopped | **fires** |
+| 4 · is it KARWAN | server stopped | **fires** |
+| 5 · Sample data | server stopped | **fires** (the "API silent" branch) |
+| File URLs | forced origins | **fires** — 3 branches |
+| SMS | `SMS_PROVIDER=twilio` | **fires** — but see below |
+| Config rows | — | **NOT MEASURED** |
+| Settings he must fill | `APP_BASE_URL=…` | **fires**, exit 1 |
+| Image variants | forced URL shapes | **fires** — 3 branches |
+| Declared secrets | `APP_BASE_URL=…` | **fires**, exit 1 |
+| Ops console | — | **NOT MEASURED** |
+| SMTP | `SMTP_ADDRESS=…` | **fires** |
+
+**NOT MEASURED, with the block named:** `Config rows` needs a `Setting` row
+deleted and `Ops console` needs the last `AdminUser` removed. Both are writes to
+the shared dev database, which this session's permission layer refuses. They are
+**unjudged, not passed** — the distinction this whole exercise is about.
+
+**The 5/5 branch still unproven** is "no merchants at all", which needs an empty
+database. Only the "the API did not answer" branch has been seen.
+
+### THE WRONG SUBJECT, THREE TIMES IN ONE FILE
+
+Containerising the app split the host environment from the app's. Every check
+reading the **host shell** now describes a process that is not serving the API:
+
+- `File URLs` — **fixed**, reads the origin out of the payload
+- `Image variants` — **fixed**, reads `/representations/` vs `/blobs/`
+- `SMS` and `SMTP` — **still host-shell reads**. `SMS_PROVIDER` set in
+  `docker-compose.yml` would not be seen; preflight would report `log` while the
+  app used a real gateway. Proven for `APP_BASE_URL`: unset on the host, set in
+  the container, and the host-side check said "unset" while the API served the
+  right value.
+
+These two are warnings rather than gates, which is why they are recorded rather
+than rewritten tonight. **They are wrong, not merely imprecise.**
+
+### AND ONE FINDING OF MINE THAT WAS WRONG, CAUGHT BY THE PLANT
+
+I reported that step 2's `yes` branch was unreachable — that Rails refuses to
+boot with a migration pending, so `bin/rails runner` never answers and the
+catch-all fires. I wrote a fix, with a comment explaining the defect.
+
+**It was the plant that was invalid, not the step.** The migration file I
+planted had the timestamp `29990101000000`, and Rails 8.1 rejects a timestamp
+more than a day in the future with `InvalidMigrationTimestampError`. So the
+runner failed for a reason that had nothing to do with pending migrations, and
+preflight's "could not ask Rails" was the **correct** answer to an unparseable
+migration directory.
+
+Re-planted with `20260919000000`: the runner printed `yes` and the step said
+"migrations are pending". The branch was reachable all along. The change was
+reverted.
+
+**This is the second time in two days that a plant, not an instrument, was the
+broken thing** — the first landed below a `private` keyword and did nothing.
+The rule that catches both: **when a plant produces an unexpected result, verify
+the plant before believing the finding.** Read the error text rather than the
+branch that was taken; here, one `head` of stderr named
+`InvalidMigrationTimestampError` and ended the theory in a second. A plant that
+fails for its own reasons is a lying instrument aimed at an instrument.
