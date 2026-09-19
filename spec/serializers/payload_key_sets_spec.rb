@@ -136,8 +136,9 @@ RSpec.describe "payload key sets" do
       get "/api/v1/courier/job", headers: auth
 
       expect(keys_of(JSON.parse(response.body)["job"])).to eq(%w[
-        advance_required arrived_at can_be_combined code currency earnings id
-        items kind problem_reasons service_tier status steps total_to_collect
+        advance_required arrival_window arrived_at can_be_combined code currency
+        earnings id items kind problem_reasons service_tier status steps
+        total_to_collect
       ])
     end
   end

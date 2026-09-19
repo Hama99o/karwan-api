@@ -115,6 +115,39 @@ module Couriers
         job.is_a?(Trip) ? job.arrived_at : job.courier_arrived_at
       end
 
+      # ── WHAT THE CUSTOMER WAS PROMISED, SHOWN TO THE PERSON IT IS ABOUT ────
+      #
+      # `arrival_window` was on `customers/order_serializer` and
+      # `customers/track_serializer` and on nothing the courier can see. So the
+      # customer read "۱۳:۳۰ – ۱۳:۴۰" and the one man whose movements make that
+      # sentence true or false had no idea it had been said.
+      #
+      # NOT SYMMETRY, AND NOT AN ESTIMATE FOR HIM. He can judge his own arrival
+      # better than this arithmetic can. What he cannot know is **the claim made
+      # on his behalf**, and that claim is the expectation he is measured
+      # against — by the customer on the phone, and by anyone reading a late
+      # delivery afterwards. A courier told "you were forty minutes" who was
+      # never told forty was promised cannot answer.
+      #
+      # THE SAME CALL the customer's payload makes, deliberately. Two
+      # computations of one promise is how the two screens come to disagree, and
+      # a courier and customer holding different windows is worse than neither
+      # holding one.
+      #
+      # NIL FOR A RIDE, and that is the honest answer rather than a gap: no
+      # customer-facing ride payload carries an arrival window, so there is no
+      # promise to relay. `Orders::ArrivalWindow` reads `merchant`, `ready_at`
+      # and `picked_up_at`, none of which a `Trip` has — it would raise, not
+      # degrade. Same guard shape as `items` below.
+      field :arrival_window do |job|
+        next nil unless job.is_a?(Order)
+
+        window = Orders::ArrivalWindow.for(job)
+        next nil if window.nil?
+
+        { from: window.from, to: window.to, basis: window.basis }
+      end
+
       # THE step list. One screen, one action at a time, both demand types.
       field :steps do |job|
         Couriers::JobSteps.new(job).call
