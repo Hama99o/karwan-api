@@ -25,9 +25,30 @@ given up.
 
 ## What does NOT exist
 
-- **No routing engine.** README §138 is explicit: Hatiwal hands navigation off to
-  the phone's own maps app by deep link (`maps://app?daddr=` on iOS, a Google
-  Maps link on Android). There is no `/route` endpoint anywhere.
+- **No routing engine IN THE MAP SERVICE.** README §138 is explicit: Hatiwal hands
+  navigation off to the phone's own maps app by deep link (`maps://app?daddr=` on
+  iOS, a Google Maps link on Android). `map.hatiwal.com` serves tiles, styles and
+  glyphs and nothing else.
+
+  > **CORRECTED 2026-09-19 — this line used to end "There is no `/route` endpoint
+  > anywhere", and the word *anywhere* outgrew its scope.** It was a statement
+  > about the MAP SERVICE, it was true when written, and it is still true of the
+  > map service. But `karwan-api` has since grown **`GET /api/v1/route`**, so read
+  > globally the sentence became false — and it was read globally. The mobile
+  > repo's `services/routing.ts` cites it, having verified a 404 against the map
+  > host, and builds `${MAP_URL}/route/v1/driving/…` to this day.
+  >
+  > **Routing goes through this API, and that is not a preference — it is the
+  > only arrangement that can work.** `config/deploy.yml` sets
+  > `OSRM_BASE_URL: http://karwan_api-osrm:5000`, a container name that resolves
+  > **only inside the Kamal network**. OSRM is deliberately not published to the
+  > internet, so a handset cannot reach it directly however the URL is spelled.
+  > The extra hop is what makes the router private, and it is also what lets one
+  > cached answer serve two phones asking the same question — correction 6's
+  > cheapest-at-100-orders-a-day test.
+  >
+  > A doc sentence scoped to one component and read as a fact about the whole
+  > system is its own failure shape. Say which thing does not have it.
 - **No geocoding service.** No Nominatim. Hatiwal's search is its own.
 - **No offline tile packaging.**
 
