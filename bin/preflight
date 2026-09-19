@@ -86,8 +86,15 @@ if printf '%s' "$BODY" | grep -q '"merchant_categories"'; then
     bad "no categories — reference data is missing"
     note "bin/rails db:seed"
   fi
+elif [ -z "$BODY" ]; then
+  # NOTHING ANSWERED IS NOT THE SAME CLAIM AS SOMETHING ELSE ANSWERED, and this
+  # branch used to make the second claim for both. "Another app is on your port"
+  # sends somebody hunting a port conflict that does not exist, when the API is
+  # simply not running — and `/up` two steps above already said so plainly.
+  bad "nothing answered on :$PORT — this says nothing about which app is there"
+  note "bin/rails s                 (3017 is the DEFAULT now — do not pass -p)"
 else
-  bad "that endpoint is not Karwan's (got: $(printf '%s' "${BODY:-empty}" | head -c 60))"
+  bad "that endpoint is not Karwan's (got: $(printf '%s' "$BODY" | head -c 60))"
   note "something else is on :$PORT — check before believing any green line"
 fi
 
@@ -103,6 +110,17 @@ MERCHANTS=$(curl -s -m 5 "$API/api/v1/public/merchants" 2>/dev/null)
 # to prevent.
 if printf '%s' "$MERCHANTS" | grep -qF '"merchants":[{'; then
   ok "merchants are browsable"
+elif [ -z "$MERCHANTS" ]; then
+  # A DATA CLAIM MEASURED THROUGH THE SERVER. With the API down this printed
+  # "no merchants" and sent the reader to `db:seed` — against a database holding
+  # 45 of them. The check is a curl, so a silent API is indistinguishable from an
+  # empty database unless it is said out loud, and the remedy it offered was for
+  # the wrong problem entirely.
+  #
+  # The comment above records this line being wrong once already, for a
+  # different reason (an invalid regex). Same false negative, second mechanism.
+  bad "could not ask the API whether merchants exist — it did not answer"
+  note "this is NOT a seeding problem; fix the API above first, then re-run"
 else
   bad "no merchants — every screen will show its empty state"
   note "bin/rails db:seed           (sample data is skipped in production only)"
