@@ -30,6 +30,37 @@ PORT="${PORT:-3017}"
 API="http://localhost:$PORT"
 PG_PORT="${PG_PORT:-5417}"
 METRO_PORT="${METRO_PORT:-3028}"
+
+# ── WHAT THE APP WILL SEE, NOT WHAT THIS SHELL HAS ────────────────────────
+#
+# Every env check below used to read this shell. That was right while the app
+# ran on the host and the two environments were one. Since `web` became a
+# container they are not, and a shell read describes a process that is not
+# serving the API — proven on 2026-09-19, when the File URLs step reported
+# APP_BASE_URL "unset" while the API served http://10.0.2.2:3017 from it.
+#
+# So resolve in the order the APP resolves: an exported value wins (a native
+# `bin/rails s` inherits this shell), otherwise the value DECLARED FOR THE WEB
+# SERVICE in docker-compose.yml, which is the app's environment now and is
+# version-controlled rather than remembered.
+#
+# The SOURCE is reported alongside, because "SMS is log" and "SMS is log and
+# nothing anywhere declares otherwise" are different statements, and only the
+# second one tells the reader where to go.
+app_env() {
+  _v=$(printenv "$1" 2>/dev/null || true)
+  if [ -n "$_v" ]; then printf '%s' "$_v"; return 0; fi
+  [ -f docker-compose.yml ] || return 0
+  sed -n '/^  web:/,/^  [a-z_]*:$/p' docker-compose.yml \
+    | grep -E "^[[:space:]]+$1:" | head -1 \
+    | sed -E "s/^[[:space:]]*$1:[[:space:]]*//" | tr -d '"'
+}
+
+app_env_source() {
+  if [ -n "$(printenv "$1" 2>/dev/null || true)" ]; then printf 'this shell'; return 0; fi
+  if [ -n "$(app_env "$1")" ]; then printf 'docker-compose.yml'; return 0; fi
+  printf 'nowhere'
+}
 FAILED=0
 
 say()  { [ "$QUIET" = 1 ] || printf '%s\n' "$*"; }
@@ -169,11 +200,13 @@ fi
 # user waits for a code that never arrives while the server looks healthy. It
 # does not block a local run, so it warns rather than failing.
 step "SMS (warning only)"
-if [ "${SMS_PROVIDER:-log}" = "log" ]; then
-  say "  · SMS_PROVIDER is 'log' — codes are written to the log, not sent."
+SMS_VALUE=$(app_env SMS_PROVIDER)
+SMS_WHERE=$(app_env_source SMS_PROVIDER)
+if [ -z "$SMS_VALUE" ] || [ "$SMS_VALUE" = "log" ]; then
+  say "  · SMS_PROVIDER is 'log' (declared: $SMS_WHERE) — codes go to the log, not to a phone."
   note "fine locally; in production nobody can sign in. Hamma9900 picks the gateway."
 else
-  ok "SMS_PROVIDER=$SMS_PROVIDER"
+  ok "SMS_PROVIDER=$SMS_VALUE (from $SMS_WHERE)"
 fi
 
 # ── THE CONFIG SCREEN HAMMA9900 TUNES FROM ────────────────────────────────
@@ -384,8 +417,10 @@ fi
 # answers 200 and goes nowhere. Same signal `APP_BASE_URL` uses above to tell
 # "fine locally" from "somebody will actually hit this".
 step "SMTP"
-if [ -n "${SMTP_ADDRESS:-}" ]; then
-  ok "SMTP_ADDRESS=$SMTP_ADDRESS"
+SMTP_VALUE=$(app_env SMTP_ADDRESS)
+SMTP_WHERE=$(app_env_source SMTP_ADDRESS)
+if [ -n "$SMTP_VALUE" ]; then
+  ok "SMTP_ADDRESS=$SMTP_VALUE (from $SMTP_WHERE)"
 elif [ -n "${APP_BASE_URL:-}${KAMAL_HOST:-}" ] || [ "${RAILS_ENV:-development}" = "production" ]; then
   bad "SMTP_ADDRESS is unset on a DEPLOYED box — email password reset would post to localhost."
   note "it fails silently: deliver_later answers the request 200 and the code dies in a job."

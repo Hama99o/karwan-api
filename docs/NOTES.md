@@ -3116,14 +3116,22 @@ reading the **host shell** now describes a process that is not serving the API:
 
 - `File URLs` — **fixed**, reads the origin out of the payload
 - `Image variants` — **fixed**, reads `/representations/` vs `/blobs/`
-- `SMS` and `SMTP` — **still host-shell reads**. `SMS_PROVIDER` set in
-  `docker-compose.yml` would not be seen; preflight would report `log` while the
-  app used a real gateway. Proven for `APP_BASE_URL`: unset on the host, set in
-  the container, and the host-side check said "unset" while the API served the
-  right value.
+- `SMS` and `SMTP` — **fixed**, and this was the debt recorded here first and
+  paid afterwards. They now resolve the value the way the APP resolves it: an
+  exported variable wins, because a native `bin/rails s` inherits this shell;
+  otherwise the value **declared for the `web` service in `docker-compose.yml`**,
+  which is the app's environment now and is version-controlled rather than
+  remembered.
 
-These two are warnings rather than gates, which is why they are recorded rather
-than rewritten tonight. **They are wrong, not merely imprecise.**
+  **Proven by planting the case the old version could not see:** `SMS_PROVIDER`
+  and `SMTP_ADDRESS` declared in compose and in NO shell. Before, preflight said
+  "log" and "unset". After, it says `twilio (from docker-compose.yml)` and
+  `smtp.kabul.example (from docker-compose.yml)`.
+
+  **The source is now printed with the value**, because "SMS is log" and "SMS is
+  log and nothing anywhere declares otherwise" are different statements, and only
+  the second tells the reader where to go. `(declared: nowhere)` is the honest
+  reading today.
 
 ### AND ONE FINDING OF MINE THAT WAS WRONG, CAUGHT BY THE PLANT
 
