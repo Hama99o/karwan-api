@@ -816,10 +816,30 @@ and even that has twenty minutes.
 
 ### OPEN — THE PREMIUM UPLIFT IS COLLECTED BY THE COURIER AND CHARGED TO NOBODY
 
-Found 2026-09-19 while checking the launch blockers. **This is not a bug to fix
-here — it is `MONEY_AND_SETTLEMENT.md` §2's open question made concrete**, and
-§2 is explicitly Hamma9900's. Recorded with numbers so the decision has evidence
-rather than two prose options.
+**NOT FOUND HERE — AND I REPORTED IT AS IF IT WERE.** Correcting that first,
+because the credit matters less than the lesson.
+
+`spec/services/pricing/money_conservation_spec.rb` already carries this, under a
+heading that says so: *"THE LEAK THIS FILE WAS WRITTEN TO FIND."* It holds a
+**pending** example — *"collects the premium uplift it charged the customer
+for"*, pending on *"OPEN: the premium uplift is charged and never collected —
+Hamma9900's call"* — plus a companion example asserting what is true today, so
+the leak cannot grow while the question is open. It names the same mechanics:
+`CashPosition` sums `commission` alone, `Order#platform_cash_held` returns
+`commission` alone.
+
+**It is one of the three pendings in every suite run I have quoted all day.** I
+read the count and never read the pendings. CLAUDE.md's first lesson is *"read
+what is already there before deciding anything"*, and a pending example is the
+repo telling you where its open questions are, out loud, on every run.
+
+**What my pass actually added**, stated honestly: the measured numbers on a real
+quote (35.02 on this route), and the `premium_tier_enabled` gate — which the
+existing spec does not have and which stops the leak being reachable while §2 is
+open. The diagnosis was already here.
+
+The rest of this entry stands. It is `MONEY_AND_SETTLEMENT.md` §2's open question
+made concrete, and §2 is explicitly Hamma9900's.
 
 `premium_price_multiplier` is 1.3, and its own description says the uplift
 *"applies to the customer's fee or fare, **never to the courier's pay**"*. The
@@ -867,18 +887,57 @@ with `tier_unavailable` rather than downgrading — a silent downgrade would kee
 the gate invisible until the day it flipped. It decides nothing about who bears
 the uplift.
 
-**AND THE RIDE PATH IS NOT GATED, WHICH IS A GAP WAITING RATHER THAN A GAP.**
-`Pricing::RideQuote` takes the same `service_tier` and carries the same
-uncollected uplift, and it is **unreachable today**: there is no route to request
-a trip, `PRODUCT.md:12` says not to build the ride product yet, and
-`spec/integration/full_delivery_flow_spec.rb` asserts that absence deliberately.
-So it is not gated because it cannot be reached, which is a different and weaker
-safety than the delivery side has.
+**CORRECTION, 2026-09-19 — THE RIDE PATH DOES *NOT* SHARE THIS LEAK, AND I SAID
+IT DID.** I recorded here, and relayed to Hamma9901, that `Pricing::RideQuote`
+"carries the same uncollected uplift". That was wrong, and it was wrong in the
+direction that invents work.
 
-**When rides are built, this gate must be built with them, in the same change.**
-A trip route added without it reopens exactly the hole the delivery gate just
-closed — and it would open it on the demand type where the uplift is larger,
-because a fare is bigger than a delivery fee.
+The ride comment says it plainly and I had not read it: *"on a ride the uplift
+lifts BOTH sides, unlike a delivery: the fare is the courier's revenue and we
+take a percentage of it."* Measured:
+
+| tier | fare | commission | courier_earnings | sum |
+|---|---|---|---|---|
+| normal | 94.96 | 11.87 | 83.09 | **94.96** |
+| premium | 123.45 | 15.43 | 108.02 | **123.45** |
+
+The fare decomposes **exactly**, at both tiers, and the commission scales with
+the uplift (11.87 → 15.43, the same ×1.3). **Nothing is left uncollected.**
+
+**Why the two demand types differ, which is the part worth keeping.** A ride's
+commission is a percentage OF THE FARE, so anything that lifts the fare lifts our
+share with it. A delivery's commission is a percentage of the **items total** —
+the food — and the uplift is applied to the **delivery fee**, which the courier
+keeps in full. The uplift therefore lands in a pocket no percentage reaches. It
+is not that rides were done more carefully; it is that a ride has one amount and
+a delivery has two, and the multiplier was attached to the one the commission
+does not read.
+
+So the ride tier needs no gate for this reason. Rides remain unbuilt for
+`PRODUCT.md:12`'s reasons, which is a different matter.
+
+**AND MY EVIDENCE ABOVE WAS VACUOUS, WHICH IS THE SHARPER LESSON.** I proposed
+asserting `commission + courier_earnings == fare` at every tier, and offered the
+table above as proof rides are safe. **`Pricing::RideQuote` computes
+`courier_earnings` as `fare - commission`.** It is a RESIDUAL: the sums matched
+because subtraction works, and they could not have come out any other way. No
+possible state of any bug moves that number.
+
+That is `docs/TESTING.md`'s sixth shape — a value that cannot be wrong — and its
+first named instance in this project is **"1 · A RESIDUAL CANNOT FAIL"**, about
+the courier's share on a delivery. I reproduced the exact trap the testing doc
+opens with, while writing about how to avoid traps.
+
+`money_conservation_spec.rb` already rejects this assertion by name, under the
+heading *"WHY `fare == commission + courier_earnings` IS NOT WORTH ASSERTING"*,
+and pins the two INDEPENDENT quantities instead: the fare as a two-part tariff,
+and the commission as `fare × trip_commission_rate` computed separately. It also
+already asserts that premium lifts our share, that the proportion holds, and that
+the wallet is charged to match.
+
+**So there is nothing to write, and the conclusion survives with better
+evidence:** rides do not leak because the commission is computed independently
+from the fare, not because a residual adds up.
 
 ### OPEN — "RESTAURANT NOT READY" HAS NO PATH, AND IT MUST NOT BE A FAILURE
 
