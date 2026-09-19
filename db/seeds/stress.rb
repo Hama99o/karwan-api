@@ -417,25 +417,45 @@ seed_section "stress merchant photos" do
     end
   end
 
-  # One of them shut, deliberately, so the "opens at" card has a subject. Not
-  # the first — that is the card every screenshot shows.
+  # ── AND THE CLOSURE WENT TO A DIFFERENT SHOP THAN THE FIX ─────────────────
   #
-  # GUARDED, because the first version was not idempotent and running the seed
-  # twice proved it: `orderable` is `listed.where(is_open: true)`, so the shop
-  # this closes DROPS OUT of `first_screen` on the next run and the third slot
-  # is a different merchant — closing one more shop every time anybody re-seeds.
-  # A seed that quietly shuts another shop on each run is worse than one that
-  # never shut any.
-  unless Merchant.kept.where(is_open: false).joins(:opening_hours).exists?
-    first_screen[2]&.update!(is_open: false)
+  # The dawn hours above and the closure below were a matched pair in the
+  # comment and two different merchants in the code: the hours went to
+  # `dawn_shop` (`on_page[3]`) and the closure to `first_screen[2]`, which
+  # carries neither interesting hours state. So the shop that could have said
+  # "opens at ۵:۰۰" was OPEN, and the shop actually shut had ordinary
+  # 08:00-21:00 hours and was open per schedule at every hour anybody
+  # photographs it — `next_opens_at` nil, no line. The state this block exists
+  # to produce was unreachable for the second time, by a different route.
+  #
+  # AND `accepting_orders` GATES THE LINE, which neither version knew.
+  # `customer/home/SPEC.md`: "on the card it is not a schedule, it is one line
+  # only when the shop is closed now". A shop taking orders draws NO hours line
+  # whatever its rows say, so seeding the hours without closing the shop seeds
+  # a state the card will not draw. Both shops below need closing, not one.
+  #
+  # UNGUARDED, and idempotent without a guard, because the old guard's premise
+  # is false: `first_screen` is `Merchant.listed` (line 300) — `kept`,
+  # `status_active`, and NOT filtered on `is_open`. A shop closed here stays in
+  # `listed`, holds its slot on the next run, and the assignment converges. The
+  # guard was defending against a drop-out that this scope cannot produce.
+  [ no_hours_shop, dawn_shop ].compact.each do |merchant|
+    merchant.update!(is_open: false) if merchant.is_open?
   end
 
-  # Counts what the CARD branches on, not the proxy. `next_opens_at` is nil while
-  # a shop is open per schedule, so a non-nil one is the "opens at" state itself
-  # rather than a stand-in that agrees with itself.
-  puts "  hours on #{first_screen.count { |m| m.reload.hours_known? }} of #{first_screen.size} listed, " \
-       "#{first_screen.count { |m| !m.hours_known? }} with none, " \
-       "#{first_screen.count { |m| m.next_opens_at.present? }} showing 'opens at'"
+  # Counts what the card DRAWS, which is narrower than what the card branches
+  # on. The previous version counted `hours_known?` and `next_opens_at` and so
+  # reported both states present while NEITHER could render — a shop still
+  # `accepting_orders` draws no hours line at all, and both shops carrying an
+  # hours state were open. Counting a field the serializer emits is not the
+  # same as counting a line a customer sees, and the comment this replaces
+  # claimed to have fixed exactly that mistake three lines further up.
+  first_screen.each(&:reload)
+  closed_now = first_screen.reject(&:accepting_orders?)
+  puts "  hours on #{first_screen.count(&:hours_known?)} of #{first_screen.size} listed, " \
+       "#{closed_now.size} closed now, " \
+       "#{closed_now.count { |m| !m.hours_known? }} drawing 'hours not given', " \
+       "#{closed_now.count { |m| m.next_opens_at.present? }} drawing 'opens at'"
   puts "  photos on #{first_screen.count { |m| m.storefront_photo.attached? }} of #{first_screen.size} listed, " \
        "#{CatalogItem.joins(:photo_attachment).where(merchant_id: first_screen.map(&:id)).count} dishes"
 end

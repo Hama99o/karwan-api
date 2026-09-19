@@ -2951,3 +2951,97 @@ order-dependent failure is the "run it twice" rule giving the wrong answer,
 because the second run is a different experiment rather than a repeat of the
 first.
 
+## THIS REPO HAS NO SUITE-TIMING BASELINE, AND A WALL TIME WITHOUT ITS LOAD IS NOT ONE
+
+**The gap:** nothing in `docs/` records how long the suite takes. Grepping the
+whole of `docs/` for a wall time returns nothing. The suite's *size* is
+recorded in the entry above — **1849 examples** — but never its duration, so
+there is no number to compare a slow run against, and "the suite feels slow
+today" has stayed unfalsifiable.
+
+**How this was nearly recorded wrong.** A session was asked to add a wall time
+"beside the 232-minute contention figure". There is no such figure in this
+repo. It existed only in one session's own memory, from a run that session had
+done earlier. Acting on that instruction would have appended a number next to a
+citation that does not exist — the same shape as citing a green nobody read.
+**Check that the thing you are asked to write *beside* is actually there.**
+
+**Why the obvious fix is not one.** The instinct is to run the suite now and
+write down the minutes. But a wall time is a measurement of the suite *and the
+machine it ran on*, and this box routinely carries four or five other Claude
+sessions. Two numbers from one session's memory, offered here as hearsay and
+explicitly **not** as a baseline:
+
+| wall time | load average | what it measures |
+|---|---|---|
+| ~8 min | quiet | close to a baseline |
+| ~232 min | ~17 | contention, ~29x |
+
+A 29-fold spread means **the load is not a footnote to the number, it is half
+of it.** A duration recorded without the load it ran under is not a slow
+result or a fast one; it is not a result.
+
+**What a real baseline requires, all four:**
+
+1. **A quiet box** — `uptime` before AND after, both recorded next to the
+   number. Check `ListAgents` for busy peer sessions; they are the usual load
+   on this machine, not an emulator.
+2. **One process** — no parallel runner, no second suite, nothing on 3017.
+3. **Named power state** — `/sys/class/power_supply/ADP0/online`. A laptop on
+   battery throttles, and this one has already died mid-suite once.
+4. **The seed and the example count** — `1849 examples` at the time of writing;
+   a duration is meaningless once the count moves.
+
+**Do not produce a third contention figure and file it as a baseline.** If the
+box is busy, the honest output is this entry, not a number.
+
+## `db/seeds/stress.rb` HAS NO SPEC, AND ITS HOURS BLOCK HAS NOW FAILED THREE TIMES
+
+`spec/seeds/` covers `e2e`, `fresh_deploy_is_operable` and `reference_admin`.
+**It does not cover `stress`** — the seed that builds the screens everybody
+photographs. Every defect in it so far has been found by a person looking at a
+device, which is the slowest and least repeatable detector available.
+
+The hours block in that file has now been wrong three times, each time in the
+same shape and each time under a comment describing the previous fix:
+
+1. **The comment promised two cards and the loop gave hours to every shop**, so
+   "hours not given, ring them" had no subject. Recorded here already as "a
+   comment describing what the code SHOULD do was never true".
+2. **The shop that was shut had ordinary hours**, so it was open per schedule
+   at every hour anybody photographs it and `next_opens_at` was nil. The
+   summary measured `!is_open && opening_hours.any?` — the proxy — printed 1,
+   and agreed with itself.
+3. **The fix and the closure went to different merchants.** The dawn hours went
+   to `dawn_shop` (`on_page[3]`); the closure went to `first_screen[2]`, which
+   carries neither hours state. So the shop that could say "opens at ۵:۰۰" was
+   open, and the shop that was shut had nothing to say.
+
+**And the gate none of the three knew about.** `customer/home/SPEC.md`: *"on
+the card it is not a schedule, it is one line only when the shop is closed
+now"*. The hours line is gated by `accepting_orders`, so **a shop taking orders
+draws no hours line whatever its rows say.** Both shops carrying an hours state
+were open, so neither state rendered — while the summary, three lines under a
+comment congratulating itself for counting "what the CARD branches on, not the
+proxy", counted `hours_known?` and `next_opens_at` and reported both present.
+**It branched on the fields and not on the gate that decides whether the fields
+are drawn at all.** Fixing one proxy and introducing another in the same block
+is the failure mode this file exists to document.
+
+Found by the mobile session on glass, not by the seed. The seed said it was
+fine.
+
+**A stale premise removed while fixing it:** that block was guarded by
+`unless Merchant.kept.where(is_open: false)...exists?`, justified by "`orderable`
+is `listed.where(is_open: true)`, so the shop this closes DROPS OUT of
+`first_screen`". `first_screen` is `Merchant.listed` — `kept.status_active`,
+which does **not** filter `is_open`. The shop does not drop out, the guard was
+defending against an impossibility, and the guard is what made the seed
+non-convergent for anyone who did want to change the target. **A guard whose
+justification names a scope should name the scope the code actually uses.**
+
+**The server side of this contract is fine and was already asserted** —
+`spec/requests/api/v1/public/merchants_spec.rb` holds "shows a closed merchant,
+flagged as not accepting orders" and "distinguishes a shop with no hours from
+one that is simply shut", 39 examples green. The gap is between a correct API
+and a seed that never puts a merchant into the states the API can describe.
