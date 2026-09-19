@@ -64,6 +64,16 @@ RSpec.describe "docs/API_VOCABULARY.md" do
                        "A vocabulary list that omits a value is how a client learns an incomplete one."
   end
 
+  # Published in category D. A code the document does not name is a code the
+  # client cannot be expected to have a sentence for.
+  it "names every error code in the document" do
+    missing = ErrorCodes::ALL.reject { |code| doc.include?(code) }
+
+    expect(missing).to be_empty,
+                       "docs/API_VOCABULARY.md does not name: #{missing.join(', ')}. " \
+                       "An undeclared code reaches a person as a generic failure."
+  end
+
   # `merchant` is the UI's word, not the server's, and writing it into this
   # document would re-create exactly the confusion the document exists to end.
   it "does not claim a role called `merchant` exists" do

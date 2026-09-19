@@ -91,3 +91,41 @@ invents its own there is nothing to catch it.
 
 **Before writing a client for any row in C, ask for the word.** That is the
 question nobody asked about `roles`.
+
+---
+
+## D · ERROR CODES — the vocabulary that had no owner
+
+`code:` is what lets a client say something in Pashto; the `error` string is for
+a developer reading a log. **35 codes are declared in `ErrorCodes`**
+(`app/models/concerns/error_codes.rb`), which exists because until now they had
+no declaration at all — every controller wrote its own inline, so the list could
+only be recovered with a grep, and it drifted to 35 while the app named 7.
+
+`spec/models/error_codes_spec.rb` holds it in both directions: nothing emitted
+may be undeclared, nothing declared may be unemitted.
+
+| group | codes |
+|---|---|
+| **auth** | `unauthorized` `forbidden` `invalid_credentials` `account_unavailable` `already_registered` `registration_invalid` `role_not_held` `phone_required` |
+| **otp** — unreachable, correction 2 | `otp_disabled` `otp_expired` `otp_invalid` `otp_not_issued` `otp_throttled` |
+| **reset** | `reset_code_invalid` `reset_invalid` `reset_throttled` |
+| **ordering** | `no_merchant` `merchant_is_a_lead` `tier_unavailable` `not_cancellable` `invalid_transition` `reason_required` |
+| **dispatch** | `offer_expired` `not_your_job` `cannot_advance` `wrong_step` `too_early_to_arrive` `wallet_blocked` |
+| **geography** | `outside_service_area` `unroutable` |
+| **infrastructure** | `bad_request` `not_found` `bad_platform` `rate_limited` `pending_migration` |
+
+**`outside_service_area` and `unroutable` are different answers and must not be
+collapsed.** The first says we do not cover that place; the second says we cover
+it and could not find a way. A client treating them alike draws an approximate
+line to somewhere we have said we do not go — a wrong answer, not a missing one.
+Asserted by its own example.
+
+**The three an ordinary person meets doing an ordinary thing**, and so the three
+most worth a real sentence: `offer_expired` (a courier taps Accept a second
+after the countdown — the job went to somebody else and another will come),
+`not_cancellable` (a customer cancels as the merchant accepts — the restaurant
+has started cooking), and `outside_service_area`.
+
+`ErrorCodes.reachable_in_normal_use` returns the 25 that are not OTP, malformed
+requests or server state.
