@@ -3348,3 +3348,79 @@ its translation work from, so a stale one is not cosmetic.
 **Three mistakes chained in one evening, each caught by the next instrument:**
 a method nobody calls, describing a count nobody checked, published to somebody
 who would have planned from it.
+
+## THE SECOND MEASURED RUN — STILL NOT A BASELINE, AND IT CAUGHT A FAILURE
+
+Run because the box was reported idle. **It was not**, and the check took ten
+seconds: load 3.79 and rising, **four busy peer sessions**, and an emulator
+(`qa_phone2`, MultiMagic's) already up.
+
+| | first run, 19 Sept 17:49 | second run, 19 Sept 23:57 |
+|---|---|---|
+| wall time | 10 min 05 s | **12 min 28 s** |
+| result | 2269 ex, 0 failures, 3 pending | **2307 ex, 1 failure, 3 pending** |
+| load, start → end | 6.09 → 7.50 | **10.66 → 12.14** (5-min peak 14.57) |
+| `pswpout` delta | not captured | **11,723 pages** |
+| power | AC | AC, charging 63% |
+
+**Filed as a second contention figure. There is still no quiet-box baseline in
+this repo** — twice now the box has been described as idle and been busy, so
+the honest conclusion is that this machine is rarely quiet and a baseline may
+have to be scheduled rather than waited for.
+
+**The `pswpout` delta is the number worth keeping.** 11,723 pages went out
+during a twelve-minute run. That is real memory pressure at load ~11, and it
+supports the non-linear reading of the 232-minute figure: the cost between load
+6 and load 12 is about two minutes, which cannot extrapolate to 23×. Swap is
+where the rest of that time went. **Capture `pswpin`/`pswpout` either side of
+any future run**; the load average alone will not explain the slow case.
+
+### AND THE FULL SUITE CAUGHT SOMETHING TARGETED SPECS COULD NOT
+
+`spec/config/entrypoint_migration_spec.rb` failed — because of a Dockerfile
+change I committed and never ran the suite against. I ran the specs I thought
+were related (preflight, payload key sets, the courier requests) and not the one
+that guards the Dockerfile, because I did not know it existed.
+
+**The deploy was never broken.** That spec takes `dockerfile[/^CMD …/]` — the
+FIRST `CMD` in the file — which was exact while there was one stage with one
+CMD. The new `development` stage sits ABOVE the final stage, so the spec began
+reading a CMD that never ships and whose stage has no ENTRYPOINT at all.
+
+**It erred in the safe direction by luck, not by design.** The same silent
+re-aim would have PASSED had the new stage's CMD happened to end in
+`./bin/rails server`, while the shipping CMD broke underneath it. A gate reading
+the wrong subject is not safer for having failed this time.
+
+Fixed by scoping it to the stage that carries the ENTRYPOINT, since the
+condition can only fire where the entrypoint runs, and by asserting that exactly
+one stage declares one. Both planted: a wrapped shipping CMD, and a second
+ENTRYPOINT stage.
+
+**The lesson is about change, not about Docker.** A targeted spec run answers
+"did I break what I was thinking about". Only the full suite answers "did I
+break something I did not know was watching me". I committed a Dockerfile change
+without the second question and the answer was yes.
+
+## ONE-WAY DOOR 4 WAS HELD BY A COMMENT, AND NOW HAS A GATE
+
+`CourierWallet#record_entry!`: *"Single entry point for every balance change, so
+no code path can move money without leaving a ledger row saying who moved it."*
+
+**True, and undefended.** Exactly one line in the codebase assigns a balance and
+it is inside that method, after the entry is written, in the same transaction
+under `lock!`. Nothing stopped a second one being added.
+
+`every_money_movement_is_attributable_spec.rb` does not cover it: that file
+asserts every ENTRY names a person, which says nothing about a movement that
+produced **no entry at all**. The two look like the same assertion and are not.
+
+This is the "a comment describing what the code SHOULD do was never true" shape
+one step earlier — a comment that **is** true, with no reason to stay true, on a
+one-way door where a hole in the books cannot be reconstructed afterwards.
+
+`spec/models/money_moves_only_through_the_ledger_spec.rb` now asserts the single
+assignment point across `app/`, `lib/` and `db/`, with the one legitimate
+exception named by exact path (a seed initialising a NEW wallet to zero, which
+moves nothing). Planted a `wallet.update!(balance: …)` into
+`advance_job_service` and it goes red naming the file and line.
