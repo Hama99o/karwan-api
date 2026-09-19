@@ -3424,3 +3424,56 @@ assignment point across `app/`, `lib/` and `db/`, with the one legitimate
 exception named by exact path (a seed initialising a NEW wallet to zero, which
 moves nothing). Planted a `wallet.update!(balance: …)` into
 `advance_job_service` and it goes red naming the file and line.
+
+## THREE OF THE SIX ONE-WAY DOORS HAD NO GATE
+
+`CLAUDE.md` names six irreversible decisions. Asked of each: **is it held by a
+spec, or by a comment?**
+
+| door | gate |
+|---|---|
+| 1 · snapshot order lines | **none** |
+| 2 · currency on every amount | **none → added** |
+| 3 · a timestamp and actor per transition | **none** |
+| 4 · a ledger entry per money movement | added earlier tonight |
+| 5 · an audit row per intervention | `every_intervention_is_audited_spec.rb` |
+| 6 · soft delete, never hard | `delete_is_discard_spec.rb` |
+
+All six **hold** in the code today. The question was never whether they are
+true; it is whether anything stops them becoming false, on the six decisions the
+document says cannot be un-made.
+
+### Door 2, and why the obvious gate does not work
+
+The natural version looks for columns named like money — `*_amount`, `*_total`,
+`*_fee` — and **it reported a clean schema while it could not see half the
+money in the database.** `wallet_entries.amount` has no underscore. And every
+column in `pricing_rates` is money: **`base`, `per_km`, `per_minute`,
+`minimum`** — not one contains a money word.
+
+**Money columns are not reliably named.** A name-based gate therefore certifies
+a schema it cannot read, which is the shape that appeared four times on 19 Sept
+in four different instruments.
+
+So the question is inverted. `spec/models/currency_on_every_amount_spec.rb`
+requires **every `decimal` column** to be accounted for: either its table
+carries `currency`, or the column is named in `NOT_MONEY` with a reason.
+Coordinates, distances, a multiplier and `commission_rate` (a percentage, which
+has no currency of its own) are the current exemptions. **A new decimal fails
+until somebody decides which it is** — which is exactly the moment the decision
+is cheap, because after the migration ships it cannot be backfilled. A
+historical row cannot be asked what currency it was in.
+
+Two guards beside it: one asserting the introspection still sees known money
+columns, so a broken scan cannot pass by finding nothing; and one failing on a
+**stale exemption**, because a name left in `NOT_MONEY` after its column is gone
+is how a future column reusing that name inherits a pass in silence.
+
+**Planted for real** rather than by editing the expectation: added
+`addresses.deposit_held` as a decimal to `karwan_test_99`, watched the gate name
+it, dropped it again.
+
+**Doors 1 and 3 are still comment-only** and are the next two worth doing —
+door 1 (never join a historical order to live menu rows) is checkable by reading
+the serializers, and door 3 (a timestamp AND actor per transition) by asserting
+no status write bypasses the transition path.
