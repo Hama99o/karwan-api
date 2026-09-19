@@ -767,6 +767,53 @@ inside the block, so a day-boundary example cannot pass because it happened to
 run at 09:00 and fail at 00:01. That is the seventh shape removed rather than
 mitigated.
 
+### A `placed` ORDER CANNOT BE SEEDED AS A DURABLE FIXTURE — AND THAT IS CORRECT
+
+Asked for on 2026-09-19 to give the customer cancel's positive path a subject:
+the rig has no seeded order in `placed`, and `Order::TRANSITIONS` allows a
+customer to cancel **only** from `placed`. Both halves of that are true —
+verified — and the fixture still cannot exist. Written down so nobody spends the
+hour again.
+
+**REASON 1 — IT IS REJECTED WITHIN THREE MINUTES, BY DESIGN.**
+
+`TIMEOUTS[:placed]` is **2 minutes**, `Dispatch::JobTimeoutsJob` self-closes an
+overdue `placed` order to `rejected`, and `config/recurring.yml` runs that job
+**every minute in development** (`development: <<: *tasks`). Measured, in a
+rolled-back transaction:
+
+    before: placed, overdue?=true
+    after JobTimeoutsJob: rejected
+    can the customer still cancel? false
+
+So a seeded `placed` order is **a state the app deliberately does not allow to
+persist**. Seeding one produces the very thing this repo keeps finding: a fixture
+the product cannot produce. Worse, it would be INTERMITTENT — green for whoever
+seeded and ran within two minutes, red for everyone else, and the red would read
+as a cancel bug rather than as a dead fixture.
+
+**REASON 2 — ON THE RIG CUSTOMER IT WOULD HIJACK THE STATUS SCREEN.**
+
+This file already considered and rejected a second live order for that account,
+and says why twelve lines from where the new one would go: *"the status screen
+renders the NEWEST live order."* A fresh `placed` order is newest, so it would
+take the screen from the `ready` order that the status, board and map flows all
+point at. One fixture, three flows broken.
+
+**WHAT TO DO INSTEAD: THE FLOW PLACES ITS OWN ORDER, THEN CANCELS IT.**
+
+That removes both problems at once — nothing is seeded, so nothing hijacks
+anything, and the order is seconds old, so it is inside the two-minute window
+naturally. It also tests the path a real customer takes: placing and then
+changing their mind is *what the two-minute window is for*. A seeded fixture
+would have tested cancellation of an order nobody placed.
+
+**The general rule, which is the part worth carrying:** a state with a TIMEOUT is
+not a seedable state. Check `TIMEOUTS` before seeding any live status — `placed`
+(2m), `ready` (20m) and `accepted` (45m) all expire, and only the long ones
+survive a QA run. The rig's live order sits in `ready` for exactly this reason,
+and even that has twenty minutes.
+
 ### OPEN — THE PREMIUM UPLIFT IS COLLECTED BY THE COURIER AND CHARGED TO NOBODY
 
 Found 2026-09-19 while checking the launch blockers. **This is not a bug to fix
