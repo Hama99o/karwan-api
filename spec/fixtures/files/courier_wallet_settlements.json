@@ -1,0 +1,49 @@
+{
+  "settlements": [
+    {
+      "id": 1,
+      "balanced": false,
+      "counted_amount": "550.0",
+      "counted_by_name": "Zarmina (Kabul office)",
+      "currency": "AFN",
+      "expected_amount": "500.0",
+      "note": "extra found in the bag",
+      "settled_at": "2026-09-19T18:30:00.000+04:30",
+      "short": false,
+      "variance": "50.0"
+    },
+    {
+      "id": 2,
+      "balanced": true,
+      "counted_amount": "500.0",
+      "counted_by_name": "Najibullah (Kabul office)",
+      "currency": "AFN",
+      "expected_amount": "500.0",
+      "note": null,
+      "settled_at": "2026-09-18T18:30:00.000+04:30",
+      "short": false,
+      "variance": "0.0"
+    },
+    {
+      "id": 3,
+      "balanced": false,
+      "counted_amount": "450.0",
+      "counted_by_name": "Najibullah (Kabul office)",
+      "currency": "AFN",
+      "expected_amount": "500.0",
+      "note": "شپږ زره افغانۍ کمې وې",
+      "settled_at": "2026-09-17T18:30:00.000+04:30",
+      "short": true,
+      "variance": "-50.0"
+    }
+  ],
+  "meta": {
+    "pagination": {
+      "current_page": 1,
+      "next_page": null,
+      "prev_page": null,
+      "total_count": 3,
+      "total_pages": 1
+    }
+  }
+}
