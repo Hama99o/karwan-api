@@ -149,5 +149,13 @@ after the countdown — the job went to somebody else and another will come),
 `not_cancellable` (a customer cancels as the merchant accepts — the restaurant
 has started cooking), and `outside_service_area`.
 
-`ErrorCodes.reachable_in_normal_use` returns the 25 that are not OTP, malformed
-requests or server state.
+`ErrorCodes.reachable_in_normal_use` returns the **50** that are not OTP,
+malformed requests or server state. The ten it excludes are `otp_*` (switched
+off), `bad_request`, `bad_platform`, `not_found`, `registration_invalid` and
+`pending_migration`.
+
+> **This number said 25 for an hour**, written when the vocabulary was 35 and
+> not revisited when twenty-five dynamic codes were folded in. It is the count
+> the mobile session sizes its translation work from, so a stale one is not a
+> cosmetic error. It is now asserted in `spec/config/api_vocabulary_spec.rb`,
+> which is what caught it.

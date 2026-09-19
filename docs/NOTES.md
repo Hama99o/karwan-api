@@ -3301,3 +3301,50 @@ while a client sends one. That is a true fact about the routes, not a
 duplication to clean up — collapsing it in the generator would make the file
 disagree with `bin/rails routes`. The mobile side folds PUT into PATCH when
 diffing, which is the right place for it.
+
+## `bin/callers` REPORTED A FRAMEWORK HOOK AS DEAD — ITS THIRD BLIND SPOT
+
+Asked of this tool the question `docs/TESTING.md` now carries — *what kind of
+thing would this never match?* — rather than reading its output.
+
+**It reported `display_resource` as reachable from nowhere.** It is defined in
+about ten dashboards and called by **Administrate**, from `page/show.rb`,
+`page/form.rb`, `field/associative.rb` and `field/polymorphic.rb`. Acting on
+that report would have broken the title of every console show page and every
+form. Verified in the gem before changing anything.
+
+**The pattern across all three blind spots is one sentence: this tool can only
+see calls written in this repo.**
+
+1. endless-method declarations (`def create? = …`) counted as their own callers
+2. dynamic policy dispatch — `transition!(:accept)` reaching `accept?`
+3. a framework calling into our code
+
+The first two were fixed by teaching it new shapes. The third cannot be, in
+general: a gem calls what it likes. So every framework-invoked hook needs a line
+in `FRAMEWORK` or it reads as dead, and that is a permanent maintenance cost of
+this tool rather than a bug to close.
+
+**A latent fourth, recorded before it bites:** references are searched with
+`--include=*.rb --include=*.erb`. A method called only from a `.rake` task, a
+`Rakefile` or a YAML config would read as dead. No rake tasks exist today, which
+is why this is a note rather than a finding.
+
+### AND IT CAUGHT ME THE SAME HOUR
+
+`ErrorCodes.reachable_in_normal_use` — **written tonight, during an audit for
+built-and-unreachable code, and called by nothing.** Documented in
+`API_VOCABULARY.md`, published for the mobile session, invoked by no one.
+`bin/callers` found it within the hour of it being committed.
+
+Fixed by asserting it, which is the right fix rather than deleting it: the
+document quotes its result, so the number needed a guard.
+
+**And the guard immediately failed.** The document said it returned **25** — true
+when the vocabulary was 35, and never revisited when twenty-five dynamic codes
+were folded in. It returns **50**. That number is what the mobile session sizes
+its translation work from, so a stale one is not cosmetic.
+
+**Three mistakes chained in one evening, each caught by the next instrument:**
+a method nobody calls, describing a count nobody checked, published to somebody
+who would have planned from it.

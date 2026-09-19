@@ -15,6 +15,18 @@ FRAMEWORK = %w[
   perform show index create update destroy edit new
   up down change value_type_for_database deserialize serialize cast
   job_kind code name title
+  # ADMINISTRATE CALLS THIS, WE NEVER DO. `display_resource` is defined in ~10
+  # dashboards and invoked only from the gem — `page/show.rb`, `page/form.rb`,
+  # `field/associative.rb`, `field/polymorphic.rb`. Without this line the tool
+  # reports it as reachable from nowhere, and acting on that report would
+  # break the title of every console show page and every form.
+  #
+  # Found 2026-09-19, the THIRD blind spot in this file after endless-method
+  # declarations and dynamic policy dispatch. The pattern across all three:
+  # **this tool can only see calls written in this repo.** A framework that
+  # calls into our code is invisible to it by construction, so every new
+  # framework-invoked hook needs a line here or it reads as dead.
+  display_resource
 ].freeze
 
 files = Dir.glob("app/**/*.rb").reject { |f| f.start_with?("app/controllers/") }

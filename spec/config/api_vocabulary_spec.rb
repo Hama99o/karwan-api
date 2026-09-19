@@ -74,6 +74,21 @@ RSpec.describe "docs/API_VOCABULARY.md" do
                        "An undeclared code reaches a person as a generic failure."
   end
 
+  # GUARDS THE PUBLISHED NUMBER, and makes the method reachable. It was added
+  # tonight, documented in API_VOCABULARY.md as "returns the 25", and called by
+  # nothing — a built-and-unreachable created during an audit for exactly that.
+  # `bin/callers` reported it within the hour.
+  it "reachable_in_normal_use returns the 25 the document promises" do
+    codes = ErrorCodes.reachable_in_normal_use
+
+    expect(codes.size).to eq(50),
+                          "the document says 50 codes are reachable in normal use; this returns #{codes.size}. " \
+                          "If that is right, update docs/API_VOCABULARY.md in the same commit — the mobile " \
+                          "session sizes its translation work from that number."
+    expect(codes).not_to include(*ErrorCodes::OTP)
+    expect(codes).to include("offer_expired", "not_cancellable", "outside_service_area")
+  end
+
   # `merchant` is the UI's word, not the server's, and writing it into this
   # document would re-create exactly the confusion the document exists to end.
   it "does not claim a role called `merchant` exists" do
