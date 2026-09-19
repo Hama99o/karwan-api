@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# ── THE MOBILE-FACING SURFACE OF THIS API, IN ONE DIFFABLE LIST ────────────
+#
+# Half of a two-sided check. This side knows every endpoint it SERVES and
+# cannot see who calls them; the mobile repo knows every endpoint it CALLS and
+# cannot see what exists. Neither can answer "is this reachable from the other
+# side", which is how `GET /api/v1/courier/wallet/settlements` sat complete —
+# route, serializer, request specs — with no client for as long as it did, and
+# how the mobile session's own wallet client sat with no caller.
+#
+# The cheap version of a cross-repo tool is two text files and a diff. This
+# produces one of them. `docs/API_SURFACE.txt` is the committed snapshot and
+# `spec/config/api_surface_spec.rb` fails when it drifts, so the published list
+# is never quietly out of date — an out-of-date list is worse than none,
+# because a diff against it produces confident nonsense.
+#
+# Admin is excluded on purpose: Administrate is the ops console, no app calls
+# it, and including ~90 CRUD routes would bury the surface that matters.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+exec bin/rails runner '
+  rows = Rails.application.routes.routes.filter_map do |route|
+    path = route.path.spec.to_s.sub(/\(\.:format\)\z/, "")
+    next unless path.start_with?("/api/")
+
+    verb = route.verb.presence || "ANY"
+    target = "#{route.defaults[:controller]}##{route.defaults[:action]}"
+    format("%-6s %-52s %s", verb, path, target)
+  end
+  puts rows.uniq.sort
+'

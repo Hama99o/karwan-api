@@ -1689,3 +1689,54 @@ it gave the wrong answer.
 
 **So: stub what you cannot afford to run. When you stub something you could
 have run, run it first.**
+
+## AN EQUALITY ASSERTION NEEDS A LIVENESS ASSERTION IN FRONT OF IT
+
+`expect(a).to eq(b)` passes when both sides are **empty**. So an example whose
+whole point is that two things agree will report agreement between two
+absences, and it will do it in the file written to prove they agree.
+
+**The instance, 2026-09-19.** `arrival_window_is_the_customers_promise_spec.rb`
+compares the courier's window with the customer's, because two computations of
+one promise is how two screens come to disagree. The order factory leaves
+`distance_km` nil; `Orders::ArrivalWindow` correctly returns nil for an order
+whose distance was never measured. Both payloads returned `null`, and
+`nil == nil` is a pass. **The spec proving the courier sees what the customer
+sees would have gone green while neither saw anything.**
+
+It was caught only because the example asserted both sides were non-nil
+*before* comparing them — written that way deliberately, and it earned its
+place within a minute of being written.
+
+```ruby
+expect(courier_window).not_to be_nil,
+  "the courier's window is nil, so the comparison below cannot fail"
+expect(customer_window).not_to be_nil,
+  "the customer's window is nil, so there is no promise to match"
+
+expect(courier_window).to eq(customer_window)
+```
+
+### The general form
+
+**Before asserting two things are the same, assert that either of them is
+anything.** The liveness assertion carries the message, because when it fires
+the useful sentence is not "expected nil to eq nil" — it is *"the comparison
+below cannot fail"*.
+
+This is the same failure as an empty corpus reading as a clean sweep, in the
+one place it is hardest to see: inside an instrument built to prevent it. It
+applies to every symmetric check —
+
+- two payloads that must match
+- a list compared against a committed fixture (**a fixture file that failed to
+  load is an empty list, and an empty response equals it**)
+- a before/after snapshot where both captures failed
+- `contain_exactly` with an empty expectation
+
+`spec/config/api_surface_spec.rb` carries the same guard for the same reason:
+if the route filter ever stopped matching, it would compare an empty list to an
+empty file and pass. It counts the subject first.
+
+**Ask of every equality: what does this say when both sides are empty?** If the
+answer is "it passes", it is not yet an assertion.
