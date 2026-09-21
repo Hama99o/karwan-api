@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_21_092740) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_21_123032) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -197,6 +197,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_21_092740) do
     t.index ["user_id"], name: "index_courier_profiles_on_user_id", unique: true
     t.index ["verification_status"], name: "index_courier_profiles_on_verification_status"
     t.index ["verified_by_admin_user_id"], name: "index_courier_profiles_on_verified_by_admin_user_id"
+  end
+
+  create_table "courier_shifts", force: :cascade do |t|
+    t.bigint "courier_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "ended_at"
+    t.datetime "started_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["courier_id", "started_at"], name: "index_courier_shifts_on_courier_id_and_started_at"
+    t.index ["courier_id"], name: "index_courier_shifts_on_courier_id"
+    t.index ["courier_id"], name: "index_courier_shifts_open", where: "(ended_at IS NULL)"
   end
 
   create_table "courier_wallets", force: :cascade do |t|
@@ -633,6 +644,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_21_092740) do
   add_foreign_key "courier_profiles", "admin_users", column: "verified_by_admin_user_id"
   add_foreign_key "courier_profiles", "users"
   add_foreign_key "courier_profiles", "users", column: "verified_by_id"
+  add_foreign_key "courier_shifts", "users", column: "courier_id"
   add_foreign_key "courier_wallets", "users"
   add_foreign_key "device_tokens", "users"
   add_foreign_key "merchant_category_assignments", "merchant_categories"

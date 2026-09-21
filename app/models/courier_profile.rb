@@ -100,6 +100,40 @@ class CourierProfile < ApplicationRecord
   # the question being asked, and the table behind it can change without
   # touching `Dispatch::Eligibility`. Both fail CLOSED on an unknown vehicle:
   # see `VehicleTypes`.
+  # ── THE ONLY WAY AVAILABILITY CHANGES ─────────────────────────────────────
+  #
+  # Same shape as `CourierWallet#record_entry!`, and for the same reason: the
+  # switch and the history must move together or the history is a guess. A bare
+  # `update!(is_available:)` anywhere else records the new state and loses the
+  # fact that it changed, and **shift history cannot be reconstructed** — which
+  # is what makes this a one-way door rather than a preference.
+  #
+  # IDEMPOTENT ON THE VALUE. The courier's app sends the toggle on a bad
+  # connection and retries; without this guard a retry would close a shift and
+  # open a new one, turning one four-hour shift into two and inflating the
+  # count of shifts while leaving the hours roughly right. Only a real
+  # TRANSITION writes.
+  #
+  # HISTORY STARTS AT THE FIRST TOGGLE AFTER THIS SHIPS. A courier already
+  # marked available has no open shift and does not get one until they go off
+  # and on again. That is honest — inventing a `started_at` for a shift nobody
+  # observed would be manufacturing the exact data this table exists to stop
+  # guessing at.
+  def set_availability!(available, at: Time.current)
+    transaction do
+      was = is_available?
+      update!(is_available: available)
+      next if was == available
+
+      if available
+        user.courier_shifts.create!(started_at: at)
+      else
+        user.courier_shifts.open_now.find_each { |shift| shift.update!(ended_at: at) }
+      end
+    end
+    self
+  end
+
   def seats?(passenger_count)
     VehicleTypes.seats?(vehicle_type, passenger_count)
   end

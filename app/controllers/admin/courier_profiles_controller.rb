@@ -82,7 +82,10 @@ module Admin
     # a courier who has stopped answering.
     def take_off_shift
       profile = requested_resource
-      profile.update!(is_available: false)
+      # Through the entry point, so an operator forcing a courier offline closes
+      # their shift like any other. A raw update here would leave the shift open
+      # forever and count a suspended courier as available.
+      profile.set_availability!(false)
 
       log_intervention("courier.taken_off_shift", target: profile, after: { is_available: false })
       redirect_back fallback_location: admin_courier_profile_path(profile), notice: "Taken off shift."

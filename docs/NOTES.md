@@ -3648,11 +3648,45 @@ are saturated and recruit, when the opposite may be true.
 no history and there is no shifts table. Measuring idle capacity needs somewhere
 to record when a rider went on and off shift.
 
-**The cost, so the decision can be made rather than discovered:** one table
-(`courier_shifts`: courier, started_at, ended_at), a write on each toggle of
-the existing availability endpoint, and backfill is impossible — the history
-starts the day it ships. Until then the page states the bias in plain words and
-tells the reader not to recruit against this number alone.
+**BUILT 2026-09-21**, and on reflection it was mis-filed as a decision. The
+*report* is a preference; **the recording is a one-way door** — `CLAUDE.md`
+says what you fail to record cannot be reconstructed, and every day without
+`courier_shifts` was a day whose idle capacity can never be known. Waiting for
+an answer would itself have been the irreversible choice.
+
+`courier_shifts` (courier, started_at, ended_at), written through
+`CourierProfile#set_availability!` — the ONLY path that may change
+availability, same shape as `CourierWallet#record_entry!` and gated the same
+way, because a single entry point nothing enforces is a convention.
+
+**Three things it gets right, each planted:**
+
+- **Idempotent on the value.** The courier's app retries the toggle on a bad
+  connection; without the guard a retry closes one shift and opens another,
+  turning one four-hour shift into two — hours roughly right, shift COUNT
+  doubled, which looks fine in a total and is wrong in every per-shift figure.
+- **An open shift is capped at `now`**, not left unbounded. A killed app never
+  sends "off"; treating that as available-forever would inflate the denominator
+  and make utilisation look WORSE than it is — the opposite bias to the one this
+  table removes, which would be a poor trade.
+- **An operator forcing a courier offline closes the shift too**, or a suspended
+  courier counts as capacity forever.
+
+**The report shows the honest figure only once history predates the whole
+window**, and says which case it is in otherwise. Dividing by a
+partially-recorded denominator reports a crisis instead of flattery — the same
+error in the other direction — so it is refused rather than approximated.
+
+**Known distortion, recorded rather than guessed at:** an abandoned shift is
+indistinguishable from a live one from here, so a courier whose app died looks
+available until something closes it. The fix is a stale-shift closer on the
+timeouts job; it is not built, because the honest cap at `now` bounds the damage
+and inventing a session length would manufacture the data this table exists to
+stop guessing at.
+
+**History starts at the first toggle after deploy.** A courier already marked
+available gets no shift until they go off and on again — inventing a
+`started_at` for a shift nobody observed is exactly the guess being removed.
 
 ## TWO TRAPS IN ONE AFTERNOON, AND THE FIRST HID THE SECOND
 

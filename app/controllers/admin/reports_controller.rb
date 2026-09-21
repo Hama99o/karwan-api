@@ -130,9 +130,26 @@ module Admin
       couriers = (deliveries.distinct.pluck(:courier_id) + rides.distinct.pluck(:courier_id)).compact.uniq.size
       days = [ (Time.zone.today - from.to_date).to_i, 1 ].max
 
+      # ── THE HONEST DENOMINATOR, ONCE THERE IS HISTORY TO USE ──────────────
+      #
+      # Couriers who were AVAILABLE in the window, from `courier_shifts` —
+      # including the ones who went online and took nothing, who are exactly
+      # the capacity the working-courier figure hides.
+      #
+      # `history_from` is stated because the table began recording on the day it
+      # shipped and **cannot be backfilled**. A window that predates it would
+      # otherwise divide by a denominator that is missing most of its subjects
+      # and report a crisis, which is the same error in the opposite direction.
+      available = CourierShift.overlapping(from, Time.current).distinct.count(:courier_id)
+      history_from = CourierShift.minimum(:started_at)
+
       {
         jobs: jobs, couriers: couriers, days: days,
-        per_courier_per_day: couriers.zero? ? nil : (jobs.to_f / couriers / days).round(2)
+        per_courier_per_day: couriers.zero? ? nil : (jobs.to_f / couriers / days).round(2),
+        available_couriers: available,
+        history_from: history_from,
+        history_covers_window: history_from.present? && history_from <= from,
+        per_available_per_day: available.zero? ? nil : (jobs.to_f / available / days).round(2)
       }
     end
 

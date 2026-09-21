@@ -48,7 +48,7 @@ class Api::V1::Couriers::ShiftsController < Api::V1::Couriers::BaseController
       }, status: :unprocessable_content
     end
 
-    courier_profile.update!(is_available: available)
+    courier_profile.set_availability!(available)
     render_ok(shift_payload)
   end
 

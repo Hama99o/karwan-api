@@ -62,6 +62,47 @@ RSpec.describe "Admin reports", type: :request do
     expect(response.body).to include("2 riders"), "the denominator is not shown"
   end
 
+  describe "the honest denominator" do
+    # The gap between "per working rider" and "per available rider" IS the idle
+    # capacity, and it is the number a hiring decision turns on.
+    it "divides by everyone who went on shift, not only those who finished a job" do
+      worked = create(:user, :courier)
+      idle = create(:user, :courier)
+      # BEFORE the 14-day window, deliberately: the report shows this figure
+      # only once shift history predates the whole window, because dividing by
+      # a partially-recorded denominator reports a crisis rather than the truth.
+      [ worked, idle ].each do |c|
+        c.courier_shifts.create!(started_at: 20.days.ago, ended_at: 19.days.ago)
+        c.courier_shifts.create!(started_at: 3.days.ago, ended_at: 2.days.ago)
+      end
+      2.times { |i| delivered_order(courier: worked, at: (i + 1).days.ago, commission: 10, total: 500) }
+
+      get "/admin/reports"
+
+      expect(response.body).to include("2 riders who went on shift"),
+                               "the idle rider is missing from the denominator, which is the whole point"
+    end
+
+    # Recording began the day the table shipped and CANNOT be backfilled, so a
+    # window that predates it would divide by a denominator missing most of its
+    # subjects — reporting a crisis instead of flattery, which is the same error
+    # in the other direction.
+    it "refuses to show the figure when history does not cover the window" do
+      create(:user, :courier).courier_shifts.create!(started_at: 1.hour.ago)
+
+      get "/admin/reports"
+
+      expect(response.body).to include("Shift history does not cover this whole window")
+      expect(response.body).not_to include("jobs per <em>available</em> rider per day")
+    end
+
+    it "says so plainly when nothing has been recorded at all" do
+      get "/admin/reports"
+
+      expect(response.body).to include("cannot be backfilled")
+    end
+  end
+
   it "says plainly that the utilisation figure flatters the business" do
     get "/admin/reports"
 

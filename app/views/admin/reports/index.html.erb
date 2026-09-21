@@ -52,13 +52,36 @@
     the books. Forty sign-ups and six working riders is six riders' worth of capacity; dividing by
     forty would report a crisis that is really a sign-up list.
   </p>
-  <p class="karwan-report__note karwan-report__note--warn">
-    <strong>This figure flatters the business.</strong> A rider who was available all day and took
-    nothing is not counted, so idle capacity is invisible and the true figure across everyone who
-    made themselves available is lower. It cannot be measured today: rider availability is a current
-    switch with no history. <strong>Do not use this alone to decide whether to recruit more riders</strong>
-    — it can only tell you how hard the working riders are working.
-  </p>
+  <%# The same jobs over the honest denominator: everyone who made themselves
+      available, including those who took nothing. That difference IS the idle
+      capacity, and it is the number a hiring decision turns on. %>
+  <% if @utilisation[:per_available_per_day] && @utilisation[:history_covers_window] %>
+    <p class="karwan-report__headline">
+      <strong><%= @utilisation[:per_available_per_day] %></strong> jobs per <em>available</em> rider per day
+      — <%= @utilisation[:jobs] %> jobs ÷ <%= @utilisation[:available_couriers] %> riders who went on shift
+      ÷ <%= @utilisation[:days] %> days
+    </p>
+    <p class="karwan-report__note">
+      This is the one to decide recruitment on. The figure above counts only riders who completed
+      work; this one counts everyone who made themselves available, so the gap between the two
+      <strong>is</strong> your idle capacity.
+    </p>
+  <% elsif @utilisation[:history_from].present? %>
+    <p class="karwan-report__note karwan-report__note--warn">
+      <strong>Shift history does not cover this whole window.</strong> Recording began
+      <%= @utilisation[:history_from].strftime("%d %b %Y") %>, so the figure above still counts only
+      riders who completed work and therefore <strong>flatters the business</strong> — idle capacity
+      is invisible in it. Dividing by an incomplete shift history would report a crisis instead, so
+      it is not shown. Both become available once the window sits inside the recorded period.
+    </p>
+  <% else %>
+    <p class="karwan-report__note karwan-report__note--warn">
+      <strong>This figure flatters the business.</strong> A rider who was available all day and took
+      nothing is not counted, so idle capacity is invisible. Shift history has just been added and
+      has recorded nothing yet — it <strong>cannot be backfilled</strong>, so this becomes answerable
+      only for days from here on. <strong>Do not use this alone to decide whether to recruit.</strong>
+    </p>
+  <% end %>
 
   <h2>Orders per day</h2>
   <%# Placed AND delivered. Placed alone hides the day when everything was

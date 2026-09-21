@@ -82,6 +82,11 @@ class User < ApplicationRecord
   # on the session, because one human can have two devices in two modes; this
   # only seeds the next new one, so a reinstall does not drop a courier back
   # into the customer tab. See `UserSession#switch_role!`.
+  # When this person was available for work. Only meaningful for a courier;
+  # nobody else toggles a shift.
+  has_many :courier_shifts, class_name: CourierShift.name, dependent: :destroy,
+                            foreign_key: :courier_id, inverse_of: :courier
+
   enum :last_active_role, Roles::ALL, prefix: :last_acted_as
   enum :status, { active: 0, suspended: 1 }, prefix: :account
 
