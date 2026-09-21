@@ -70,6 +70,9 @@ a place a re-declaration can silently disagree.
 | **order cancellation reason** | `customer_changed_mind` `merchant_unavailable` `no_courier_available` `duplicate` `other` | `customers/order_serializer.rb` (`ended_reason.code`). Read-only: `customers/orders#cancel` still hard-codes `customer_changed_mind` — see C |
 | **who ended it** | `customer` `courier` `merchant_owner` `admin` `system` — or **null** | `ended_reason.ended_by`. `system` means a nil actor did it (the timeout job); **null means no transition was recorded**, which is not the same fact and must not be rendered as "the system" |
 
+| **theme** | `system` `light` `dark` | `shared/user_serializer.rb` (`preferred_theme`), and ACCEPTED by `me#update`. Both directions |
+| **courier job kinds** | `delivery` `ride` | `couriers/registration_serializer.rb` and `couriers/shifts#show` as `accepted_job_kinds`; `couriers/job_serializer.rb` and `wallet_entry_serializer.rb` as `job_kind`. Also a route segment, which is what hid it |
+| **merchant status** | `pending` `active` `suspended` `rejected` `lead` | `merchants/profile_serializer.rb` and `shared/merchant_application_serializer.rb`. A CUSTOMER never sees it — they get `accepting_orders` — but the shop sees its own, and an applicant sees `lead` |
 | **why a courier's phone is quiet** | eight of the fourteen eligibility reasons, or **null** | `couriers/shifts#show` (`blocked_by`) |
 
 **`blocked_by` REUSES THE ELIGIBILITY VOCABULARY IN A SECOND CONTEXT, and that
@@ -121,13 +124,27 @@ invents its own there is nothing to catch it.
 | **order cancellation reason, as an INPUT** | `customer_changed_mind` `merchant_unavailable` `no_courier_available` `duplicate` `other` | It is now READ on the wire (category B), but still cannot be SENT: `customers/orders#cancel` HARD-CODES `customer_changed_mind` and puts `params[:reason]` into the transition's free text. Five values exist and a customer can express exactly one. Whether a customer may claim `merchant_unavailable` is Hamma9900's. |
 | **trip cancellation reason** | `passenger_changed_mind` `courier_unavailable` `no_courier_available` `duplicate` `other` | same — not on the wire |
 | **payment status** | `pending` `collected` `settled` | not in any mobile serializer. Drives the cash-in-hand gate that stops dispatch offering work, and no app can see it |
-| **theme** | `system` `light` `dark` | stored on `User`, **not serialized**. A settings screen would invent its own |
-| **courier job kinds** | `delivery` `ride` | `CourierProfile::JOB_KINDS`; used as a ROUTE SEGMENT (`/jobs/:kind/...`), not as a payload field |
-| **merchant status** | `pending` `active` `suspended` `rejected` `lead` | ops-console vocabulary; a customer sees `accepting_orders`, not this |
 | **offer status** | `offered` `accepted` `declined` `timed_out` `superseded` | internal to dispatch |
 
 **Before writing a client for any row in C, ask for the word.** That is the
 question nobody asked about `roles`.
+
+### THREE ROWS OF THIS SECTION WERE WRONG, AND IT IS THE SECTION THAT IS TRUSTED
+
+`theme`, `courier job kinds` and `merchant status` were all listed here as never
+having crossed the wire, and all three were in serializers — `preferred_theme`
+is serialized AND accepted as input, `accepted_job_kinds` and `job_kind` appear
+in four payloads, and a merchant sees its own `status` on its profile.
+
+**This is the most damaging place in the document to be stale.** Section C's
+purpose is to tell a mobile session where no server word exists yet, so a wrong
+entry sends somebody to invent a vocabulary that is already on the wire — which
+is precisely the `Role` mismatch this file was written after.
+
+`spec/config/api_vocabulary_spec.rb` now checks the claim mechanically for every
+vocabulary whose attribute name is distinctive enough to search for, and names
+the ones it cannot check. The list of values was always asserted; what rotted
+was the prose about WHERE they appear, and prose is what a reader acts on.
 
 ---
 

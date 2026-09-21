@@ -107,6 +107,87 @@ RSpec.describe "docs/API_VOCABULARY.md" do
                                                                                "the board offers a reason the column cannot store"
   end
 
+  # ── SECTION C'S CLAIM, CHECKED RATHER THAN BELIEVED ──────────────────────
+  #
+  # The value lists were always asserted. What rotted was the PROSE about where
+  # a vocabulary appears — and prose is what a reader acts on. Three rows of
+  # "NEVER MET" were wrong at once: `preferred_theme` is serialized AND accepted
+  # as input, `accepted_job_kinds` and `job_kind` appear in four payloads, and a
+  # merchant sees its own `status`.
+  #
+  # That is the most damaging place in this document to be stale. Section C
+  # exists to tell a mobile session where no server word exists yet, so a wrong
+  # entry sends somebody to invent a vocabulary that is already on the wire —
+  # the exact `Role` mismatch this file was written after.
+  #
+  # ── WHAT THIS CAN AND CANNOT CHECK, STATED ───────────────────────────────
+  #
+  # A vocabulary is "on the wire" if its attribute name appears in a serializer
+  # or in an API controller that builds a payload inline. That works only for a
+  # DISTINCTIVE name. `status` and `cancellation_reason` appear all over for
+  # unrelated reasons, so those rows are named below as unverifiable here and
+  # are checked by hand — a gate that quietly skipped them would be worse than
+  # one that says which it skipped.
+  # THE TABLE ROWS ONLY, not the prose around them. The first version sliced the
+  # whole section and immediately reported `theme` and `courier job kinds` as
+  # live claims — because the paragraph explaining that those rows HAD been
+  # wrong names them. A gate that cannot tell a claim from a description of a
+  # retired claim will fail every time somebody writes down what was fixed,
+  # which teaches people to stop writing it down.
+  let(:section_c) do
+    section = doc[/## C · NEVER MET.*?(?=\n## |\n---)/m].to_s
+    section.lines.select { |line| line.start_with?("|") }.join
+  end
+
+  let(:payload_source) do
+    Dir[Rails.root.join("app/serializers/**/*.rb"), Rails.root.join("app/controllers/api/**/*.rb")]
+      .map { |file| File.read(file) }.join("\n")
+  end
+
+  # label as it appears in the document => the attribute a payload would carry.
+  let(:checkable) do
+    {
+      "theme" => "preferred_theme",
+      "courier job kinds" => "accepted_job_kinds",
+      "payment status" => "payment_status"
+    }
+  end
+
+  # Rows whose attribute name is too common to search for. Named, with why.
+  let(:by_hand) do
+    {
+      "order cancellation reason, as an INPUT" => "`cancellation_reason` is written by the controller as a " \
+                                                  "hard-coded value; the token appearing proves nothing either way",
+      "trip cancellation reason" => "same token as the row above",
+      "offer status" => "`status` appears in most payloads for unrelated models"
+    }
+  end
+
+  it "lists no vocabulary as NEVER MET that is in fact on the wire" do
+    expect(section_c).to be_present, "section C is not in the document — every check below is vacuous"
+
+    wrong = checkable.select do |label, attribute|
+      section_c.include?(label) && payload_source.include?(attribute)
+    end
+
+    expect(wrong).to be_empty,
+                     "#{wrong.keys.join(', ')} — listed as never having crossed the wire, and the attribute is " \
+                     "in a payload. A mobile session reading section C will invent a word that already exists."
+  end
+
+  # The other direction: a vocabulary genuinely NOT on the wire must still be
+  # somewhere in the document, or it is a word nobody has been warned about.
+  it "still warns about the vocabulary that really has not crossed" do
+    expect(payload_source).not_to include("payment_status"),
+                                  "payment_status has reached a payload — move it out of section C"
+    expect(doc).to include("payment status")
+  end
+
+  it "names every row it cannot check, rather than skipping it silently" do
+    expect(by_hand.values).to all(be_present)
+    by_hand.each_key { |label| expect(section_c).to include(label), "#{label} is no longer in section C" }
+  end
+
   # `merchant` is the UI's word, not the server's, and writing it into this
   # document would re-create exactly the confusion the document exists to end.
   it "does not claim a role called `merchant` exists" do

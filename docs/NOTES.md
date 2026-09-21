@@ -4485,3 +4485,45 @@ not by reading. Order is the entire point: told the wrong first reason, a
 courier tops up a wallet when the real problem is a phone that has not reported
 its position, and he has spent money to learn that. The spec now plants two
 faults at once and demands the same first answer from both.
+
+## THE DOCUMENT WRITTEN TO PREVENT INVENTED VOCABULARY HAD GONE STALE IN THE SECTION THAT MATTERS
+
+`docs/API_VOCABULARY.md` exists because two types called `Role` were found with
+no translation between them — the server's `merchant_owner` against the app's
+`merchant` — and nothing had broken only because nothing had ever read the
+field. Section C, "NEVER MET", is the half the document calls valuable: the
+vocabularies that exist on the server and have never crossed the wire, so no
+client word exists yet and the first caller decides it.
+
+**Three of its seven rows were wrong.**
+
+| listed as never met | actually |
+|---|---|
+| `theme` | `preferred_theme` is serialized by `shared/user_serializer.rb` **and accepted as input** by `me#update` — both directions |
+| `courier job kinds` | `accepted_job_kinds` in the registration payload and the shift payload; `job_kind` in the courier job and wallet-entry payloads — four places |
+| `merchant status` | `merchants/profile_serializer.rb` and `shared/merchant_application_serializer.rb`. A customer never sees it, which is what made the claim look right; the shop sees its own, and an applicant sees `lead` |
+
+**This is the most damaging place in that file to be stale**, because a wrong
+entry sends a mobile session to invent a vocabulary that is already on the wire
+— the exact failure the document was written after.
+
+### What the existing gate checked, and what it did not
+
+`spec/config/api_vocabulary_spec.rb` asserted the VALUE LISTS against the code
+and that the document names every value. Both passed throughout: `system light
+dark` are listed, and `User::THEMES` matches. **What rotted was the prose about
+WHERE a vocabulary appears** — and prose is what a reader acts on.
+
+The gate now checks the claim: for each never-met row whose attribute name is
+distinctive, the attribute must appear in no serializer and no API controller.
+It names the three rows it cannot check that way — `cancellation_reason` is
+written by a controller as a hard-coded value, so the token proves nothing, and
+`status` appears in most payloads for unrelated models. A gate that skipped
+those silently would be worse than one that says which it skipped.
+
+### And the gate's first version could not tell a claim from a description of one
+
+Slicing the whole of section C made it fail immediately — on the paragraph I had
+just added explaining that those three rows HAD been wrong, which names them.
+A check that fires whenever somebody writes down what was fixed teaches people
+to stop writing it down. It reads the table rows now, and nothing else.
