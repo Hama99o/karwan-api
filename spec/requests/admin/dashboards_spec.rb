@@ -38,6 +38,10 @@ RSpec.describe "Every ops console page renders", type: :request do
     when "audit_logs" then create(:audit_log)
     when "wallet_entries" then create(:wallet_entry)
     when "settlements" then create(:settlement)
+    # A CLOSED shift, deliberately: an open one renders a blank `ended_at` and
+    # would leave the show page's most interesting column untested.
+    when "courier_shifts" then create(:user, :courier).courier_shifts.create!(started_at: 3.hours.ago,
+                                                                             ended_at: 1.hour.ago)
     when "merchant_opening_hours" then create(:merchant_opening_hour)
     when "catalog_categories" then create(:catalog_category)
     when "catalog_items" then create(:catalog_item)
@@ -53,6 +57,7 @@ RSpec.describe "Every ops console page renders", type: :request do
   RESOURCES = %w[
     orders trips merchants courier_profiles courier_wallets users
     settings pricing_rates audit_logs wallet_entries settlements
+    courier_shifts
     merchant_opening_hours catalog_categories catalog_items merchant_categories
     catalog_item_options catalog_item_option_values
   ].freeze

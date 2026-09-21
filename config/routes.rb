@@ -112,6 +112,11 @@ Rails.application.routes.draw do
     # ledger whose entries can be rewritten cannot be reconciled.
     resources :audit_logs, only: %i[index show]
     resources :wallet_entries, only: %i[index show]
+
+    # Read-only for the same reason as the ledger above: a shift is a record of
+    # what happened, and editing one falsifies the only data that answers how
+    # much capacity there actually was.
+    resources :courier_shifts, only: %i[index show]
     resources :settlements, only: %i[index show]
 
     # The numbers PRODUCT.md asks for that the landing page deliberately does
