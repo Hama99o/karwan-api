@@ -1,0 +1,95 @@
+<%#
+  Not a chart wall — the same restraint the landing page states. Numbers that
+  drive a decision, each shown with enough of its working that somebody can
+  argue with it. Currency is never summed across.
+%>
+<header class="main-content__header">
+  <h1 class="main-content__page-title">Reports — last <%= @days %> days</h1>
+  <p class="karwan-report__note">
+    Days are <strong>Kabul days</strong>, not the server's. Counts are of <strong>completed</strong>
+    work — delivered orders and completed rides; cancelled and failed jobs are excluded except where
+    they are the subject. Money is grouped by currency and never added across currencies.
+  </p>
+</header>
+
+<section class="main-content__body">
+
+  <h2>What we earned</h2>
+  <%# TWO NUMBERS, NEVER ONE. Gross value is what passed through our hands;
+      commission is what is ours. Under Model A the customer pays the courier
+      and the courier pays the merchant, so reading the first as income would
+      overstate this business by roughly twenty times. %>
+  <table class="karwan-report">
+    <thead><tr><th>Currency</th><th>Gross order value <small>(what customers paid)</small></th><th>Commission <small>(ours)</small></th></tr></thead>
+    <tbody>
+      <% (@gross_value.keys | @commission.keys).sort.each do |currency| %>
+        <tr>
+          <td><%= currency %></td>
+          <td><%= number_with_delimiter(@gross_value[currency].to_i) %></td>
+          <td><strong><%= number_with_delimiter(@commission[currency].to_i) %></strong></td>
+        </tr>
+      <% end %>
+      <% if (@gross_value.keys | @commission.keys).empty? %>
+        <tr><td colspan="3">Nothing completed in this period.</td></tr>
+      <% end %>
+    </tbody>
+  </table>
+
+  <h2>Rider utilisation</h2>
+  <%# The numerator and the denominator, not only the ratio. A courier told
+      only the variance cannot check it, and neither can an owner told only
+      "1.8 per rider". %>
+  <p class="karwan-report__headline">
+    <% if @utilisation[:per_courier_per_day] %>
+      <strong><%= @utilisation[:per_courier_per_day] %></strong> jobs per rider per day
+      — <%= @utilisation[:jobs] %> jobs ÷ <%= @utilisation[:couriers] %> riders ÷ <%= @utilisation[:days] %> days
+    <% else %>
+      No rider completed a job in this period.
+    <% end %>
+  </p>
+  <p class="karwan-report__note">
+    The denominator is riders who <em>completed at least one job</em> in the period, not riders on
+    the books. Forty sign-ups and six working riders is six riders' worth of capacity; dividing by
+    forty would report a crisis that is really a sign-up list.
+  </p>
+  <p class="karwan-report__note karwan-report__note--warn">
+    <strong>This figure flatters the business.</strong> A rider who was available all day and took
+    nothing is not counted, so idle capacity is invisible and the true figure across everyone who
+    made themselves available is lower. It cannot be measured today: rider availability is a current
+    switch with no history. <strong>Do not use this alone to decide whether to recruit more riders</strong>
+    — it can only tell you how hard the working riders are working.
+  </p>
+
+  <h2>Orders per day</h2>
+  <%# Placed AND delivered. Placed alone hides the day when everything was
+      ordered and nothing arrived, which is the day worth seeing. %>
+  <table class="karwan-report">
+    <thead><tr><th>Day</th><th>Placed</th><th>Delivered</th><th>Rides</th></tr></thead>
+    <tbody>
+      <% @per_day.each do |row| %>
+        <tr>
+          <td><%= row[:date].strftime("%a %d %b") %></td>
+          <td><%= row[:placed] %></td>
+          <td><%= row[:delivered] %></td>
+          <td><%= row[:rides] %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+
+  <h2>Failure reasons — same <%= @days %> days</h2>
+  <%# Ranked, and reasons that never occurred are omitted rather than listed as
+      zero — a column of zeroes hides the one that is climbing. %>
+  <table class="karwan-report">
+    <thead><tr><th>Reason</th><th>Count</th></tr></thead>
+    <tbody>
+      <% @failures.each do |reason, count| %>
+        <tr><td><%= reason.to_s.humanize %></td><td><%= count %></td></tr>
+      <% end %>
+      <% if @failures.empty? %>
+        <tr><td colspan="2">No failed orders or rides on record.</td></tr>
+      <% end %>
+    </tbody>
+  </table>
+
+</section>

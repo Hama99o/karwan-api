@@ -114,6 +114,11 @@ Rails.application.routes.draw do
     resources :wallet_entries, only: %i[index show]
     resources :settlements, only: %i[index show]
 
+    # The numbers PRODUCT.md asks for that the landing page deliberately does
+    # not carry. Separate page because "what needs attention now" and "is the
+    # business working" are different questions asked at different moments.
+    get "reports", to: "reports#index", as: :reports
+
     root to: "dashboard#index"
   end
 

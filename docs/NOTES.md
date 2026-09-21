@@ -3518,3 +3518,72 @@ finding — a file and line number, pointing at real code, for a rule that code
 does not break. Exactly the shape that made three hypotheses dangerous
 yesterday. A classifier that reads one part of a name is guessing, and it guesses
 in a format that looks like evidence.
+
+## THE ADMIN REPORTS PAGE, AND THE ONE FIGURE THAT IS HIS TO DECIDE
+
+`PRODUCT.md` line 140 asks for *"orders per day, revenue, commission earned,
+rider utilisation (orders per rider per day — the number that decides the
+business), failure reasons ranked."* The landing page carried commission and
+cash exposure. **The other four existed nowhere.** `/admin/reports` now has them.
+
+**Revenue and commission are shown as two columns and never as one.** Under
+Model A the customer pays the courier and the courier pays the merchant, so
+gross order value is what passed through and commission is what we earned. An
+owner shown the first labelled as income would think this business is roughly
+twenty times its size.
+
+### OPEN, AND HIS: rider utilisation has no honest denominator yet
+
+The figure is **jobs ÷ riders who completed at least one job ÷ days**, and that
+denominator has a bias that runs the wrong way for the decision it will be used
+to make.
+
+**A rider who was available all day and took nothing is not counted**, so idle
+capacity is invisible and the figure flatters the business. If it reads 1.8 jobs
+per rider per day, the true number across everyone who made themselves available
+is lower — possibly much lower. Somebody reading it would conclude the riders
+are saturated and recruit, when the opposite may be true.
+
+**It cannot be computed today.** `courier_profiles.is_available` is a switch with
+no history and there is no shifts table. Measuring idle capacity needs somewhere
+to record when a rider went on and off shift.
+
+**The cost, so the decision can be made rather than discovered:** one table
+(`courier_shifts`: courier, started_at, ended_at), a write on each toggle of
+the existing availability endpoint, and backfill is impossible — the history
+starts the day it ships. Until then the page states the bias in plain words and
+tells the reader not to recruit against this number alone.
+
+## TWO TRAPS IN ONE AFTERNOON, AND THE FIRST HID THE SECOND
+
+### `AT TIME ZONE` ONCE IS NOT A TIMEZONE CONVERSION
+
+`config.time_zone` is Kabul, UTC+4:30, so orders between 19:30 and midnight
+local — **the dinner rush, the busiest hours of a food delivery business** —
+fall on the next UTC day. Grouping by `DATE(delivered_at)` splits the best
+evening across two rows.
+
+The obvious fix, `DATE(delivered_at AT TIME ZONE 'Asia/Kabul')`, is also wrong.
+These columns are `timestamp WITHOUT time zone` holding UTC, which is Rails'
+convention, and on such a column a single `AT TIME ZONE 'Asia/Kabul'` means
+**"read this naive value AS Kabul time"** — it shifts the wrong way. Measured: an
+order at 21:00Z landed on 19 Sep under it, **the same answer as no conversion at
+all**, which is how a broken fix passes for a working one.
+
+Correct: `AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kabul'` — the first says what the
+stored value means, the second converts it.
+
+### AND THE ASSERTION THAT HID IT WAS VACUOUS
+
+The example written to catch this checked that the Kabul date **appeared in the
+page**. It passed against the UTC-grouped version too, because the table renders
+a row for every date in the window — **every label is always present and only the
+number moves.**
+
+So the plant passed, and the honest reading of a passing plant is *the assertion
+is not doing its job*. Rewriting it to read the COUNT out of the row then
+revealed the second bug: the fix itself had never worked. **A vacuous assertion
+does not merely fail to catch a bug — it certifies the repair.**
+
+Both wrong versions now fail this example and the correct one passes; all three
+were run.
