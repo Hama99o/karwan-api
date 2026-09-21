@@ -120,6 +120,61 @@ class User < ApplicationRecord
   end
 
 
+  # ── WHAT WENT WRONG AT THIS CUSTOMER'S DOOR, COUNTED ──────────────────────
+  #
+  # `TRUST_AND_REPUTATION.md` §2 — *"The customer is not rated. What went wrong
+  # is COUNTED"* — states its own gap: *"Half of this already exists. The
+  # courier's job screen has problem buttons... **What is missing is that those
+  # reports should accumulate against the customer.**"*
+  #
+  # They did not. `failure_reason` sat on each order and nothing ever asked the
+  # same question of a PERSON, so a courier sent to four wrong addresses in a
+  # month produced four unrelated rows and no visible pattern.
+  #
+  # ── WHY A COUNT AND NOT A SCORE ───────────────────────────────────────────
+  #
+  # The same section: *"Do not build a customer rating. A score on a customer is
+  # a judgement that does nothing."* And the reason it is stronger: *"'four
+  # wrong addresses' is a conversation Hamma9900 can have; '2.1 stars' is
+  # not."* So this returns the reasons and their counts, never a number standing
+  # for the person.
+  #
+  # ── NO THRESHOLD HERE, DELIBERATELY ───────────────────────────────────────
+  #
+  # `MONEY_AND_SETTLEMENT.md` §5 says repeated strikes get somebody looked at by
+  # a human and the threshold is a `Setting`. That threshold is a POLICY, and
+  # `TRUST_AND_REPUTATION.md` §5 — cancellation — is explicitly OPEN and is the
+  # next design conversation. Counting is the part that is decided; deciding
+  # what to do at four is not, so nothing here acts on the number.
+  #
+  # DERIVED, never stored: the orders already carry the reasons, and a cached
+  # tally would be a second answer that can disagree with them.
+  def delivery_failures
+    orders.where(status: :failed).where.not(failure_reason: nil)
+          .group(:failure_reason).count
+  end
+
+  # The same question over the window the document's own example uses — *"four
+  # wrong addresses in a month"*. A display window, not a threshold: it decides
+  # what the operator is shown, not what happens to anybody.
+  def recent_delivery_failures(since: 30.days.ago)
+    orders.where(status: :failed, failed_at: since..).where.not(failure_reason: nil)
+          .group(:failure_reason).count
+  end
+
+  # For the console, in the shape `registered_devices_summary` established: one
+  # readable line, the counts in it, and nothing to click through to work out
+  # what it means.
+  def delivery_failures_summary
+    all_time = delivery_failures
+    return "none" if all_time.empty?
+
+    recent = recent_delivery_failures
+    ranked = all_time.sort_by { |_reason, n| -n }
+                     .map { |reason, n| "#{reason.to_s.humanize.downcase} ×#{n}" }
+    "#{ranked.join(', ')} — #{recent.values.sum} in the last 30 days"
+  end
+
   has_many :owned_merchants, class_name: Merchant.name, foreign_key: :owner_id,
                                inverse_of: :owner, dependent: :restrict_with_error
   # Demand side: what this person ordered or booked.

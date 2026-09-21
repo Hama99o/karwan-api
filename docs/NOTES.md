@@ -4894,3 +4894,66 @@ it this evening on a different surface.
 So: a spec asserting a derived dashboard field must **parse the value**, not
 match the label. `spec/requests/admin/cash_in_hand_is_visible_spec.rb` does, and
 planting the method back under `private` turns it red.
+
+## THE COURIER'S REPORTS NEVER ACCUMULATED AGAINST THE CUSTOMER
+
+`TRUST_AND_REPUTATION.md` §2 states its own gap: *"Half of this already exists.
+The courier's job screen has problem buttons... **What is missing is that those
+reports should accumulate against the customer.**"*
+
+They did not. `failure_reason` sat on each order and nothing ever asked the
+question of a PERSON, so a courier sent to four wrong addresses in a month
+produced four unrelated rows and no visible pattern. The console now shows
+`delivery_failures_summary` on a user, and a `had_a_failure` filter lists who to
+look at.
+
+**A count, never a score.** §2: *"Do not build a customer rating. A score on a
+customer is a judgement that does nothing"* — and *"'four wrong addresses' is a
+conversation Hamma9900 can have; '2.1 stars' is not."*
+
+**And no threshold, deliberately.** `MONEY_AND_SETTLEMENT.md` §5 says repeated
+strikes get somebody looked at and the threshold is a `Setting`. That threshold
+is a POLICY, and `TRUST_AND_REPUTATION.md` §5 is explicitly OPEN and the next
+design conversation. Counting is decided; deciding what happens at four is not,
+so nothing acts on the number.
+
+### Left for §5, not built: cancellation reasons per RESTAURANT
+
+§5-B names the other half — *"cancellation reasons should be tracked per
+restaurant, so a restaurant cancelling a fifth of its orders is visible before
+its customers leave"*. Same shape and the same afternoon's work, but it sits
+inside the section headed OPEN, so it belongs in that conversation rather than
+ahead of it.
+
+## INSIDE A DASHBOARD, `Order` IS NOT THE ORDER MODEL
+
+Found while wiring the filter above, and **the worst of it was already in the
+repo**.
+
+Administrate defines its own `Administrate::Order` — a sort-direction class — so
+inside a dashboard the bare constant resolves to that. `PricingRateDashboard`'s
+`deliveries` filter, written as `resources.for_job(Order::JOB_KIND)`, raised
+`uninitialized constant Administrate::Order::JOB_KIND` and answered the operator
+with a **500**. On the Config screen correction 13 says he retunes prices from
+weekly, that filter had never worked. `rides` worked — `Trip::JOB_KIND` — only
+because Administrate happens not to define a `Trip`, which is luck rather than
+design.
+
+**The quieter failure is worse.** My own filter died inside a `where` and the
+page rendered **200 with zero rows** — indistinguishable from a filter that
+matched nothing. I read that as "no customers have failures" and moved on until
+the numbers disagreed with a user page I had just looked at.
+
+Both measured on the rig, both fixed by qualifying to `::Order` and `::Trip`.
+
+### And a gate, because reading them proves nothing
+
+`spec/models/every_console_filter_runs_spec.rb` **calls** every
+`COLLECTION_FILTERS` lambda on every dashboard. Reading them is exactly what
+fails here: `Order::JOB_KIND` looks correct on the page and resolves to the
+wrong constant at call time. Planting the original bug back turns it red with
+the operator's own error message.
+
+It also asserts the collision still exists, so if Administrate ever stops
+defining `Order` the spec says so — that being the moment to revisit the `::`
+qualifications rather than leave them as folklore.

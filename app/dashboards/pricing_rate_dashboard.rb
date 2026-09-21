@@ -46,8 +46,18 @@ class PricingRateDashboard < Administrate::BaseDashboard
   FORM_ATTRIBUTES = %i[base per_km per_minute minimum is_selectable position].freeze
 
   COLLECTION_FILTERS = {
-    rides: ->(resources) { resources.for_job(Trip::JOB_KIND) },
-    deliveries: ->(resources) { resources.for_job(Order::JOB_KIND) },
+    # ── `::Order`, NOT `Order` ────────────────────────────────────────────
+    #
+    # Inside a dashboard the bare constant resolves to **`Administrate::Order`**,
+    # the gem's own sort-direction class, so this filter raised
+    # `uninitialized constant Administrate::Order::JOB_KIND` and answered the
+    # operator with a **500**. On the screen correction 13 says he retunes
+    # prices from weekly, the "deliveries" filter had never worked.
+    #
+    # `Trip` is unaffected only because Administrate happens not to define one,
+    # which is luck rather than design — so both are qualified.
+    rides: ->(resources) { resources.for_job(::Trip::JOB_KIND) },
+    deliveries: ->(resources) { resources.for_job(::Order::JOB_KIND) },
     passenger_choices: ->(resources) { resources.selectable }
   }.freeze
 

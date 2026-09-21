@@ -24,6 +24,11 @@ class UserDashboard < Administrate::BaseDashboard
     # the full suite caught it after the admin folder alone had passed.
     live_session_count: Field::Number.with_options(searchable: false),
     registered_devices_summary: Field::String.with_options(searchable: false),
+    # A THIRD computed method, and `searchable: false` for the reason stated
+    # above rather than by imitation: Administrate would put
+    # `users.delivery_failures_summary` into a SQL LIKE and searching users
+    # would die. The comment three lines up is the record of that exact bug.
+    delivery_failures_summary: Field::String.with_options(searchable: false),
     deleted_at: Field::DateTime,
     created_at: Field::DateTime
   }.freeze
@@ -33,7 +38,8 @@ class UserDashboard < Administrate::BaseDashboard
   COLLECTION_ATTRIBUTES = %i[phone name last_active_role status deleted_at created_at].freeze
   SHOW_PAGE_ATTRIBUTES = %i[
     phone name locale last_active_role status phone_verified_at
-    live_session_count registered_devices_summary user_roles addresses
+    live_session_count registered_devices_summary delivery_failures_summary
+    user_roles addresses
     courier_profile courier_wallet courier_shifts deleted_at created_at
   ].freeze
   FORM_ATTRIBUTES = %i[name locale status].freeze
@@ -41,7 +47,27 @@ class UserDashboard < Administrate::BaseDashboard
   COLLECTION_FILTERS = {
     couriers: ->(resources) { resources.with_role(:courier) },
     merchant_owners: ->(resources) { resources.with_role(:merchant_owner) },
-    suspended: ->(resources) { resources.where(status: :suspended) }
+    suspended: ->(resources) { resources.where(status: :suspended) },
+    # ── THE PEOPLE WORTH A CONVERSATION ───────────────────────────────────
+    #
+    # `TRUST_AND_REPUTATION.md` §2: the courier's problem reports *"should
+    # accumulate against the customer"*, and the thing that makes it actionable
+    # is *"four wrong addresses is a conversation Hamma9900 can have"*.
+    #
+    # ANY failure, not a threshold. What to do at four is a POLICY and §5 —
+    # cancellation — is explicitly the next design conversation, so this lists
+    # who to look at and decides nothing about them. One `EXISTS`, not a count
+    # per row.
+    had_a_failure: lambda { |resources|
+      # `::Order`, NOT `Order`. Inside a dashboard the bare constant resolves to
+      # **`Administrate::Order`** — the gem's own sort-direction class — and the
+      # lambda dies with `undefined method 'where' for class
+      # Administrate::Order`. The page still renders 200 with ZERO ROWS, so a
+      # filter broken this way is indistinguishable from one that matched
+      # nothing. Measured: this returned 0 while a customer with a recorded
+      # failure was on the very next page.
+      resources.where(id: ::Order.where(status: :failed).where.not(failure_reason: nil).select(:customer_id))
+    }
   }.freeze
 
   def display_resource(user)
