@@ -5146,3 +5146,41 @@ that survives all three: **take the backup after the work and before each
 plant**, and check the feature is still present after restoring, not only that
 the suite is green — a green suite is also what a reverted feature looks like
 when its spec went with it.
+
+## THE FILE THAT MAKES TIMEOUTS EXIST WAS GUARDED BY NOTHING
+
+`config/recurring.yml`'s own header: *"These are what make dispatch and timeouts
+EXIST — the offer deadline and the state timeouts were declared in the models
+long before anything ran them, which made the whole mechanism look implemented
+while nothing enforced it."*
+
+That is a description of a defect this repo already had. **The file that fixed it
+had no spec**, and `grep -rl recurring spec/` returned two files that only
+mention the word in prose.
+
+A renamed job, a typo in a class name, or a new sweep added without a schedule
+entry puts the defect straight back — and silently, because **a sweep that never
+runs raises nothing.** The orders simply sit, which is the symptom nobody
+attributes to a config file.
+
+### What the gate asserts, and why each one
+
+- **Every class named exists and is an ActiveJob.** Solid Queue resolves it at
+  dispatch time, so a typo surfaces as a log line on a server months later,
+  about an order nobody is watching.
+- **Every sweep in `app/jobs/dispatch/` is scheduled.** Nothing in a request
+  triggers a sweep, so the schedule is the only thing that runs it. Notification
+  jobs are the opposite — enqueued by the event that needs them, and correctly
+  absent from the timer.
+- **Development gets the same tasks as production.** Not tidiness: a developer
+  whose timeouts never fire builds against a system where orders never time out,
+  and tests every screen in a state production will not produce. The file uses a
+  YAML anchor so they cannot drift; this asserts the anchor is applied.
+- **The offer sweep runs more often than an offer lives.** The file says a
+  slower sweep "would make the deadline a fiction"; this reads
+  `dispatch_offer_ttl_sec` and checks it, so retuning the TTL from the Config
+  screen cannot quietly outrun the sweep.
+
+Four plants, four reds, each naming the consequence: a sweep nothing runs, a
+class that does not exist, a 90-second sweep against a 60-second TTL, and
+development drifting from production.
