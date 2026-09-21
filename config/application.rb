@@ -69,9 +69,19 @@ module KarwanApi
     # columns in this schema are `merchant_opening_hours.opens_at` and
     # `.closes_at`, so this narrows exactly to the case it is wrong for.
     #
-    # `spec/models/merchant_opening_hour_spec.rb` asserts the round trip an
-    # operator actually performs — type 08:00 in the console, read 08:00 on the
-    # phone — which is the assertion that would have caught it.
+    # GUARDED BY — and this reference was wrong until 2026-09-21, naming
+    # `spec/models/merchant_opening_hour_spec.rb`, a file that does not exist:
+    #
+    #   `spec/requests/admin/opening_hours_can_be_set_spec.rb`
+    #     "stores the hour as wall-clock, not shifted into UTC"
+    #   `spec/requests/api/v1/merchants/setting_its_own_hours_spec.rb`
+    #     "stores what the shop typed, as a wall clock, not shifted into UTC"
+    #
+    # Both read the STORED value with raw SQL, which is the only assertion that
+    # discriminates: a write and a read through the same conversion cancel out,
+    # so an ORM round trip stays green with the trap in place. Verified by
+    # planting `:time` back into the list — those two go red, a round trip does
+    # not.
     config.active_record.time_zone_aware_types = [ :datetime, :timestamptz ]
     # config.eager_load_paths << Rails.root.join("extras")
 

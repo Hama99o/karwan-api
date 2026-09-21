@@ -366,9 +366,24 @@ each:** self-service needs the audit row to carry both pins and somebody to
 actually read it; operator-only needs a support channel that answers, which is
 `support_phone` and still empty. Neither is free and the choice is his.
 
-**Also not built:** opening hours (a collection on another table, its own
-endpoint and its own pass) and the logo/storefront photos (Active Storage
-uploads, the `me/avatar` pattern, separate surface).
+**Opening hours: built 2026-09-21** — `GET`/`PUT /api/v1/merchant/opening_hours`.
+The rows existed, the customer's card read them, and the shop could neither see
+nor change them: `hours_known?` and `next_opens_at` are computed from this table
+alone, so the line telling a customer when a shop opens was maintained entirely
+by somebody who is not the shop.
+
+**The week is replaced whole, in a transaction, not edited row by row.** A
+per-row API lets a save land half-applied — Monday written, Tuesday rejected —
+and a **half-saved week is worse than an unchanged one**, because the card goes
+on stating hours with nothing to say that they are now partly an abandoned
+draft. A schedule is one thought and is saved as one.
+
+Two windows on one day are preserved: a shop that shuts for the afternoon and
+reopens is ordinary, which is why the `merchant_id, day_of_week` index is
+deliberately not unique.
+
+**Still not built:** the logo and storefront photos (Active Storage uploads, the
+`me/avatar` pattern, a separate surface).
 
 ### WHAT IS OPEN IS HAMMA9900'S — EXCEPT ONE LINE OF OURS
 
@@ -3612,3 +3627,40 @@ does not merely fail to catch a bug — it certifies the repair.**
 
 Both wrong versions now fail this example and the correct one passes; all three
 were run.
+
+## A ROUND TRIP CANNOT PROVE A TIMEZONE FIX, AND A CONFIG COMMENT NAMED A SPEC THAT DOES NOT EXIST
+
+`config/application.rb` removes `:time` from `time_zone_aware_types` because
+`merchant_opening_hours.opens_at` is a **wall clock**, not an instant: with it
+on, a row stored as 09:00 reads back as 13:30 and a shop is advertised as
+opening four and a half hours late.
+
+**Two things were wrong around that correct decision.**
+
+**1 · The comment named its guard, and the guard did not exist.** It cited
+`spec/models/merchant_opening_hour_spec.rb` as "the assertion that would have
+caught it". There is no such file. The real guard is
+`spec/requests/admin/opening_hours_can_be_set_spec.rb`, and it does catch it —
+verified by planting `:time` back into the list. A comment pointing at a spec
+that is not there reads exactly like protection.
+
+**2 · A round trip does not discriminate, and mine claimed to.** The obvious
+test — PUT 09:00, GET 09:00 — **stays green with the trap in place**, because a
+write and a read through the same conversion cancel out. The documented bug was
+a row written outside that path and read through it. I wrote that example,
+labelled it as proof against the trap, planted the trap, and it passed.
+
+**Only the STORED value discriminates.** Both guards now read it with raw SQL,
+which is also what a SQL report, a raw console query or a second service would
+see:
+
+```ruby
+row = MerchantOpeningHour.connection.select_one("SELECT opens_at FROM ...")
+expect(row["opens_at"].to_s).to start_with("09:00")
+```
+
+**The general form, and it is not about time zones:** when a value is converted
+on the way in and converted back on the way out, a round trip tests that the two
+conversions are *inverses* — never that either is *correct*. To catch a wrong
+conversion you have to look at the value where it rests, by a path that does not
+share the conversion.

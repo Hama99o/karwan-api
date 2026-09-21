@@ -18,6 +18,7 @@ GET    /api/v1/customer/orders/:id                          api/v1/customers/ord
 GET    /api/v1/customer/orders/:id/track                    api/v1/customers/orders#track
 GET    /api/v1/me                                           api/v1/me#show
 GET    /api/v1/merchant/catalog_items                       api/v1/merchants/catalog_items#index
+GET    /api/v1/merchant/opening_hours                       api/v1/merchants/opening_hours#show
 GET    /api/v1/merchant/orders                              api/v1/merchants/orders#index
 GET    /api/v1/merchant/orders/:id                          api/v1/merchants/orders#show
 GET    /api/v1/merchant/profile                             api/v1/merchants/profiles#show
@@ -35,6 +36,7 @@ PATCH  /api/v1/customer/addresses/:id                       api/v1/customers/add
 PATCH  /api/v1/me                                           api/v1/me#update
 PATCH  /api/v1/merchant/catalog_categories/:id              api/v1/merchants/catalog_categories#update
 PATCH  /api/v1/merchant/catalog_items/:id                   api/v1/merchants/catalog_items#update
+PATCH  /api/v1/merchant/opening_hours                       api/v1/merchants/opening_hours#update
 PATCH  /api/v1/merchant/profile                             api/v1/merchants/profiles#update
 POST   /api/v1/auth/otp                                     api/v1/auth/otp#create
 POST   /api/v1/auth/password_reset                          api/v1/auth/password_resets#create
@@ -73,4 +75,5 @@ PUT    /api/v1/customer/addresses/:id                       api/v1/customers/add
 PUT    /api/v1/me                                           api/v1/me#update
 PUT    /api/v1/merchant/catalog_categories/:id              api/v1/merchants/catalog_categories#update
 PUT    /api/v1/merchant/catalog_items/:id                   api/v1/merchants/catalog_items#update
+PUT    /api/v1/merchant/opening_hours                       api/v1/merchants/opening_hours#update
 PUT    /api/v1/merchant/profile                             api/v1/merchants/profiles#update

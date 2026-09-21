@@ -245,6 +245,11 @@ Rails.application.routes.draw do
           post :close_now
         end
 
+        # A SINGULAR resource: there is one week, and it is replaced whole.
+        # `resources` would invite per-row edits, which is the half-saved
+        # schedule the controller explains at length.
+        resource :opening_hours, only: %i[show update], controller: "opening_hours"
+
         resources :catalog_categories, only: %i[create update destroy]
         resources :catalog_items, only: %i[index create update destroy] do
           member do
