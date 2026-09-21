@@ -641,6 +641,31 @@ defaulted to a container that is up on this box, once per feature.
   this box can read. **Still true on 2026-09-17:** the `customers`
   block in `config/routes.rb` carries `index`, `show`, `create`, `quote`,
   `cancel` and `track`, and no `active`.
+
+  **MEASURED 2026-09-21, and the trigger has NOT fired.** The number existed as
+  a threshold nobody had ever taken a reading against, which is a trigger in
+  name only — the same defect as the one it replaced.
+
+  Forty pairs against the running rig, warmed, as the seeded customer on the
+  live order:
+
+  | | |
+  |---|---|
+  | median | 0.098 s |
+  | **p90** | **0.119 s** |
+  | max | 0.174 s |
+  | trigger | 1.500 s |
+
+  **The server spends 8% of the budget and leaves 1.381 s of headroom.** So the
+  second request is not what would make this screen slow; the remaining 92% is
+  network, and on an Afghan connection that is the whole question. **That half
+  is the mobile session's to measure on its throttled profile** — this reading
+  only settles that the API is not the reason.
+
+  **So `/customer/orders/active` is still not built, and now for a measured
+  reason rather than a remembered one.** Re-measure with this method before
+  building it; the command is 40 iterations of the two calls with
+  `curl -w %{time_total}`, summed per pair, sorted, p90 read off.
 - ~~**`Customers::QuoteSerializer#suggested_notes` returns the total
   unchanged.**~~ **CLOSED.** The rule came off the device: `Monetary`
   (`app/models/concerns/monetary.rb`) owns `change_advice` — nil on a round
