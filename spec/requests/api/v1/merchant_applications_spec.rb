@@ -166,6 +166,14 @@ RSpec.describe "Api::V1::MerchantApplications", type: :request do
     # Money and terms are agreed with a human. A form that could set its own
     # commission rate would be the most expensive input field in the app.
     it "ignores anything it was not asked" do
+      # A STANDARD THAT IS NEITHER THE OLD SCHEMA DEFAULT NOR THE SUBMITTED
+      # VALUE, so the assertion below can only pass for one reason. This used to
+      # compare against `Merchant.new.commission_rate`, which was the column
+      # default — and when that default was dropped the reference became nil
+      # while the behaviour stayed correct. A spec whose expected value is
+      # borrowed from the code under test agrees with it either way.
+      Setting.find_or_initialize_by(key: "commission_rate").update!(value: "0.17", value_type: :decimal)
+
       post "/api/v1/merchant_application",
            params: { merchant_application: {
              name: "Cheeky", merchant_kind_id: kind.id,
@@ -175,7 +183,9 @@ RSpec.describe "Api::V1::MerchantApplications", type: :request do
 
       lead = Merchant.last
       expect(lead.status).to eq("lead")
-      expect(lead.commission_rate).to eq(Merchant.new.commission_rate)
+      expect(lead.commission_rate).to eq(BigDecimal("0.17")),
+                                      "the applicant set our commission rate through a public form"
+      expect(lead.commission_rate).not_to eq(0)
       expect(lead.owner_id).to be_nil
       expect(lead.is_open).to be false
     end
