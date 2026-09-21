@@ -382,8 +382,28 @@ Two windows on one day are preserved: a shop that shuts for the afternoon and
 reopens is ordinary, which is why the `merchant_id, day_of_week` index is
 deliberately not unique.
 
-**Still not built:** the logo and storefront photos (Active Storage uploads, the
-`me/avatar` pattern, a separate surface).
+**Photos: built 2026-09-21.** `logo` and `storefront_photo` ride the same PATCH
+(the `me/avatar` pattern — an attachment is a permitted param, not a separate
+endpoint), and the profile now returns `logo_url` and `storefront_photo_url` in
+the SAME variants the customer is served. A shop could not previously see which
+photograph the app was showing it by, which matters more here than on most
+platforms: `AFGHAN_UX.md` §1 makes the photo the LABEL for a customer who cannot
+read fluently, so a dark or wrong storefront photo mislabels the shop to
+everyone who opens the app.
+
+**`license_photo` is deliberately NOT editable.** It is the evidence an operator
+verified the shop against; a merchant replacing it after approval would undo the
+check with nothing downstream re-verifying. Planted it into the permitted list
+and the example goes red.
+
+Type and size need no new guard — `Merchant` already declares
+`validates_attached`, which exists because the storefront photo is downloaded by
+every customer who opens the app and a 12 MB upload is a bill paid by all of
+them.
+
+**The audit row names the photograph.** A replaced attachment leaves no trace in
+a column diff, so without it the row would read "nothing changed" for the change
+a customer is most likely to notice.
 
 ### WHAT IS OPEN IS HAMMA9900'S — EXCEPT ONE LINE OF OURS
 
@@ -3664,3 +3684,36 @@ on the way in and converted back on the way out, a round trip tests that the two
 conversions are *inverses* — never that either is *correct*. To catch a wrong
 conversion you have to look at the value where it rests, by a path that does not
 share the conversion.
+
+## THE TEST-DATABASE LOCK CAN OUTLIVE ITS PROCESS, AND THE REFUSAL SAID "WAIT"
+
+`spec/rails_helper.rb` takes a Postgres **session-scoped advisory lock** so two
+rspec runs cannot share a test database. The comment says it is "released when
+the process exits even if it crashes", and that is true for an exit — **not for
+a kill**. A run killed mid-transaction leaves its backend parked
+`idle in transaction`, still holding the lock, with no client left to finish it.
+
+Measured on 2026-09-21: three consecutive runs were refused, and the message
+told me to **wait for a run that no longer existed**. There is no way to tell
+that case from a real one, because the refusal named nothing.
+
+It now prints who holds it — pid, state and backend start — and, when the holder
+is `idle in transaction`, the line that releases it:
+
+```
+SELECT pg_terminate_backend(<pid>);
+```
+
+### AND THE MISTAKE I MADE DIAGNOSING IT IS THE MORE USEFUL HALF
+
+I called that backend an orphan and terminated it. **It was not.** Its client
+was alive at 77% CPU — the rspec CHILD of a wrapper I had killed, which is the
+trap already recorded in this file: *killing the wrapper does not kill the
+child*. I checked with a process match that has now misled me three times in two
+days, got "nothing running", and acted on it.
+
+The outcome was the one I wanted, because that run's inputs had changed
+underneath it and it had to die. **The reasoning was still wrong, and the
+reasoning is the part that gets reused.** The check that would have settled it
+in one line is the one the guard now prints: ask the database who holds the
+lock, and compare `backend_start` against the processes you believe are running.

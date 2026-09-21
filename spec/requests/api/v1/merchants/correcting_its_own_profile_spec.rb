@@ -90,6 +90,52 @@ RSpec.describe "A merchant corrects its own profile", type: :request do
     expect(log.after.to_s).to include("40")
   end
 
+  describe "its photographs" do
+    # AFGHAN_UX §1: a large share of customers cannot read fluently, so the
+    # photo IS the label. A shop could not see which photograph the app was
+    # showing, let alone replace it.
+    let(:file) { Rack::Test::UploadedFile.new(Rails.root.join("spec/fixtures/files/photo.png"), "image/png") }
+
+    it "shows the shop the same picture the customer is served" do
+      merchant.logo.attach(io: File.open(Rails.root.join("spec/fixtures/files/photo.png")),
+                           filename: "photo.png", content_type: "image/png")
+
+      get "/api/v1/merchant/profile", headers: auth
+
+      expect(json["profile"]["logo_url"]).to be_present,
+                                             "the shop cannot see the photograph that labels it"
+    end
+
+    it "replaces the storefront photograph" do
+      expect(merchant.storefront_photo).not_to be_attached, "nothing to prove if it starts attached"
+
+      patch "/api/v1/merchant/profile", params: { merchant: { storefront_photo: file } }, headers: auth
+
+      expect(response).to have_http_status(:ok)
+      expect(merchant.reload.storefront_photo).to be_attached
+    end
+
+    # The licence is the evidence an operator verified the shop against.
+    # Replacing it after approval would undo the check with nothing
+    # re-verifying, so it stays with the operator.
+    it "cannot replace its own licence photograph" do
+      patch "/api/v1/merchant/profile", params: { merchant: { license_photo: file } }, headers: auth
+
+      expect(merchant.reload.license_photo).not_to be_attached,
+                                                   "a shop replaced the evidence it was approved against"
+    end
+
+    # A replaced photo leaves no trace in a column diff, so without this the
+    # audit row says "nothing changed" for the change customers notice most.
+    it "names the photograph in the audit row" do
+      patch "/api/v1/merchant/profile", params: { merchant: { logo: file } }, headers: auth
+
+      log = AuditLog.where(action: "merchant.profile_updated").last
+      expect(log.after.to_s).to include("logo"),
+                                "the audit row does not record that the photograph was replaced"
+    end
+  end
+
   it "is refused to somebody else's owner" do
     other = create(:user, :merchant_owner)
     create(:merchant, owner: other)

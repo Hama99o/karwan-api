@@ -49,7 +49,8 @@ class Api::V1::Merchants::ProfilesController < Api::V1::Merchants::BaseControlle
     # "prep time is 40" answers nothing without "it was 15".
     AuditLog.record!(
       action: "merchant.profile_updated", actor: current_user, actor_role: :merchant_owner,
-      target: current_merchant, before: before, after: current_merchant.slice(*EDITABLE)
+      target: current_merchant, before: before,
+      after: current_merchant.slice(*EDITABLE).merge("photos_replaced" => photos_replaced)
     )
 
     render_blue(Merchants::ProfileSerializer, current_merchant)
@@ -67,8 +68,31 @@ class Api::V1::Merchants::ProfilesController < Api::V1::Merchants::BaseControlle
 
   EDITABLE = %w[phone description prep_time_minutes landmark_note].freeze
 
+  # ── THE TWO PHOTOGRAPHS A SHOP OWNS ───────────────────────────────────────
+  #
+  # `AFGHAN_UX.md` §1 makes the photo the LABEL for a customer who cannot read
+  # fluently, so a wrong or dark storefront photo mislabels the shop to
+  # everyone — and until now correcting it meant an operator with the file.
+  #
+  # `license_photo` is NOT here and must not be. It is the evidence an operator
+  # verified the shop against; a merchant replacing it after approval would
+  # undo the check silently, and nothing downstream re-verifies.
+  #
+  # Type and size are already enforced — `Merchant` declares
+  # `validates_attached :logo, :storefront_photo, :license_photo`, which exists
+  # because the storefront photo is downloaded by every customer who opens the
+  # app and a 12 MB upload is a bill paid by all of them.
+  EDITABLE_PHOTOS = %w[logo storefront_photo].freeze
+
   def profile_params
-    params.require(:merchant).permit(*EDITABLE)
+    params.require(:merchant).permit(*EDITABLE, *EDITABLE_PHOTOS)
+  end
+
+  # A replaced photograph leaves no trace in a column diff, so the audit row
+  # would say "nothing changed" for the change a customer is most likely to
+  # notice. Named explicitly instead.
+  def photos_replaced
+    EDITABLE_PHOTOS.select { |photo| profile_params.key?(photo) }
   end
 
   def set_open(open)

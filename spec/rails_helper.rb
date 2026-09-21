@@ -57,6 +57,32 @@ EXCLUSIVE_DATABASE_LOCK_KEY = Zlib.crc32(
 ).freeze
 
 RSpec.configure do |config|
+  # ── WHO HOLDS IT, BECAUSE "WAIT FOR IT" IS SOMETIMES WRONG ────────────────
+  #
+  # The lock is session-scoped, so it goes when the connection closes — which
+  # is NOT the same as when the process dies. A run killed mid-transaction can
+  # leave its backend parked `idle in transaction`, holding the lock, with no
+  # client left to finish. Measured on 2026-09-21: three consecutive runs were
+  # refused, and the message told me to wait for a run that no longer existed.
+  #
+  # So name the holder and let the reader tell the two cases apart.
+  def lock_holder_report
+    rows = ActiveRecord::Base.connection.select_all(<<~SQL).to_a
+      SELECT a.pid, a.state, a.backend_start, a.application_name
+        FROM pg_locks l JOIN pg_stat_activity a ON a.pid = l.pid
+       WHERE l.locktype = 'advisory' AND a.datname = current_database()
+    SQL
+    return "(could not read pg_locks to say who holds it)" if rows.empty?
+
+    rows.map { |r|
+      stale = r["state"] == "idle in transaction" ? "  <- NO CLIENT WORKING. If nothing is running, " \
+                                                    "release it: SELECT pg_terminate_backend(#{r['pid']});" : ""
+      "Held by backend #{r['pid']} (#{r['state']}, since #{r['backend_start']}).#{stale}"
+    }.join("\n          ")
+  rescue StandardError => e
+    "(could not read pg_locks: #{e.class})"
+  end
+
   config.before(:suite) do
     database = ActiveRecord::Base.connection_db_config.database
     acquired = ActiveRecord::Base.connection.select_value(
@@ -72,14 +98,17 @@ RSpec.configure do |config|
       # immediately with a non-zero status and no further RSpec output.
       $stderr.puts <<~REFUSED
 
-        ✗ ANOTHER RSPEC IS ALREADY RUNNING AGAINST `#{database}`.
+        ✗ THE LOCK ON `#{database}` IS HELD.
 
           Refusing to start. Results from a shared test database are not
           trustworthy in either direction: this run would report
           `0 examples … 1 error`, and the run already in flight would get a
           spurious failing example that looks exactly like a regression.
 
-          Wait for it, or give this process its own database:
+          #{lock_holder_report}
+
+          If a run really is in flight, wait for it — or give this process its
+          own database:
             TEST_DB_SUFFIX=_xx RAILS_ENV=test bin/rails db:prepare
             TEST_DB_SUFFIX=_xx bundle exec rspec
 
