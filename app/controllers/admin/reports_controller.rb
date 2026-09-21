@@ -37,6 +37,7 @@ module Admin
       @commission = commission_since(@from)
       @utilisation = utilisation_since(@from)
       @failures = failure_reasons_ranked
+      @rejections = rejections_ranked
     end
 
     private
@@ -151,6 +152,68 @@ module Admin
         history_covers_window: history_from.present? && history_from <= from,
         per_available_per_day: available.zero? ? nil : (jobs.to_f / available / days).round(2)
       }
+    end
+
+    # ── WHY A SHOP REFUSED WORK, AND WHETHER A HUMAN REFUSED IT ────────────
+    #
+    # `PRODUCT.md` makes the merchant reject "with a reason from a fixed list"
+    # and the controller says why: *"Free text would mean nobody can count why
+    # orders are refused."* The list has been collected since, and **nothing
+    # counted it** — the failure ranking below reads `failure_reason`, which is
+    # a courier-side outcome and a different question entirely.
+    #
+    # ── AND THE SPLIT THAT MAKES THE NUMBER HONEST ─────────────────────────
+    #
+    # `Dispatch::JobTimeoutsJob` closes an unanswered order as `rejected` with
+    # reason `closing` — identical, in the columns, to a merchant who tapped
+    # "closing". Counted together they would tell the owner his shops are
+    # shutting early when in fact **nobody looked at the tablet**, which is the
+    # most damaging state in the system and the one the acknowledgement tile
+    # exists for.
+    #
+    # The transition log already separates them: a nil actor means the system
+    # did it. That distinction is written down in two files and was surfaced in
+    # none.
+    #
+    # ── AND A THIRD BUCKET, WHICH MEASUREMENT FORCED ───────────────────────
+    #
+    # Written first as a two-way split — a person recorded it, or the timeout
+    # did — and rendered against the real database, where it claimed eleven of
+    # twelve rejections were orders nobody answered. **None of those eleven has
+    # a transition row at all.** They are not timeouts; they are rows whose
+    # provenance was never recorded, and "not recorded by a person" is not the
+    # same fact as "closed by the timeout".
+    #
+    # So an order with no transition is counted as itself. One-way door 3 says a
+    # transition without a record cannot be reconstructed — this line is where
+    # that shows up, and a number in it is a defect somewhere upstream rather
+    # than a slow kitchen. Folding it into the timeout figure would have made
+    # the page assert a cause it cannot support, on the one screen whose whole
+    # purpose is being argued with.
+    def rejections_ranked
+      rejected = Order.where(status: :rejected, rejected_at: @from..)
+      transitions = rejection_transitions(rejected)
+
+      counts = rejected.where(id: transitions.where.not(actor_id: nil).select(:subject_id))
+                       .where.not(rejection_reason: nil).group(:rejection_reason).count
+
+      {
+        by_merchant: counts.sort_by { |_reason, n| -n },
+        never_answered: rejected.where(id: transitions.where(actor_id: nil).select(:subject_id)).count,
+        unrecorded: rejected.where.not(id: transitions.select(:subject_id)).count,
+        total: rejected.count
+      }
+    end
+
+    # The transitions into `rejected` for these orders. `StatusTransition#system?`
+    # is a nil actor, and says so in as many words.
+    #
+    # A RELATION, not a list of ids. Plucking would pull every rejected order's
+    # id into Ruby to hand straight back to Postgres, which is the shape that
+    # stops working on the day this report is worth reading.
+    def rejection_transitions(scope)
+      StatusTransition.where(subject_type: "Order", to_status: "rejected",
+                             subject_id: scope.select(:id))
     end
 
     # Both demand types, ranked, over THE SAME WINDOW as everything else on the

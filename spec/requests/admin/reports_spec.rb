@@ -123,6 +123,145 @@ RSpec.describe "Admin reports", type: :request do
                                  "a reason that did not occur is listed, which hides the one that is climbing"
   end
 
+  # ── WHY SHOPS REFUSED WORK, AND WHETHER A PERSON REFUSED IT ────────────────
+  #
+  # The merchant board collects a reason from a fixed list because *"free text
+  # would mean nobody can count why orders are refused"* — and for as long as it
+  # has been collected, nothing counted it. `failure_reason` above is a
+  # courier-side outcome and answers a different question entirely.
+  describe "rejections" do
+    # Both sides go through `transition_to!`, which is what the board's `reject`
+    # action and `Dispatch::JobTimeoutsJob#close!` each call. Nothing here
+    # stands in for the thing under test.
+    def merchant_rejects(reason)
+      owner = create(:user, :merchant_owner)
+      order = create(:order, :with_items)
+      order.transition_to!(:rejected, actor: owner, actor_role: :merchant_owner)
+      order.update!(rejection_reason: reason)
+      order
+    end
+
+    # Exactly what the timeout job does: **nil actor**, reason `closing`. In the
+    # orders table this row is indistinguishable from a shop that tapped
+    # "closing" — which is the reason this split has to exist.
+    def nobody_answers
+      order = create(:order, :with_items)
+      order.transition_to!(:rejected, actor: nil, actor_role: :admin,
+                                      reason: "timed out in placed with no response")
+      order.update!(rejection_reason: :closing)
+      order
+    end
+
+    it "counts the reasons merchants gave, which nothing did before" do
+      2.times { merchant_rejects(:out_of_stock) }
+      merchant_rejects(:too_busy)
+
+      get "/admin/reports"
+
+      expect(rejection_count("Out of stock")).to eq(2)
+      expect(rejection_count("Too busy")).to eq(1)
+    end
+
+    # THE ONE THAT MATTERS. Three shops never looked at the tablet and one shop
+    # made a decision. Added together the page says four shops keep closing
+    # early, and the owner rings four restaurants about a problem three of them
+    # do not have — while the real problem, a tablet nobody watches, is not on
+    # the page at all.
+    it "does not count an order nobody answered as a shop that said it was closing" do
+      merchant_rejects(:closing)
+      3.times { nobody_answers }
+
+      get "/admin/reports"
+
+      expect(rejection_count("Closing")).to eq(1),
+                                            "the timed-out orders are being counted as merchant decisions"
+      expect(rejection_count("Nobody answered")).to eq(3),
+                                                    "the orders nobody looked at are not on the page"
+      expect(rejection_count("All rejected orders")).to eq(4)
+    end
+
+    it "says in words how much of the refusal rate is nobody looking" do
+      merchant_rejects(:too_busy)
+      3.times { nobody_answers }
+
+      get "/admin/reports"
+
+      expect(response.body).to include("75%")
+      expect(response.body).to include("it was not looked at"),
+                               "the figure needs its meaning beside it; a bare percentage reads as a kitchen problem"
+    end
+
+    # A merchant rejection with no reason on record is real — `rejection_reason`
+    # is nullable and admin may reject through the console. It must not silently
+    # become a timeout, so it appears in the total and nowhere else.
+    it "does not mistake a merchant rejection with no reason for a timeout" do
+      merchant_rejects(nil)
+
+      get "/admin/reports"
+
+      expect(rejection_count("Nobody answered")).to eq(0)
+      expect(rejection_count("All rejected orders")).to eq(1)
+    end
+
+    # ── FOUND BY RENDERING IT, NOT BY READING IT ─────────────────────────
+    #
+    # The first version split two ways — a person, or the timeout — and against
+    # the real database it announced eleven orders "closed by the timeout" that
+    # have no transition row of any kind. Those are rows whose provenance was
+    # never recorded, and saying the timeout closed them is a claim the data
+    # does not support. A report that asserts a cause it cannot show is the
+    # exact instrument `docs/TESTING.md` warns about.
+    it "does not call an unrecorded rejection a timeout" do
+      order = create(:order, :with_items)
+      order.update!(status: :rejected, rejected_at: Time.current, rejection_reason: :too_busy)
+
+      get "/admin/reports"
+
+      expect(order.transitions.where(to_status: "rejected")).to be_empty,
+                                                                "plant a row with no transition, or this proves nothing"
+      expect(rejection_count("Nobody answered")).to eq(0),
+                                                   "an order with no transition row is being blamed on the timeout"
+      expect(rejection_count("Not recorded")).to eq(1)
+      expect(rejection_count("Too busy")).to be_nil,
+                                            "counted as a merchant decision, which nothing recorded"
+    end
+
+    # The good state has to be legible too: when every rejection was recorded,
+    # the defect line is absent rather than a zero somebody has to interpret.
+    it "hides the defect line when every rejection was recorded" do
+      merchant_rejects(:too_busy)
+      nobody_answers
+
+      get "/admin/reports"
+
+      expect(rejection_count("Not recorded")).to be_nil
+      expect(response.body).not_to include("is a defect, not a business figure")
+    end
+
+    it "leaves an older rejection out of the window" do
+      old = merchant_rejects(:out_of_stock)
+      old.update_column(:rejected_at, 30.days.ago)
+
+      get "/admin/reports"
+
+      expect(rejection_count("Out of stock")).to be_nil
+      expect(rejection_count("All rejected orders")).to eq(0)
+    end
+
+    # SCOPED TO THE RIGHT TABLE. The failure ranking below uses identical markup
+    # under a similar heading, so a regex over the whole page would read a
+    # number out of the wrong one and be believed.
+    def rejection_count(label)
+      page = Nokogiri::HTML(response.body)
+      heading = page.css("h2").find { |h| h.text.include?("Why shops refused orders") }
+      raise "the rejections table is not on the page" if heading.nil?
+
+      table = heading.xpath("following-sibling::table[1]").first
+      row = table.css("tbody tr").find { |tr| tr.css("td").first.text.strip.start_with?(label) }
+      row && row.css("td").last.text.strip.to_i
+    end
+  end
+
   # ── THE KABUL DAY ──────────────────────────────────────────────────────────
   #
   # Kabul is UTC+4:30, so an order at 21:00Z belongs to the NEXT Kabul day.

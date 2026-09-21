@@ -100,6 +100,62 @@
     </tbody>
   </table>
 
+  <h2>Why shops refused orders — same <%= @days %> days</h2>
+  <%# THREE DIFFERENT EVENTS, AND THEY MUST NOT BE ADDED TOGETHER.
+
+      A merchant who tapped "closing" made a decision. A merchant who never
+      touched the tablet made none — the timeout job closed the order for him,
+      with the same reason written in the same column. Shown as one figure, a
+      kitchen that never answers reads as a kitchen that keeps shutting early,
+      and the fix for those two is not the same fix.
+
+      The third line is neither, and it exists because the two-line version was
+      rendered against the real database and claimed eleven timeouts that left
+      no trace of a timeout. An order whose rejection was never recorded is
+      counted as itself rather than attributed to a cause. %>
+  <table class="karwan-report">
+    <thead><tr><th>Reason</th><th>Count</th></tr></thead>
+    <tbody>
+      <% @rejections[:by_merchant].each do |reason, count| %>
+        <tr><td><%= reason.to_s.humanize %></td><td><%= count %></td></tr>
+      <% end %>
+      <tr>
+        <td><strong>Nobody answered</strong> <small>(closed by the timeout, not by a person)</small></td>
+        <td><strong><%= @rejections[:never_answered] %></strong></td>
+      </tr>
+      <% if @rejections[:unrecorded].positive? %>
+        <tr>
+          <td><strong>Not recorded</strong> <small>(rejected with no transition row — who did this is unknown)</small></td>
+          <td><strong><%= @rejections[:unrecorded] %></strong></td>
+        </tr>
+      <% end %>
+      <tr>
+        <td>All rejected orders</td>
+        <td><%= @rejections[:total] %></td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="karwan-report__note">
+    <%# The percentage is printed only when there is something to attribute. "0%
+        of rejections were closed by the timeout" followed by an explanation of
+        what a timeout means is three lines telling the reader about a thing
+        that did not happen. %>
+    <% if @rejections[:never_answered].positive? %>
+      <%= number_to_percentage(@rejections[:never_answered] * 100.0 / @rejections[:total], precision: 0) %>
+      of rejections were closed by the timeout without anyone in the shop answering.
+      An order counted on that line was not refused — <strong>it was not looked at</strong>, which is a
+      staffing or a hardware problem rather than a kitchen one.
+    <% elsif @rejections[:total].zero? %>
+      No orders were rejected in this window.
+    <% end %>
+    A rejection a merchant made without a reason on record appears only in the total.
+    <% if @rejections[:unrecorded].positive? %>
+      <strong>The "not recorded" line is a defect, not a business figure.</strong>
+      Every rejection is supposed to write a transition with its actor; these did not, so nothing
+      can say afterwards who rejected them. It cannot be backfilled.
+    <% end %>
+  </p>
+
   <h2>Failure reasons — same <%= @days %> days</h2>
   <%# Ranked, and reasons that never occurred are omitted rather than listed as
       zero — a column of zeroes hides the one that is climbing. %>

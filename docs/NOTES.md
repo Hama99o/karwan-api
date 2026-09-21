@@ -3947,3 +3947,57 @@ item-or-merchant, so the merchant's figure is the answer only when no line
 carries one — an order of unprepared goods, or one placed before the column
 existed. My own comment said "falls back" while the code said "max"; the comment
 was right.
+
+## THE REJECTION REASONS WERE COLLECTED AND NEVER COUNTED — AND THE FIRST FIX LIED
+
+`api/v1/merchants/orders_controller#reject` demands a reason from a fixed list
+and states why in the file: *"free text would mean nobody can count why orders
+are refused, and 'failure reasons ranked' is a report the owner asked for."*
+The reasons have been collected since the board shipped. **Nothing counted
+them.** The reports page ranked `failure_reason`, which is the courier-side
+outcome — a different question with a similar name.
+
+### The split that makes the number usable
+
+`Dispatch::JobTimeoutsJob` closes an unanswered `placed` order as `rejected`
+with reason `closing` and **`actor: nil`**. In the `orders` table that row is
+identical to a shop that tapped "closing". The job's own comment says what is at
+stake: *"the difference between 'the merchant rejected it' and 'the merchant
+never answered', and support needs to tell them apart."*
+
+Measured on the rig, running the real job against the real database:
+
+```
+merchant decisions   Out of stock 1, Too busy 1
+nobody answered      81
+```
+
+Counted together the page would have read **"Closing 81"**, and the owner would
+have rung eighty-one restaurants about closing early — while the actual problem,
+a tablet nobody watches, would not have been on the page at all.
+
+### And the third line, which only rendering it found
+
+The first version split two ways: a person recorded it, or the timeout did. It
+went to the rig and announced **eleven timeouts that have no transition row of
+any kind**. They are not timeouts — they are rows whose provenance was never
+recorded, and "not recorded by a person" is not the same fact as "closed by the
+timeout". A report that asserts a cause its data cannot support is exactly the
+instrument `docs/TESTING.md` warns about, and no spec would have caught it
+because a spec builds its own rows through `transition_to!`.
+
+So there are three lines, and the third is labelled a defect rather than a
+business figure.
+
+### Where those eleven come from, and what else it affects
+
+**`db/seeds/stress.rb` writes no transitions at all.** It bulk-inserts orders
+and trips with a `status` and the per-state timestamp columns and skips the
+transition log entirely — 100k rows the app could not have produced, which is
+`docs/TESTING.md`'s fourth question answered *no*.
+
+That is fine for what the file is for (volume, index behaviour, page timings)
+but it means **every figure derived from `status_transitions` reads low against
+a stress-seeded database**, not only this one. Anything counting who did what,
+or how long a job sat in a state, is affected. Worth knowing before a number
+from a dev console is quoted at anybody.
