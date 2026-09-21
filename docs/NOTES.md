@@ -4273,3 +4273,57 @@ on an existing deploy a key added to `DEFINITIONS` gets **no row**, and
 the number is invisible and uneditable on the Config screen. Zero such keys on
 the rig today because it was seeded recently. Worth knowing before the first
 setting added after launch.
+
+## THE OPS CONSOLE IS A WRITE SURFACE EVERY OTHER GATE WAS BLIND TO
+
+`spec/models/money_moves_only_through_the_ledger_spec.rb` holds one-way door 4
+by asserting that exactly one line in the codebase assigns a balance, inside
+`CourierWallet#record_entry!`. That gate is real and it works — **for
+assignments.**
+
+The ops console does not assign anything. Administrate builds its permitted
+parameters from a dashboard's `FORM_ATTRIBUTES` and calls `update` generically,
+so a column becomes operator-writable by adding **one symbol to an array**.
+There is no `balance =` anywhere for a source-scanning gate to find.
+
+**Measured, not argued.** With `:balance` added to
+`CourierWalletDashboard::FORM_ATTRIBUTES`:
+
+```
+money_moves_only_through_the_ledger_spec        12 examples, 0 failures
+spec/requests/admin + spec/models             1021 examples, 0 failures
+```
+
+Then a request spec proved the consequence is reachable rather than theoretical:
+an operator PATCHed a new balance through the console form, the balance moved,
+and **no `WalletEntry` was written**. CLAUDE.md: *"A balance can always be
+recomputed from entries; entries can never be reconstructed from a balance."*
+
+### Two gates now, at different layers
+
+- `spec/requests/admin/balance_moves_only_through_the_ledger_spec.rb` — the
+  behaviour, through the real console: a submitted balance is ignored, the
+  credit line still works (it is a permission to go negative, not money that
+  moved), and `adjust` still writes its entry.
+- `spec/models/no_console_form_writes_a_protected_column_spec.rb` — the
+  structure, over every dashboard found on disk, against a named list of columns
+  that may only change through the path that records WHY.
+
+### The honest scope of the structural gate
+
+Of the seven protected models, **only `CourierWallet` has a console form today**.
+The other six are `only: %i[index show]` in `routes.rb`, which says of them *"an
+editable audit log is not an audit log, and a ledger whose entries can be
+rewritten cannot be reconciled."* **That convention was held by the routes file
+and by nothing else.** So one entry guards a live form and six guard the day
+somebody gives those resources one — different strengths, and the spec asserts
+which is which rather than letting the list read as uniformly enforced.
+
+### The shape worth remembering
+
+Three gates in this repo have now had the same blind spot: `bin/callers` missed
+three call shapes, the error-code gate missed half the vocabulary because it
+only matched literals, and this one missed a whole write surface because it
+looked for assignments. **A gate that scans source for a pattern cannot see a
+framework that writes generically from data.** Whenever a write happens because
+a symbol appears in a list, the gate has to read the list.
