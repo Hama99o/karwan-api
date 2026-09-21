@@ -5237,3 +5237,77 @@ forty-one would be switched off by the second week.
 One deliberate sharing is named with its reason. Planting `RESOURCES` back
 reports both files and what happens: *"the last one loaded wins, and the failure
 appears in whichever file did NOT change."*
+
+---
+
+# ⚑ HANDOVER TO THE NEXT KARWAN MOBILE SESSION — everything that moved on 21–22 Sept
+
+Karwan's mobile side was closed throughout this work, so none of it has had the
+mobile check `HOW_WE_WORK.md`'s definition of done requires — *"if it touches a
+payload the mobile app reads: mobile checked in the same pass."* **By that
+definition these items are not done**, and this section is the substitute rather
+than the compliance. Each entry above has the full reasoning; this is the list.
+
+`docs/API_SURFACE.txt` (82 endpoints) and `docs/API_VOCABULARY.md` are the two
+files to diff against.
+
+## 1 · ONE BREAKING CHANGE — `switch_role`
+
+`POST /api/v1/me/switch_role` into **`courier`** or **`merchant_owner`** now
+requires `password`. Without it: **422 `reauthentication_required`**.
+
+Switching back to `customer` needs nothing. A missing password and a wrong one
+give the identical answer. It refuses rather than silently falling back, because
+a screen saying "courier" while the session says "customer" is worse than a
+refusal the app can act on.
+
+## 2 · NEW FIELDS — all a CODE or null, never a sentence
+
+The server cannot say "they have run out" in Pashto. Every one of these is a key
+the client translates, the rule `Couriers::JobSteps` already states for its step
+labels.
+
+| field | on | null means |
+|---|---|---|
+| `ended_reason` | customer order detail **and list**, merchant board | the order has not ended badly |
+| `unorderable` | customer catalog, merchant catalog | the dish can be ordered |
+| `blocked_by` | `couriers/shifts#show` | nothing about this courier is blocking him — **NOT** that work is coming |
+| `photo_url` | customer order `courier` block, track `courier` block | he has not set an avatar — render an initial, never a broken image |
+| `bring_change_for` | courier job steps, `collect_and_deliver` | a round hundred; a float covers it |
+
+`ended_reason` is an object: `{ outcome, code, ended_by }`. **`outcome` says
+which of three enums `code` came from** — rejection, cancellation and failure do
+not share a lookup. **`ended_by` may be null, and null is not `"system"`**:
+`system` means a nil actor did it, null means nothing recorded who.
+
+## 3 · TWO NEW ENDPOINTS
+
+```
+GET /api/v1/merchant/today    orders, items sold, cash received, our commission
+GET /api/v1/courier/today     deliveries, rides, earnings, cash in hand
+```
+
+Both singular — there is one today. On the courier's, **`cash_in_hand_now` is a
+running total, not a figure about today**, and the name says so deliberately.
+
+## 4 · VOCABULARY THAT CHANGED
+
+- **The merchant reject sheet must offer FOUR reasons, not five.**
+  `Order.rejection_reasons` has `out_of_stock too_busy closing other no_answer`;
+  `Order::MERCHANT_REJECTION_REASONS` has the first four. `no_answer` is the
+  system's, and the board answers **422** to it. Build the picker from the four.
+- **Eligibility reasons now number fifteen** — `account_suspended` is new.
+- **Nine of them also arrive as a FIELD VALUE on a 200**, in `blocked_by`, not
+  only as error codes on a 422. A client translating them only inside its error
+  handler renders nothing on the screen that needs them most.
+- `reachable_in_normal_use` is now **53** codes.
+
+## 5 · THINGS THAT WERE ALREADY TRUE AND ARE WORTH KNOWING
+
+- **Conditional GETs work.** `GET /api/v1/public/merchants/:id/catalog` with
+  `If-None-Match` returns **304, 0 bytes** — measured. AFGHAN_UX §5 says data
+  costs the user real money; sending the header is free saving.
+- **`cancelled_by_role` is not reliable.** The timeout job writes
+  `cancellation_reason` and never the role, so it is populated for some rows and
+  empty for others with no way to tell which. Derive who from the transition
+  log, as `Orders::EndedReason` does.
