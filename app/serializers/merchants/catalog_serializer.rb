@@ -22,6 +22,19 @@ module Merchants
           price: item.price,
           currency: item.currency,
           is_available: item.is_available?,
+          # ── THE SHOP NEEDS THIS MORE THAN THE CUSTOMER DOES ───────────
+          #
+          # A customer who cannot order a dish shops elsewhere. The person who
+          # can FIX it is holding this tablet — a required "Size" whose values
+          # all ran out makes the whole dish unorderable, and nothing on the
+          # board said so. That is revenue leaving without a signal, which is
+          # the same shape as the `no_answer` rejections the reports page now
+          # counts.
+          #
+          # Note the merchant's own value list is NOT filtered (line below
+          # serialises every value with its own flag), so the shop can see
+          # which ones to switch back on.
+          unorderable: item.unorderable_reason,
           prep_time_minutes: item.prep_time_minutes,
           position: item.position,
           options: item.options.ordered.map do |option|

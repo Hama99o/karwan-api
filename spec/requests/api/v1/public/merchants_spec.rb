@@ -332,6 +332,31 @@ RSpec.describe "Api::V1::Public::Merchants", type: :request do
       item = json["catalogs"].flat_map { |c| c["items"] }.find { |i| i["name"] == "Sold Out Kabab" }
       expect(item).to be_present
       expect(item["is_available"]).to be false
+      expect(item["unorderable"]).to eq("sold_out")
+    end
+
+    # ── THE DISH THAT READS AS AVAILABLE AND CANNOT BE ORDERED ────────────
+    #
+    # A required "Size" whose values are all sold out. The values are FILTERED
+    # rather than marked — right for an option, you do not grey out a size —
+    # which leaves the ITEM's flag still saying it can be had. Before this
+    # field the customer opened the dish, found no size, and the cart answered
+    # "Size requires at least 1": an error naming a choice never offered.
+    it "flags a dish whose required option has nothing left in it" do
+      category = open_merchant.catalog_categories.first
+      item = create(:catalog_item, catalog_category: category, name: "Sizeless Kabab")
+      option = create(:catalog_item_option, catalog_item: item, name: "Size",
+                                            required: true, min_selections: 1)
+      create(:catalog_item_option_value, catalog_item_option: option, name: "Large", is_available: false)
+
+      get "/api/v1/public/merchants/#{open_merchant.id}/catalog"
+
+      card = json["catalogs"].flat_map { |c| c["items"] }.find { |i| i["name"] == "Sizeless Kabab" }
+      expect(card["is_available"]).to be(true), "plant a dish the merchant has NOT switched off"
+      expect(card["options"].first["values"]).to be_empty, "plant one with nothing left to choose"
+      expect(card["options"].first["minimum_required"]).to eq(1)
+      expect(card["unorderable"]).to eq("required_option_unavailable"),
+                                     "the card says orderable and offers no way to order it"
     end
 
     it "excludes a discarded item entirely, because it is gone rather than unavailable" do

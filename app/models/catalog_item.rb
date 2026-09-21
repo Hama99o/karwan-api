@@ -71,6 +71,36 @@ class CatalogItem < ApplicationRecord
   # The item's own prep time if set, else the merchant's — and nil for anything
   # that is not prepared. A book has no prep time and must not inherit a
   # kitchen's.
+  # ── WHY THIS DISH CANNOT BE ORDERED, WHICH `is_available` DOES NOT ANSWER ─
+  #
+  # `is_available` is the merchant's sold-out toggle and stays exactly that — a
+  # stored fact somebody tapped. It is not the same question as "can a customer
+  # build a valid line from this right now", and the two came apart in a way the
+  # payload could not express.
+  #
+  # MEASURED. A required "Size" whose values are all sold out serialises as:
+  #
+  #     is_available: true, minimum_required: 1, values: []
+  #
+  # The customer sees an orderable kebab, opens it, and is offered no size. If
+  # the app submits anyway `Orders::CartResolver` answers *"Size requires at
+  # least 1"* — an error naming a choice they were never shown. The catalog
+  # advertises a dish the cart refuses.
+  #
+  # The values are FILTERED rather than marked, deliberately: you do not grey
+  # out a size, you stop offering it. That is right for the option and it is
+  # what leaves the item's own flag saying something no longer true.
+  #
+  # A CODE OR NIL, never a sentence — the server cannot say "the large ones have
+  # run out" in Pashto. Same shape as `ended_reason` and `blocked_by`: nil is
+  # the orderable case and the client branches on presence.
+  def unorderable_reason
+    return "sold_out" unless is_available?
+    return "required_option_unavailable" if short_of_a_required_choice?
+
+    nil
+  end
+
   def effective_prep_time_minutes
     prep_time_minutes || merchant.effective_prep_time_minutes
   end
@@ -84,5 +114,20 @@ class CatalogItem < ApplicationRecord
 
   def inherit_merchant_from_category
     self.merchant_id ||= catalog_category&.merchant_id
+  end
+
+  # A required option with fewer available values than it demands. Reads the
+  # PRELOADED `options: :values`, so this costs no query on a menu the catalog
+  # already loaded — `CatalogCategory#items_for_serialization` includes both.
+  #
+  # `minimum_required` rather than the raw `required` flag, because the two can
+  # disagree and that method is the single answer the cart also uses. An option
+  # demanding two choices with one value left is just as unorderable as a
+  # required one with none.
+  def short_of_a_required_choice?
+    options.any? do |option|
+      minimum = option.minimum_required
+      minimum.positive? && option.values.count(&:is_available?) < minimum
+    end
   end
 end

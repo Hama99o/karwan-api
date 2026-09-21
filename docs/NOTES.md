@@ -4527,3 +4527,53 @@ Slicing the whole of section C made it fail immediately — on the paragraph I h
 just added explaining that those three rows HAD been wrong, which names them.
 A check that fires whenever somebody writes down what was fixed teaches people
 to stop writing it down. It reads the table rows now, and nothing else.
+
+## THE CATALOG ADVERTISED A DISH THE CART REFUSES
+
+`is_available` is the merchant's sold-out toggle — a stored fact somebody
+tapped. It is **not** the same question as "can a customer build a valid line
+from this right now", and the two came apart.
+
+A required option ("Size") whose values are all sold out serialises as:
+
+```
+is_available: true      minimum_required: 1      values: []
+```
+
+The customer sees an orderable kebab, opens it, is offered no size, and the cart
+answers **"Size requires at least 1"** — an error naming a choice they were
+never shown. Measured, then reproduced on the rig against a real shop.
+
+### What causes it is itself correct
+
+Option VALUES are filtered out of the payload rather than marked, and that is
+right: you do not grey out a size, you stop offering it. Items are marked rather
+than filtered, which is also right — *"a customer looking for yesterday's kabab
+needs to see it is sold out today; removing it reads as this shop no longer
+sells it."* Two correct rules about two different things, and the item's own
+flag goes on saying something no longer true.
+
+### `unorderable`, a code or nil
+
+Nil when the dish can be had; otherwise `sold_out` (the merchant's toggle) or
+`required_option_unavailable`. A code and never a sentence — the server cannot
+say "the large ones have run out" in Pashto. Same shape as `ended_reason` and
+`blocked_by`, and one branch for the client instead of a rule it would have to
+reimplement from `minimum_required` and an empty array.
+
+**`minimum_required`, not the raw `required` flag.** An option demanding two
+choices with one value left is exactly as unorderable as a required one with
+none, and only the derived figure sees that. It is also the same method the cart
+uses, so the payload and the refusal cannot disagree — there are two specs that
+run the real `CartResolver` and assert they agree in both directions.
+
+### On the merchant board too, where it can be fixed
+
+A customer who cannot order a dish shops elsewhere; the person who can switch
+the size back on is holding the tablet, and nothing on the board said the dish
+had become unorderable. Revenue leaving without a signal — the same shape as the
+`no_answer` rejections. The merchant's own value list is NOT filtered, so the
+shop can see which values to re-enable.
+
+**Costs no query.** `CatalogCategory#items_for_serialization` already includes
+`options: :values`, so the check reads loaded records.
