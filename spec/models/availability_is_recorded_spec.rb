@@ -91,6 +91,16 @@ RSpec.describe "a courier's availability is recorded" do
     expect(shift).not_to be_valid
   end
 
+  # Zero-length is legal and meaningful: "they said available, we never saw
+  # them". Different from no shift at all, and the row is the evidence they
+  # tried.
+  it "allows a shift that ends the instant it began" do
+    at = Time.current
+    shift = CourierShift.new(courier: courier, started_at: at, ended_at: at)
+
+    expect(shift).to be_valid
+  end
+
   # ── THE GATE ────────────────────────────────────────────────────────────
   #
   # A single entry point that nothing enforces is a convention, and the next
@@ -98,7 +108,14 @@ RSpec.describe "a courier's availability is recorded" do
   # losing the fact that it changed. Same shape as the ledger gate, for the
   # same reason: the history cannot be reconstructed afterwards.
   describe "the single entry point" do
-    SANCTIONED = "app/models/courier_profile.rb".freeze
+    # ── TWO SANCTIONED WRITERS, AND THE SECOND NEEDS ITS REASON ─────────────
+    #
+    # `CourierShift.close_abandoned!` writes the switch directly ON PURPOSE.
+    # Going through the entry point would close the shift a SECOND time, at
+    # `now`, overwriting the honest end — the moment the courier went quiet —
+    # with the moment our sweep happened to run. It closes the shift itself, in
+    # the same transaction, so switch and history still move together.
+    SANCTIONED = [ "app/models/courier_profile.rb", "app/models/courier_shift.rb" ].freeze
 
     # A merchant's catalog item also has `is_available`, and it is unrelated —
     # matched by receiver so a catalog write is not mistaken for a courier one.
@@ -107,11 +124,17 @@ RSpec.describe "a courier's availability is recorded" do
     it "is the only thing that changes a courier's availability" do
       offenders = Dir[Rails.root.join("app/**/*.rb")].flat_map do |file|
         rel = file.sub(Rails.root.to_s + "/", "")
-        next [] if rel == SANCTIONED
+        next [] if SANCTIONED.include?(rel)
 
         File.readlines(file).each_with_index.filter_map do |line, i|
           next if line =~ /\A\s*#/
-          m = line.match(/([A-Za-z_][\w.@]*)\.(?:update!?|update_column|update_columns|update_all)\(\s*:?is_available\b/)
+          # `&.` AS WELL AS `.` — the first version of this pattern missed safe
+          # navigation entirely, and I found that by writing
+          # `profile&.update_column(:is_available, false)` in this very feature
+          # and watching the gate stay green. A gate that a common Ruby idiom
+          # walks straight past is worse than none, because it certifies the
+          # paths it cannot read.
+          m = line.match(/([A-Za-z_][\w.@]*)&?\.(?:update!?|update_column|update_columns|update_all)\(\s*:?is_available\b/)
           next unless m
           next if NOT_A_COURIER.any? { |receiver| m[1].split(".").include?(receiver) }
 
@@ -132,6 +155,15 @@ RSpec.describe "a courier's availability is recorded" do
 
       expect(seen).to match(/\.update!\(\s*is_available/),
                       "the catalog write this pattern is known to match is gone; re-check the pattern"
+    end
+
+    # The blind spot that let my own bypass through. Asserted directly so it
+    # cannot come back by someone "simplifying" the regex.
+    it "sees a write made with safe navigation" do
+      pattern = /([A-Za-z_][\w.@]*)&?\.(?:update!?|update_column|update_columns|update_all)\(\s*:?is_available\b/
+
+      expect("profile&.update_column(:is_available, false)").to match(pattern)
+      expect("profile.update!(is_available: false)").to match(pattern)
     end
   end
 end

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_21_123032) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_21_124130) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -203,6 +203,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_21_123032) do
     t.bigint "courier_id", null: false
     t.datetime "created_at", null: false
     t.datetime "ended_at"
+    t.boolean "ended_by_system", default: false, null: false
     t.datetime "started_at", null: false
     t.datetime "updated_at", null: false
     t.index ["courier_id", "started_at"], name: "index_courier_shifts_on_courier_id_and_started_at"

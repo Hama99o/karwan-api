@@ -3677,12 +3677,32 @@ window**, and says which case it is in otherwise. Dividing by a
 partially-recorded denominator reports a crisis instead of flattery — the same
 error in the other direction — so it is refused rather than approximated.
 
-**Known distortion, recorded rather than guessed at:** an abandoned shift is
-indistinguishable from a live one from here, so a courier whose app died looks
-available until something closes it. The fix is a stale-shift closer on the
-timeouts job; it is not built, because the honest cap at `now` bounds the damage
-and inventing a session length would manufacture the data this table exists to
-stop guessing at.
+**The abandoned shift is now closed — `Dispatch::CloseAbandonedShiftsJob`,
+every 5 minutes.** A courier whose app was killed never sends "off", so without
+this the shift counts as capacity forever.
+
+**The obvious implementation is wrong and worth naming.** Dispatch already
+refuses `:stale_location` at **5 minutes**, so reusing that threshold looks
+natural — and would mark a courier who stepped into a building for six minutes
+as having gone home. Not being dispatchable and having ended your working day
+are different facts. The grace is its own `Setting`, default **30 minutes**,
+tunable without a deploy (correction 13) because the right number depends on how
+the app behaves on Afghan networks, which nobody has measured.
+
+**It ends when they went quiet, not when we noticed.** `location_updated_at` is
+the last moment we observed them; closing at `now` would credit the silent half
+hour and write the sweep interval into the data — the report would then be
+partly measuring how often the job runs.
+
+**An inferred end is marked as one.** `ended_by_system` separates a shift the
+courier ended from one we closed on their behalf, because a report that cannot
+tell them apart is quoting inference as evidence.
+
+**A courier who never reported at all is closed at `started_at`** — a
+zero-length shift, which is the honest record of "they said they were available
+and we observed nothing". That is a different fact from no shift, so the
+validation was relaxed to allow `ended_at == started_at`; only a shift ending
+BEFORE it began is impossible.
 
 **History starts at the first toggle after deploy.** A courier already marked
 available gets no shift until they go off and on again — inventing a

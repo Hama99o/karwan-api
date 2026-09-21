@@ -20,6 +20,14 @@ production: &tasks
     # minute is ample and the work is one indexed scan per demand type.
     schedule: every minute
 
+  close_abandoned_shifts:
+    class: Dispatch::CloseAbandonedShiftsJob
+    # The grace is a Setting, default 30 minutes, so a five-minute sweep is well
+    # inside it and a missed tick costs one interval. Deliberately NOT as tight
+    # as the offer sweep: nothing is waiting on this, it only stops a dead app
+    # counting as capacity.
+    schedule: every 5 minutes
+
   # Kept from solid_queue's own template: finished jobs accumulate forever
   # otherwise, and the queue tables are on the same VPS as everything else.
   clear_solid_queue_finished_jobs:

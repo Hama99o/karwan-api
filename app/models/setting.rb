@@ -108,6 +108,7 @@ class Setting < ApplicationRecord
     "eta_window_spread_percent"           => { type: :integer, default: "25", description: "Half-width of the arrival window, as a % of the remaining estimate, once the courier's position is known." },
     "eta_window_spread_percent_unassigned" => { type: :integer, default: "50", description: "The same, while no courier position is known. Wider on purpose: the window must show what we do not know." },
     "eta_window_minimum_minutes"          => { type: :integer, default: "10", description: "The arrival window is never narrower than this. A two-minute window is a precise lie however confident the arithmetic feels." },
+    "courier_shift_abandoned_after_minutes" => { type: :integer, default: "30", description: "How long a courier's app may go silent before their shift is closed as abandoned. Deliberately far longer than the 5-minute dispatch staleness limit: a courier inside a building for six minutes should stop receiving offers, not be marked as having gone home. Tunable because the right number depends on how the app actually behaves on Afghan networks, which nobody has measured yet." },
     "dispatch_offer_ttl_sec" => { type: :integer, default: "60", description: "How long a rider has to answer an offer before it moves on" },
     "dispatch_max_offers"    => { type: :integer, default: "5", description: "Riders tried before the order is surfaced to admin" },
     # ── HOW FAR IS TOO FAR TO ASK ────────────────────────────────────────────
