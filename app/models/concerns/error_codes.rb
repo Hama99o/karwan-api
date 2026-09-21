@@ -24,7 +24,7 @@ module ErrorCodes
   AUTH = %w[
     unauthorized forbidden invalid_credentials account_unavailable
     already_registered registration_invalid role_not_held phone_required
-    not_a_mobile_role
+    not_a_mobile_role reauthentication_required
   ].freeze
 
   # The OTP path, switched OFF by correction 2. Declared because the code still

@@ -90,10 +90,43 @@ class Api::V1::MeController < Api::V1::BaseController
   #
   # `switch_role!` returns false for exactly one reason — the user does not
   # hold that role — so a stale client cannot 500 this.
+  # ── SWITCHING INTO MONEY NEEDS THE PASSWORD AGAIN ─────────────────────────
+  #
+  # `IDENTITY_AND_ROLES.md` §7: *"Switching into a money-handling role
+  # mid-session needs re-authentication, because the wallet, the top-up code and
+  # 'close the restaurant' are the most damaging things a stranger holding an
+  # unlocked phone can reach."* `CLAUDE.md` correction 18 settles the same point
+  # from the other end — the sign-in choice is the gate for ENTERING a role, and
+  # a switch inside a live session has never passed that gate.
+  #
+  # `AFGHAN_UX.md` §7 is why this is not a hypothetical: *"A phone in a
+  # household may be used by several people."* The threat is not a thief with
+  # tools; it is a cousin with an unlocked handset, and the whole wallet screen
+  # was two taps away.
+  #
+  # ── WHAT IS DELIBERATELY NOT GUARDED ──────────────────────────────────────
+  #
+  # Switching back to CUSTOMER. It is the default role, holds none of our money,
+  # and asking for a password to return to ordering a kebab is exactly the
+  # friction correction 10 spends its argument removing. The asymmetry is the
+  # design: the gate is on reaching the money, not on leaving it.
+  #
+  # ── A WIRE CHANGE, AND IT REFUSES RATHER THAN DEGRADES ────────────────────
+  #
+  # A client that does not send the password gets 422 `reauthentication_required`
+  # rather than a silent downgrade to customer, because a screen that says
+  # "courier" while the session says "customer" is worse than a refusal the app
+  # can act on. The mobile handover in `docs/NOTES.md` carries this.
   def switch_role
     authorize current_user, :update?
 
     role = params.require(:role).to_s
+
+    if Roles::MONEY_HANDLING.include?(role) && !reauthenticated?
+      return render_unprocessable_entity(
+        "confirm your password to switch into #{role}", code: "reauthentication_required"
+      )
+    end
 
     unless current_session.switch_role!(role)
       return render_unprocessable_entity(
@@ -145,6 +178,20 @@ class Api::V1::MeController < Api::V1::BaseController
   end
 
   private
+
+  # The password as `auth/sessions#create` checks it, through Devise's own
+  # comparison — never a string compare, and never a second implementation of
+  # what "correct password" means.
+  #
+  # `blank?` short-circuits so an absent parameter and a wrong one give the same
+  # answer, which is the oracle rule this API already holds for sign-in: telling
+  # them apart tells an attacker which half to work on.
+  def reauthenticated?
+    password = params[:password].to_s
+    return false if password.blank?
+
+    current_user.valid_password?(password)
+  end
 
   # ── WHAT A PERSON MAY CHANGE ABOUT THEMSELVES ─────────────────────────────
   #

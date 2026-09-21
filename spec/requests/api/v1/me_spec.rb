@@ -113,11 +113,20 @@ RSpec.describe "Api::V1::Me", type: :request do
   end
 
   describe "POST /api/v1/me/switch_role" do
+    # ── THE PASSWORD IS PART OF THE CALL NOW, FOR MONEY ROLES ──────────────
+    #
+    # `Roles::MONEY_HANDLING` needs re-authentication (IDENTITY_AND_ROLES §7,
+    # correction 18) — a shared handset must not reach the wallet by tapping.
+    # It is incidental to what these examples assert, so it is a helper rather
+    # than noise repeated in each; `spec/requests/api/v1/switching_into_money_spec.rb`
+    # is where the rule itself is tested.
+    let(:password) { "a-long-test-password" }
+
     # ONE ACCOUNT, SEVERAL ROLES, ONE DEVICE AT A TIME.
     it "switches to a role the person holds" do
       user.user_roles.create!(role: :courier)
 
-      post "/api/v1/me/switch_role", params: { role: "courier" }, headers: auth
+      post "/api/v1/me/switch_role", params: { role: "courier", password: password }, headers: auth
 
       expect(response).to have_http_status(:ok)
       expect(phone_session.first.reload.active_role).to eq("courier")
@@ -145,7 +154,7 @@ RSpec.describe "Api::V1::Me", type: :request do
     it "is remembered by the NEXT device the person signs in on" do
       user.user_roles.create!(role: :courier)
 
-      post "/api/v1/me/switch_role", params: { role: "courier" }, headers: auth
+      post "/api/v1/me/switch_role", params: { role: "courier", password: password }, headers: auth
       _reinstalled, new_token = UserSession.issue!(user.reload, device_name: "same phone, reinstalled")
 
       get "/api/v1/me", headers: { "Authorization" => "Bearer #{new_token}" }

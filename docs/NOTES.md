@@ -5032,3 +5032,55 @@ open**, so a variant nobody declared silently serves the full-size original.
 That is the failure this exists to catch, and a parser that reads the wrong
 token would have missed it on any two-hop call site — while looking like it was
 working.
+
+## A SHARED PHONE COULD REACH THE WALLET BY TAPPING
+
+`IDENTITY_AND_ROLES.md` §7: *"Switching into a money-handling role mid-session
+needs re-authentication, because the wallet, the top-up code and 'close the
+restaurant' are the most damaging things a stranger holding an unlocked phone
+can reach."* `CLAUDE.md` correction 18 settles the same point from the other
+end: *"choosing a money-handling role at sign-in IS the gate, so a separate
+in-app PIN is only needed for switching roles INSIDE a session."*
+
+`me#switch_role` checked only that the user HELD the role. So a live session
+could move into `courier` or `merchant_owner` with one call and no credential —
+and `AFGHAN_UX.md` §7 is why that is not hypothetical: *"A phone in a household
+may be used by several people."* The threat is a cousin with an unlocked
+handset, not a thief with tools.
+
+Switching into `Roles::MONEY_HANDLING` now requires the password, checked
+through Devise's own `valid_password?` rather than a second implementation of
+what "correct" means.
+
+**The asymmetry is the design.** Switching back to `customer` asks for nothing:
+it is the default role, holds none of our money, and a password to return to
+ordering a kebab is exactly the friction correction 10 spends its argument
+removing. The gate is on reaching the money, not on leaving it — there is a spec
+that goes red if somebody makes it symmetric.
+
+**A missing password and a wrong one give the identical answer** — same status,
+same code, same message. The oracle rule this API already holds for sign-in;
+telling them apart tells an attacker which half to work on.
+
+### ⚠ THIS IS A BREAKING WIRE CHANGE
+
+A client switching into `courier` or `merchant_owner` without a password now
+gets **422 `reauthentication_required`**. It refuses rather than silently
+falling back to `customer`, because a screen that says "courier" while the
+session says "customer" is worse than a refusal the app can act on. The mobile
+handover carries it.
+
+## THE SPEC TOLD THE READER TO UPDATE THE DOCUMENT AND NEVER CHECKED
+
+Adding one error code moved `reachable_in_normal_use` to 52. Its spec asserted
+`codes.size == 51` against a LITERAL and its failure message said *"update
+docs/API_VOCABULARY.md in the same commit"*. So I updated the literal, the
+suite went green — and the document still said 51.
+
+**The spec was checking the number against itself and merely naming the
+document.** It now reads the figure OUT of the prose, so the two cannot drift;
+planting the stale number back turns it red and says which side is behind.
+
+The same shape as the vocabulary section's "never met" rows a few hours ago: the
+value lists were asserted and **the sentences about them were not**. Prose is
+what a reader acts on, and a gate that mentions a document is not a gate on it.

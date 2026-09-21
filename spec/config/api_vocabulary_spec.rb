@@ -86,11 +86,23 @@ RSpec.describe "docs/API_VOCABULARY.md" do
   # tonight, documented in API_VOCABULARY.md as "returns the 25", and called by
   # nothing — a built-and-unreachable created during an audit for exactly that.
   # `bin/callers` reported it within the hour.
-  it "reachable_in_normal_use returns the 25 the document promises" do
+  it "reachable_in_normal_use returns the count the document promises" do
     codes = ErrorCodes.reachable_in_normal_use
 
-    expect(codes.size).to eq(51),
-                          "the document says 51 codes are reachable in normal use; this returns #{codes.size}. " \
+    # ── READ FROM THE DOCUMENT, NOT TYPED TWICE ────────────────────────────
+    #
+    # This used to assert a literal and tell the reader to go and update the
+    # prose. Adding one code moved the code's count to 52 while the document
+    # still said 51, and every example here stayed green — the spec was
+    # checking the number against itself and merely NAMING the document.
+    #
+    # The number now comes OUT of the document, so the two cannot drift: if the
+    # prose is stale the count will not match, and the failure says which.
+    documented = doc[/returns the \*\*(\d+)\*\* that are not OTP/, 1]&.to_i
+
+    expect(documented).to be_present, "the document no longer states how many codes are reachable"
+    expect(codes.size).to eq(documented),
+                          "the document says #{documented} codes are reachable in normal use; this returns #{codes.size}. " \
                           "If that is right, update docs/API_VOCABULARY.md in the same commit — the mobile " \
                           "session sizes its translation work from that number."
     expect(codes).not_to include(*ErrorCodes::OTP)

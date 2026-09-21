@@ -170,6 +170,7 @@ may be undeclared, nothing declared may be unemitted.
 | **geography** | `outside_service_area` `unroutable` |
 | **infrastructure** | `bad_request` `not_found` `bad_platform` `rate_limited` `pending_migration` |
 | **account deletion** — `me#destroy`, 422 | `holding_cash` `wallet_unsettled` `live_job` `live_order` `merchant_orders_in_flight` |
+| **re-authentication** | `reauthentication_required` — switching a live session INTO `courier` or `merchant_owner` needs the password again. `IDENTITY_AND_ROLES.md` §7 and correction 18: the sign-in choice is the gate for entering a role, and a switch inside a session had never passed it. **Switching back to `customer` needs nothing** — the gate is on reaching the money, not on leaving it. A missing password and a wrong one give the IDENTICAL answer. |
 | **eligibility** — why a courier may not take this job | `no_profile` `not_approved` `off_shift` `wrong_job_kind` `vehicle_too_small` `too_many_passengers` `wrong_vehicle_class` `already_on_a_job` `stale_location` `too_far` `no_wallet` `wallet_blocked` `insufficient_credit` `cash_in_hand` |
 
 ### The half a grep could not see
@@ -204,7 +205,7 @@ after the countdown — the job went to somebody else and another will come),
 `not_cancellable` (a customer cancels as the merchant accepts — the restaurant
 has started cooking), and `outside_service_area`.
 
-`ErrorCodes.reachable_in_normal_use` returns the **51** that are not OTP,
+`ErrorCodes.reachable_in_normal_use` returns the **52** that are not OTP,
 malformed requests or server state. The ten it excludes are `otp_*` (switched
 off), `bad_request`, `bad_platform`, `not_found`, `registration_invalid` and
 `pending_migration`.
