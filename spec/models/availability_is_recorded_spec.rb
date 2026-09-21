@@ -115,16 +115,21 @@ RSpec.describe "a courier's availability is recorded" do
     # `now`, overwriting the honest end — the moment the courier went quiet —
     # with the moment our sweep happened to run. It closes the shift itself, in
     # the same transaction, so switch and history still move together.
-    SANCTIONED = [ "app/models/courier_profile.rb", "app/models/courier_shift.rb" ].freeze
+    # `let`, NOT a constant. A constant assigned inside a describe block leaks
+    # to Object, so two spec files using the same name silently overwrite each
+    # other — and the loser fails only in a FULL RUN, passing whenever you run
+    # its file alone to investigate. That is exactly what happened: this name
+    # collided with the one in `every_transition_is_recorded_spec.rb`.
+    let(:sanctioned) { [ "app/models/courier_profile.rb", "app/models/courier_shift.rb" ] }
 
     # A merchant's catalog item also has `is_available`, and it is unrelated —
     # matched by receiver so a catalog write is not mistaken for a courier one.
-    NOT_A_COURIER = %w[item items @item catalog_item value values].freeze
+    let(:not_a_courier) { %w[item items @item catalog_item value values] }
 
     it "is the only thing that changes a courier's availability" do
       offenders = Dir[Rails.root.join("app/**/*.rb")].flat_map do |file|
         rel = file.sub(Rails.root.to_s + "/", "")
-        next [] if SANCTIONED.include?(rel)
+        next [] if sanctioned.include?(rel)
 
         File.readlines(file).each_with_index.filter_map do |line, i|
           next if line =~ /\A\s*#/
@@ -136,7 +141,7 @@ RSpec.describe "a courier's availability is recorded" do
           # paths it cannot read.
           m = line.match(/([A-Za-z_][\w.@]*)&?\.(?:update!?|update_column|update_columns|update_all)\(\s*:?is_available\b/)
           next unless m
-          next if NOT_A_COURIER.any? { |receiver| m[1].split(".").include?(receiver) }
+          next if not_a_courier.any? { |receiver| m[1].split(".").include?(receiver) }
 
           "#{rel}:#{i + 1} (#{m[1]})"
         end

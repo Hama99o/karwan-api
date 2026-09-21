@@ -20,14 +20,16 @@ RSpec.describe "every state transition is recorded" do
   # Models whose `status` is NOT a delivery lifecycle and so is not door 3's
   # business. Classified by the receiver in the source rather than by file, so
   # an order controller may still supersede an offer.
-  NOT_A_LIFECYCLE = %w[offer offers user users merchant merchants admin_user].freeze
+  # `let` rather than a constant: a constant here leaks to Object and collides
+  # with any other spec file using the name, failing only in a full run.
+  let(:not_a_lifecycle) { %w[offer offers user users merchant merchants admin_user] }
 
-  SANCTIONED = "app/models/concerns/dispatchable.rb".freeze
+  let(:sanctioned) { "app/models/concerns/dispatchable.rb" }
 
   def status_writes
     Dir[Rails.root.join("app/**/*.rb")].flat_map do |file|
       rel = file.sub(Rails.root.to_s + "/", "")
-      next [] if rel == SANCTIONED
+      next [] if rel == sanctioned
 
       File.readlines(file).each_with_index.filter_map do |line, i|
         next if line =~ /\A\s*#/
@@ -40,7 +42,7 @@ RSpec.describe "every state transition is recorded" do
         # classified an Offer write as an Order one — the receiver is the model
         # somewhere in the middle, and a scope can be named anything.
         chain = m[1].split(".")
-        next if chain.any? { |part| NOT_A_LIFECYCLE.include?(part) }
+        next if chain.any? { |part| not_a_lifecycle.include?(part) }
 
         "#{rel}:#{i + 1} (chain: #{m[1]})"
       end

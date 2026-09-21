@@ -1798,3 +1798,56 @@ worse than no gate, because it certifies the hard half.
 with a broken capture, and both broken versions produced *plausible lists* rather
 than errors. So the instrument that watches the instrument needs the same
 treatment — assert what the scan **found**, not only what it concluded.
+
+## A CONSTANT IN A SPEC IS GLOBAL, AND THE COLLISION ONLY FAILS IN A FULL RUN
+
+```ruby
+RSpec.describe "..." do
+  SANCTIONED = [ "app/models/courier_profile.rb" ].freeze   # leaks to Object
+end
+```
+
+A constant assigned inside a `describe` block is **not scoped to the block**. It
+lands on `Object`, so two spec files using the same name silently overwrite each
+other, and the one that loads second wins.
+
+**The symptom is the worst available one: it passes when you run the file alone.**
+So the natural investigation — run the failing spec by itself — reports green and
+sends you looking for flakiness, load, or an order dependency in the DATA.
+
+**Measured 2026-09-21.** `SANCTIONED` was defined in two gates written the same
+day: an **Array** of sanctioned files in `availability_is_recorded_spec.rb`, and
+a **String** naming one file in `every_transition_is_recorded_spec.rb`. When the
+String won, `SANCTIONED.include?(rel)` stopped being an array membership test and
+became a **substring** test, `app/models/courier_profile.rb` was no longer
+excluded, and the gate reported its own sanctioned entry point as a violation.
+
+Both files passed alone. The full suite failed. Ruby prints
+`already initialized constant` — in a 2,400-example run nobody reads it.
+
+### The rule
+
+**Use `let`, or a method, never a constant, for anything a spec defines.**
+
+```ruby
+let(:sanctioned) { [ "app/models/courier_profile.rb" ] }
+```
+
+`let` is scoped to the example group and cannot collide. The only safe constants
+in a spec file are ones you are reading FROM the app.
+
+### The sweep, worth running after writing any gate
+
+```bash
+grep -rhoE '^\s+[A-Z][A-Z_0-9]+\s*=' spec/ --include=*_spec.rb | tr -d ' =' | sort | uniq -d
+```
+
+Empty output means no two spec files define the same constant. It is one line and
+it would have saved this.
+
+**A candidate explanation for an older entry:** `docs/NOTES.md` records an
+order-dependent failure in `couriers/wallet_spec.rb` that was never explained and
+never recurred. This mechanism produces exactly that signature — fails in a full
+run, passes alone, no data explanation. Worth checking against before assuming
+the data hypothesis, though that file defines no constants today, so it is a
+candidate rather than a finding.
