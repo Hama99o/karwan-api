@@ -86,7 +86,21 @@ module Couriers
           landmark_note: @job.delivery_landmark_note,
           phone: @job.customer_phone,
           amount: @job.customer_total,
-          amount_direction: "collect"
+          amount_direction: "collect",
+          # ── WHETHER HE WILL NEED CHANGE, ON THE SCREEN OF THE MAN WHO
+          #    HAS TO PRODUCE IT ──────────────────────────────────────────
+          #
+          # `AFGHAN_UX.md` §6: *"The exact cash amount on the courier's screen
+          # AND the customer's, plus whether change is needed. People carry
+          # particular notes."* The customer was told — `suggested_notes` on
+          # the order and the quote — and the courier was not, though
+          # `CLAUDE.md`'s policy list makes it his problem: *"No change →
+          # riders carry a change float."*
+          #
+          # The SAME rule the customer is given, from `Monetary.change_advice`,
+          # so the two screens cannot advise differently about one order. Nil on
+          # a round hundred, which is the quiet case a float already covers.
+          bring_change_for: Monetary.change_advice(@job.customer_total)
         }
       ]
     end

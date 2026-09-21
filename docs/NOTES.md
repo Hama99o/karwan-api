@@ -4957,3 +4957,78 @@ the operator's own error message.
 It also asserts the collision still exists, so if Administrate ever stops
 defining `Order` the spec says so — that being the moment to revisit the `::`
 qualifications rather than leave them as folklore.
+
+## AFGHAN_UX §6 WAS SERVED TO ONE SIDE OF THE DOOR
+
+*"Show everything about money before it is owed. Low institutional trust is a
+market condition, not a flaw to design around with cleverness. Be unambiguous
+instead."* Four items; two reached only one party.
+
+### The courier was not told he would need change
+
+§6: *"The exact cash amount on the courier's screen **AND** the customer's, plus
+whether change is needed. People carry particular notes."*
+
+`Monetary.change_advice` was called in `customers/order_serializer` and
+`customers/quote_serializer` and **nowhere on the courier's side** — so the
+customer was advised what note to have ready, and the man who has to produce the
+change was not. `CLAUDE.md`'s own policy list makes it his problem: *"No change →
+riders carry a change float."*
+
+`bring_change_for` is now on the `collect_and_deliver` step, from the SAME rule
+the customer is given, so the two screens cannot advise differently about one
+order — there is a spec asserting they agree on 1,250 (both 1,500, the
+walkthrough's own figure). Nil on a round hundred, which a float already covers.
+The ride steps are untouched and a spec says so.
+
+### The customer could not see who was coming to their door
+
+§6: *"The courier's name and photo before they arrive — for the customer, and
+especially for a woman expecting a stranger at the door."*
+
+The payload carried a first name and a phone number. `User` has had an avatar
+with a 192 px `:thumb` variant since profile photos were added — sized for
+exactly this — and no customer payload carried it. Now on the order screen and
+on the TRACKING payload, which is the one open while he is on his way.
+
+**Nil when he has not set one**, which is the common case until couriers are
+asked for a photo at onboarding. A missing face must render as an initial, never
+as a broken image — a 404 where a person should be is worse than no picture.
+
+### A sixth plant came back green, and the example was the problem
+
+The guard against the photo licensing more of his identity was
+`expect(payload[:courier][:name]).not_to include("Shah")`. Planting a SECOND key
+— `full_name:` beside the photo — left it green: it checks one key, and the leak
+arrived in another.
+
+An example named *"does not start sending his full name"* that reads only `name`
+is checking the wrong thing. It now asserts the whole key set, the way
+`payload_key_sets_spec` does for the payloads themselves — three keys, and his
+surname in none of their values. **Bounding what a payload MAY contain is a
+different assertion from checking what one field says**, and only the first
+survives somebody adding a field.
+
+### The gate that caught it was itself wrong about what
+
+`spec/serializers/served_images_are_resized_spec.rb` fired on the new courier
+photo: *"asked for a variant that no model declares… `(courier)`"*. `User`
+declares `avatar` with a `:thumb` variant, so the complaint was false — and the
+gate was still right that something was broken. **The bug was in the gate.**
+
+Its parser used a NON-GREEDY `[\w.]*?`, which captures the first segment after
+the first dot. Every call site in the repo was one hop — `merchant.logo`,
+`item.photo` — so it had always been correct by luck. The first two-hop
+receiver, `order.courier.avatar`, parsed as the attachment `courier`.
+
+Greedy captures the last segment and still reads one-hop sites correctly, and
+there is now an example asserting both shapes by name. Two plants: the original
+non-greedy regex reports *"parsed 'courier' — the receiver, not the
+attachment"*, and a `variant: :thumbnail` typo is caught with the attachment
+named correctly as `avatar`.
+
+Worth keeping because of what the gate's own comment says: **`PublicUrl` fails
+open**, so a variant nobody declared silently serves the full-size original.
+That is the failure this exists to catch, and a parser that reads the wrong
+token would have missed it on any two-hop call site — while looking like it was
+working.

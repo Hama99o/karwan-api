@@ -200,7 +200,22 @@ module Customers
       field :courier do |order|
         next nil if order.courier.nil?
 
-        { name: order.courier.display_name.to_s.split.first, phone: order.courier.phone }
+        {
+          name: order.courier.display_name.to_s.split.first,
+          phone: order.courier.phone,
+          # ── AND A FACE, WHICH AFGHAN_UX §6 ASKS FOR BY NAME ─────────────
+          #
+          # *"The courier's name and photo before they arrive — for the
+          # customer, and especially for a woman expecting a stranger at the
+          # door."* The avatar has existed on `User` since profile photos were
+          # added, with a 192 px `:thumb` variant sized for exactly this, and no
+          # customer payload carried it.
+          #
+          # Nil when he has not set one, which the app must render as an
+          # initial rather than a broken image — the honest state, and the
+          # common one until couriers are asked for a photo at onboarding.
+          photo_url: Attachments::PublicUrl.for(order.courier.avatar, variant: :thumb)
+        }
       end
 
       field :can_cancel do |order|

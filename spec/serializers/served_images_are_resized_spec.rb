@@ -28,7 +28,17 @@ RSpec.describe "images served to a client are resized" do
   # which is by definition every attachment this API hands to a client.
   CALL_SITES = Dir.glob(Rails.root.join("app/serializers/**/*.rb")).flat_map { |file|
     File.readlines(file).each_with_index.filter_map do |line, i|
-      match = line.match(/Attachments::PublicUrl\.for\(\s*[\w.]*?\.(\w+)([^)]*)\)/)
+      # GREEDY `[\w.]*`, and the `?` that used to be there was a real bug.
+      # Non-greedy took the FIRST segment after the first dot, so a two-hop
+      # receiver — `order.courier.avatar` — parsed as the attachment `courier`
+      # and this spec reported a missing variant on an attachment that does not
+      # exist. One-hop call sites were all the repo had, so the blind spot never
+      # showed until the customer payload started serving the courier's face.
+      #
+      # Greedy consumes `order.courier.` and captures `avatar`, and still
+      # captures `logo` from `merchant.logo` — there is an example below
+      # asserting both.
+      match = line.match(/Attachments::PublicUrl\.for\(\s*[\w.]*\.(\w+)([^)]*)\)/)
       next unless match
 
       { file: file.sub("#{Rails.root}/", ""), line: i + 1,
@@ -48,6 +58,23 @@ RSpec.describe "images served to a client are resized" do
 
   it "found the call sites, or every example below is asserting nothing" do
     expect(CALL_SITES.size).to be >= 4
+  end
+
+  # ── THE PARSER READS THE ATTACHMENT, NOT THE HOP BEFORE IT ───────────────
+  #
+  # Both shapes, because the repo now has both and the regex was wrong for one
+  # of them. A non-greedy `[\w.]*?` captured `courier` from
+  # `order.courier.avatar` — the first segment after the first dot — and this
+  # spec then reported a missing variant on an attachment nobody has. The
+  # failure LOOKED like a bug in the serializer and was a bug in the gate.
+  it "names the attachment for a one-hop and a two-hop receiver alike" do
+    one_hop = CALL_SITES.find { |site| site[:attachment] == "logo" }
+    two_hop = CALL_SITES.find { |site| site[:file].include?("track_serializer") && site[:variant] == :thumb }
+
+    expect(one_hop).to be_present, "no one-hop call site found — this example is asserting nothing"
+    expect(two_hop).to be_present, "no two-hop call site found — this example is asserting nothing"
+    expect(two_hop[:attachment]).to eq("avatar"),
+                                    "parsed #{two_hop[:attachment].inspect} — the receiver, not the attachment"
   end
 
   it "hands out a variant for every image, and says why for anything it does not" do

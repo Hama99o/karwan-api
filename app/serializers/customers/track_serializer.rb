@@ -74,6 +74,11 @@ module Customers
         # First name only, as everywhere else the customer sees a courier.
         name: order.courier.display_name.to_s.split.first,
         phone: order.courier.phone,
+        # AFGHAN_UX §6 asks for the photo "before they arrive", and this is the
+        # payload open WHILE he is on his way — the screen where it matters
+        # most. Same variant the order page serves, so the face does not change
+        # between two screens.
+        photo_url: Attachments::PublicUrl.for(order.courier.avatar, variant: :thumb),
         location: fresh ? { latitude: coordinates[0], longitude: coordinates[1] } : nil,
         location_fresh: fresh,
         located_at: profile&.location_updated_at
