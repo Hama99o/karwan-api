@@ -4577,3 +4577,73 @@ shop can see which values to re-enable.
 
 **Costs no query.** `CatalogCategory#items_for_serialization` already includes
 `options: :values`, so the check reads loaded records.
+
+## NOTHING ON THE DEPLOYED BOX SAID THE MESSAGE CHANNELS WERE DEAD
+
+`bin/preflight` answers "can a message leave this box" and **only ever runs on a
+developer's machine**. On the deployed server nothing did, and both channels
+fail SILENTLY by design: the log adapter writes the code where a developer can
+read it, and `FcmClient` logs *"would notify"* and returns `:unconfigured`.
+Every screen stays green while nothing arrives.
+
+The dashboard already had the precedent — `@merchants_to_ring` exists because a
+push that reached no device was recorded and never read. This is the same class
+one level up: not "an alert failed" but "no alert can succeed".
+
+### The two costs are not symmetric, so they are not one light
+
+```
+SMS dead   a user who forgot their password and has no email cannot get back
+           in AT ALL. Correction 2 made email the ADDITIONAL identifier, so in
+           this market that is most users.
+push dead  the merchant alert loses one of its three channels. PRODUCT.md
+           already refuses to rely on any single one, so polling and a
+           telephone still work — a degradation, not a lockout.
+```
+
+Saying the same sentence about both would teach the operator to treat the worse
+one as routine. The tile says which, and what each costs.
+
+Phrased as preflight phrases it — *"expected locally; in production it is the
+thing to fix before anything else"* — because a permanent red light in
+development is a light nobody reads.
+
+### One rule for "is this a real gateway", in the app
+
+`SmsClient.production_ready?` existed, was documented as *"which the deploy
+runbook checks"*, and **nothing called it** — while `bin/preflight` compared
+`SMS_PROVIDER` to the literal `"log"` in bash. One rule, two implementations,
+and a comment describing a wiring that did not exist.
+
+Now `SmsClient::NON_PRODUCTION` names the adapters that are not a gateway, the
+dashboard asks `production_ready?`, and preflight asks for the LIST and applies
+it to the value declared for the WEB CONTAINER — which is not the same as the
+value in whatever shell preflight runs in, and that distinction is the whole
+reason preflight reads the declaration rather than its own environment. The rule
+travels; the environment question stays where it belongs.
+
+Measured: with a second non-production adapter added, preflight warns about it.
+Under the old bash literal it would have reported `SMS_PROVIDER=noop` as **green
+on a deploy** — a production-ready SMS setup that sends nothing.
+
+### Two of my own checks could not fail, and planting is what found both
+
+The dashboard example that was supposed to prove the tile asks the ADAPTER
+rather than holding a copy of the rule set `SMS_PROVIDER` to
+`NON_PRODUCTION.first`. With one entry in that list, a controller comparing to
+the literal `"log"` agrees for every input — so planting exactly that copy left
+the example green. It now stubs a second entry, which is the only arrangement
+that can tell the two apart.
+
+That is the second time today the same shape appeared: `CourierReadiness`'s
+agreement spec proved agreement on single-fault couriers and said nothing about
+ORDER, because every fixture had one thing wrong. **A spec that compares two
+implementations needs an input on which they would differ, and a fixture with
+one variable cannot be it.**
+
+### And a note on reverting a plant
+
+`git checkout <file>` was used to undo one plant and discarded the uncommitted
+tile it was planted into. Every other plant in this session was reverted from a
+scratchpad copy taken before the edit, which is the only safe way while the work
+is uncommitted.

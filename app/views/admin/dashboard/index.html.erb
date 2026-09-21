@@ -19,6 +19,33 @@
       <span class="karwan-tile__number"><%= @unacknowledged_orders %></span>
       <span class="karwan-tile__label">orders the kitchen has not looked at</span>
     </a>
+    <%# ── CAN A MESSAGE LEAVE THIS BOX AT ALL? ──────────────────────────────
+
+        `bin/preflight` answers this and only ever runs on a developer's
+        machine. Both channels fail SILENTLY by design — the log adapter writes
+        the code where a developer can read it, FcmClient logs "would notify" —
+        so every screen stays green while nothing arrives.
+
+        Phrased as preflight phrases it, because the same sentence is true here
+        and a permanent red light in development is a light nobody reads. %>
+    <% if @dead_channels.any? %>
+      <div class="karwan-tile karwan-tile--alert karwan-tile--wide">
+        <span class="karwan-tile__label">
+          <strong>
+            <%= @dead_channels.map { |c| c == :sms ? "SMS" : "push" }.to_sentence %>
+            <%= @dead_channels.one? ? "is" : "are" %> not configured on this server.
+          </strong>
+          <% if @dead_channels.include?(:sms) %>
+            No code can reach a phone, so <strong>a user who has forgotten their password and has no
+            email address cannot get back into their account.</strong>
+          <% end %>
+          <% if @dead_channels.include?(:push) %>
+            The merchant alert loses one of its three channels; in-app polling and a telephone still work.
+          <% end %>
+          Expected locally — in production it is the thing to fix before anything else.
+        </span>
+      </div>
+    <% end %>
     <%# A push that reached nobody. The one tile whose remedy is a telephone. %>
     <a class="karwan-tile <%= "karwan-tile--alert" if @merchants_to_ring.positive? %>" href="<%= admin_audit_logs_path %>">
       <span class="karwan-tile__number"><%= @merchants_to_ring %></span>

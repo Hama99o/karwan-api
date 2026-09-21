@@ -39,7 +39,13 @@ module Notifications
       # The default, and correct for development, test and a demo: it writes
       # the message where a developer can read it and costs nothing. It is NOT
       # correct for production and `Notifications::SmsClient.production_ready?`
-      # says so, which the deploy runbook checks.
+      # says so.
+      #
+      # THAT COMMENT USED TO CLAIM "which the deploy runbook checks", and the
+      # runbook did not — nothing called the method at all, while `bin/preflight`
+      # compared `SMS_PROVIDER` to the literal "log" in bash. One rule, two
+      # implementations, and a comment describing a wiring that did not exist.
+      # Preflight now asks for `NON_PRODUCTION`.
       "log" => "Notifications::Sms::LogAdapter"
     }.freeze
 
@@ -47,11 +53,26 @@ module Notifications
       ENV.fetch("SMS_PROVIDER", "log")
     end
 
+    # ── WHICH ADAPTERS ARE NOT A GATEWAY ──────────────────────────────────
+    #
+    # Named as a list rather than compared to one literal, because the rule is
+    # "does a message reach a phone" and `log` is only today's answer to it. A
+    # second developer adapter — a noop, a fixture recorder — would otherwise
+    # have to be remembered in two places, and the one that is easy to forget is
+    # the one that only matters on a deploy.
+    NON_PRODUCTION = %w[log].freeze
+
     # Is there a real gateway behind this? Deliberately explicit, so shipping
     # with the log adapter is a decision somebody made rather than a default
     # nobody noticed.
+    #
+    # `bin/preflight` asks for `NON_PRODUCTION` and applies it to the value
+    # DECLARED FOR THE WEB CONTAINER, which is not the same as this process's
+    # environment — that distinction is the whole reason preflight reads the
+    # container's declaration rather than its own. So the rule lives here and
+    # the environment question stays there.
     def self.production_ready?
-      provider != "log"
+      NON_PRODUCTION.exclude?(provider)
     end
 
     def self.adapter

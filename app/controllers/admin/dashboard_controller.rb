@@ -39,6 +39,25 @@ module Admin
       # one that has to be told. This is that telling.
       @merchants_to_ring = merchants_needing_a_call
 
+      # ── CAN A MESSAGE LEAVE THIS BOX AT ALL? ───────────────────────────
+      #
+      # `bin/preflight` answers this and **only ever runs on a developer's
+      # machine**. On the deployed box nothing says the channels are dead, and
+      # both fail silently by design: the log adapter writes the code where a
+      # developer can read it, and `FcmClient` logs "would notify" and returns
+      # `:unconfigured`. Every screen stays green while nothing arrives.
+      #
+      # What it costs is not symmetric, which is why they are listed separately
+      # rather than as one "notifications" light:
+      #
+      #   SMS dead  — a user who forgot their password and has no email cannot
+      #               get back in at all. Correction 2 made email the ADDITIONAL
+      #               identifier, so in this market that is most users.
+      #   push dead — the merchant alert loses one of its three channels.
+      #               PRODUCT.md already refuses to rely on any single one, so
+      #               polling still works; it is a degradation, not a lockout.
+      @dead_channels = channels_that_cannot_deliver
+
       # ── DELIVERED, AND NOBODY LOOKED ──────────────────────────────────
       #
       # The tile above counts alerts that reached no device. This counts the
@@ -67,6 +86,16 @@ module Admin
     # Only LIVE orders: an alert that failed on an order since delivered was
     # resolved by somebody, and a number that counts settled history is a
     # number an operator learns to ignore.
+    # Asked of the adapters themselves rather than of ENV, so this cannot
+    # disagree with what the app would actually do when it tries to send.
+    # `SmsClient::NON_PRODUCTION` is the same rule `bin/preflight` asks for.
+    def channels_that_cannot_deliver
+      dead = []
+      dead << :sms unless Notifications::SmsClient.production_ready?
+      dead << :push unless Notifications::FcmClient.new.configured?
+      dead
+    end
+
     def merchants_needing_a_call
       AuditLog.where(action: "merchant.alerted", target_type: "Order")
               .where("details->>'needs_human_contact' = 'true'")

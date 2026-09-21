@@ -164,4 +164,89 @@ RSpec.describe "Every ops console page renders", type: :request do
 
     expect(response).to have_http_status(:ok)
   end
+
+  # ══ CAN A MESSAGE LEAVE THIS BOX AT ALL? ══════════════════════════════════
+  #
+  # `bin/preflight` answers this and only ever runs on a developer's machine.
+  # Both channels fail SILENTLY by design — the log adapter writes the code
+  # where a developer can read it, `FcmClient` logs "would notify" and returns
+  # `:unconfigured` — so every screen stays green while nothing arrives.
+  #
+  # ENV IS SET DIRECTLY, not stubbed on the adapters. The adapters are what the
+  # app really consults, so doubling them would put a double between this check
+  # and the thing it is checking; the environment is the outside world, which
+  # `docs/NOTES.md` names as the legitimate place for a test to take control.
+  # Same idiom as `spec/services/notifications/sms_client_spec.rb`.
+  describe "channels that cannot deliver" do
+    around do |example|
+      kept = ENV.to_h.slice("SMS_PROVIDER", "FCM_PROJECT_ID", "FCM_ACCESS_TOKEN")
+      example.run
+      %w[SMS_PROVIDER FCM_PROJECT_ID FCM_ACCESS_TOKEN].each { |key| ENV.delete(key) }
+      kept.each { |key, value| ENV[key] = value }
+    end
+
+    def configure_everything
+      ENV["SMS_PROVIDER"] = "kabul_gateway"
+      ENV["FCM_PROJECT_ID"] = "karwan"
+      ENV["FCM_ACCESS_TOKEN"] = "a-token"
+    end
+
+    it "says nothing when both channels can deliver" do
+      configure_everything
+
+      get "/admin"
+
+      expect(response.body).not_to include("not configured on this server")
+    end
+
+    # THE ONE THAT LOCKS PEOPLE OUT. Correction 2 made email the ADDITIONAL
+    # identifier, so a user with only a phone and a forgotten password has no
+    # way back in at all when SMS is dead.
+    it "names what a dead SMS channel costs" do
+      configure_everything
+      ENV["SMS_PROVIDER"] = "log"
+
+      get "/admin"
+
+      expect(response.body).to include("not configured on this server")
+      expect(response.body).to include("cannot get back into their account")
+    end
+
+    # And push is a DEGRADATION, not a lockout — PRODUCT.md refuses to rely on
+    # any single channel for the merchant alert. Saying the same thing about
+    # both would teach the operator to treat the worse one as routine.
+    it "does not claim a dead push channel locks anybody out" do
+      configure_everything
+      ENV.delete("FCM_PROJECT_ID")
+
+      get "/admin"
+
+      expect(response.body).to include("not configured on this server")
+      expect(response.body).to include("three channels")
+      expect(response.body).not_to include("cannot get back into their account")
+    end
+
+    # ── ASKED OF THE ADAPTER, NOT OF ENV ─────────────────────────────────
+    #
+    # A SECOND non-production adapter is the only way this example can tell the
+    # adapter's rule from a copy of it. Written first with
+    # `NON_PRODUCTION.first`, it could not: the list has one entry, so a
+    # controller comparing `ENV["SMS_PROVIDER"] == "log"` agrees with the rule
+    # for every input. Planting exactly that left this green — found by
+    # planting, not by reading.
+    #
+    # `stub_const` arranges the world rather than doubling the subject: the
+    # thing under test is the dashboard, and this is the configuration it reads.
+    it "follows the adapter's own rule rather than a second copy of it" do
+      configure_everything
+      stub_const("Notifications::SmsClient::NON_PRODUCTION", %w[log noop])
+      ENV["SMS_PROVIDER"] = "noop"
+
+      get "/admin"
+
+      expect(Notifications::SmsClient.production_ready?).to be(false), "plant a provider the app calls dead"
+      expect(response.body).to include("not configured on this server"),
+                               "the dashboard holds its own copy of the rule and missed a second dead adapter"
+    end
+  end
 end

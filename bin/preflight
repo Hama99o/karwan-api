@@ -202,8 +202,18 @@ fi
 step "SMS (warning only)"
 SMS_VALUE=$(app_env SMS_PROVIDER)
 SMS_WHERE=$(app_env_source SMS_PROVIDER)
-if [ -z "$SMS_VALUE" ] || [ "$SMS_VALUE" = "log" ]; then
-  say "  · SMS_PROVIDER is 'log' (declared: $SMS_WHERE) — codes go to the log, not to a phone."
+# ASK THE APP WHICH ADAPTERS ARE NOT A GATEWAY, rather than comparing to "log"
+# here. This script used to hold its own copy of that rule while
+# `SmsClient.production_ready?` held another and nothing called it — and the
+# method's comment claimed the runbook checked it. One rule, in the app.
+#
+# The VALUE still comes from `app_env`, deliberately: that is the declaration
+# the WEB CONTAINER will run with, which is not this shell's environment. The
+# rule is environment-independent and travels; the value is not and stays here.
+SMS_NON_PRODUCTION=$(bin/rails runner 'print Notifications::SmsClient::NON_PRODUCTION.join(" ")' 2>/dev/null)
+[ -z "$SMS_NON_PRODUCTION" ] && SMS_NON_PRODUCTION="log"
+if [ -z "$SMS_VALUE" ] || printf '%s\n' $SMS_NON_PRODUCTION | grep -qx -- "$SMS_VALUE"; then
+  say "  · SMS_PROVIDER is '${SMS_VALUE:-unset}' (declared: $SMS_WHERE) — not a gateway; codes go nowhere real."
   note "fine locally; in production nobody can sign in. Hamma9900 picks the gateway."
 else
   ok "SMS_PROVIDER=$SMS_VALUE (from $SMS_WHERE)"
