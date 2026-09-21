@@ -4842,3 +4842,55 @@ Five green plants today: the `CourierReadiness` ordering, the dashboard's SMS
 rule, the summed payout, the expiry boundary, and this. Three were fixtures that
 made two implementations agree; two were inputs that could not occur through the
 app. **In all five the green was the finding.**
+
+## THE SECOND EXPOSURE CONTROL WAS NOT ON THE OPS CONSOLE
+
+`MONEY_AND_SETTLEMENT.md` §10: *"`cash_in_hand_limit` is the second exposure
+control and is separate from the wallet: the wallet protects the goods, this
+protects cash already collected and not yet deposited."* `PRODUCT.md` asks for
+it plainly — *"Riders — ... view cash in hand."*
+
+The console showed the **balance**, which is what a courier owes us, and not
+what he is **carrying** for us. On the rig, one wallet: balance 2,630.62, cash
+in hand 69.38. A courier in perfectly good standing holding our money, and only
+one of the two numbers was on the page. `Couriers::CashPosition` existed and the
+console consulted it in exactly one place — computing `expected` when settling.
+
+Two things added: `cash_in_hand` on the wallet's show page, and a
+`needs_settling` filter on the index — the "who do I call in" list, which is a
+different question from `blocked`. A courier can be on one list and not the
+other, which is why one filter cannot serve both.
+
+### The list is resolved in SQL, and it must agree with the dispatcher
+
+`CashPosition#over_limit?` decides whether dispatch may offer work.
+`.over_limit_courier_ids` answers it for every courier at once so the index does
+not run two queries a row. Two ways of asking one question is how a console
+comes to disagree with the dispatcher about who may work — so the spec tests the
+bulk version against the **single-courier rule**, with couriers under the limit,
+over it, and **exactly on it**.
+
+The boundary is the case that matters: the rule is `held >= limit`, so a courier
+holding exactly the limit IS over. Under-and-over alone cannot tell `>=` from
+`>` — the identical hole that left the OTP expiry boundary untested. Planting
+`>` in the bulk version goes red only because the exactly-on-limit courier is
+there.
+
+## AN ADMINISTRATE FIELD WHOSE METHOD RAISES SERVES A 200 WITH AN EMPTY CELL
+
+Worth knowing for every dashboard in this repo, and found by getting it wrong.
+
+`cash_in_hand` was first defined **below `private`** in `CourierWallet`. Calling
+it raises `NoMethodError: private method 'cash_in_hand' called`. The console
+page still returned **200**, with the row label *"Cash in hand"* rendered and no
+number in it.
+
+**And my rig check looked for the label.** It reported success on a field that
+could never display a value — the same vacuous assertion `docs/NOTES.md` already
+records from the Kabul-date fix, where the row label is always present and only
+the figure moves. I made that mistake this morning, wrote it down, and repeated
+it this evening on a different surface.
+
+So: a spec asserting a derived dashboard field must **parse the value**, not
+match the label. `spec/requests/admin/cash_in_hand_is_visible_spec.rb` does, and
+planting the method back under `private` turns it red.

@@ -54,6 +54,31 @@ module Couriers
       held(Monetary::DEFAULT_CURRENCY) >= Setting.fetch("cash_in_hand_limit")
     end
 
+    # ── EVERY COURIER OVER THE LIMIT, IN TWO QUERIES ─────────────────────
+    #
+    # The ops console's "who do I call in to settle" list. Computed in SQL over
+    # both tables rather than by asking each wallet in turn, because the console
+    # lists every courier and a per-row `CashPosition` would be one pair of
+    # queries per row.
+    #
+    # THE SAME RULE AS `over_limit?`, deliberately — `held >= limit`, not `>`.
+    # Two ways of asking one question is how a console disagrees with the
+    # dispatcher about who may work, and there is a spec that puts couriers on
+    # both sides of the limit AND exactly on it, then demands the two agree.
+    def self.over_limit_courier_ids(currency = Monetary::DEFAULT_CURRENCY)
+      limit = Setting.fetch("cash_in_hand_limit")
+      totals = Hash.new(BigDecimal("0"))
+
+      [ Order, Trip ].each do |klass|
+        klass.where(payment_status: :collected, currency: currency)
+             .where.not(courier_id: nil)
+             .group(:courier_id).sum(:commission)
+             .each { |courier_id, amount| totals[courier_id] += amount }
+      end
+
+      totals.select { |_courier_id, held| held >= limit }.keys
+    end
+
     def remaining_allowance
       [ Setting.fetch("cash_in_hand_limit") - held(Monetary::DEFAULT_CURRENCY), 0 ].max
     end

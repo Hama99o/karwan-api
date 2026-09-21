@@ -114,6 +114,24 @@ class CourierWallet < ApplicationRecord
     end
   end
 
+  # ── WHAT THEY ARE CARRYING OF OURS, FOR THE OPS CONSOLE ───────────────────
+  #
+  # `MONEY_AND_SETTLEMENT.md` §10: *"`cash_in_hand_limit` is the second exposure
+  # control and is separate from the wallet: the wallet protects the goods, this
+  # protects cash already collected and not yet deposited."*
+  #
+  # The console showed the first and not the second. An operator could see what
+  # a courier OWES us — the balance — and not what they are CARRYING for us,
+  # which is the number that decides whether to call somebody in. PRODUCT.md
+  # asks for it in as many words: *"Riders — ... view cash in hand."*
+  #
+  # DERIVED, never stored. It is a sum over collected-and-unsettled jobs, and a
+  # cached copy would be a second answer to a question the ledger already
+  # answers — the same reason `balance` is not editable in the console.
+  def cash_in_hand
+    Couriers::CashPosition.new(user).held(currency)
+  end
+
   private
 
   # A 4-digit code, not a name. Names repeat and transliterate badly
