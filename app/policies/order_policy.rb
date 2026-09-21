@@ -21,6 +21,10 @@ class OrderPolicy < ApplicationPolicy
   # One predicate per board action rather than a single `update?`, so each can
   # be reasoned about and refused independently. The state machine still decides
   # WHETHER the move is legal; these decide WHO may attempt it.
+  # Acknowledging is not a transition and grants nothing — it records that a
+  # human in that kitchen saw the alert. Same holder as the board actions.
+  def acknowledge? = merchants_order? || admin?
+
   def accepted?  = merchants_order? || admin?
   def rejected?  = merchants_order? || admin?
   def preparing? = merchants_order? || admin?

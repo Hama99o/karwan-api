@@ -58,6 +58,7 @@ POST   /api/v1/merchant/catalog_items                       api/v1/merchants/cat
 POST   /api/v1/merchant/catalog_items/:id/available         api/v1/merchants/catalog_items#available
 POST   /api/v1/merchant/catalog_items/:id/sold_out          api/v1/merchants/catalog_items#sold_out
 POST   /api/v1/merchant/orders/:id/accept                   api/v1/merchants/orders#accept
+POST   /api/v1/merchant/orders/:id/acknowledge              api/v1/merchants/orders#acknowledge
 POST   /api/v1/merchant/orders/:id/preparing                api/v1/merchants/orders#preparing
 POST   /api/v1/merchant/orders/:id/ready                    api/v1/merchants/orders#ready
 POST   /api/v1/merchant/orders/:id/reject                   api/v1/merchants/orders#reject

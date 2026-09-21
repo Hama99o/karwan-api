@@ -251,6 +251,14 @@ Rails.application.routes.draw do
 
         resources :orders, only: %i[index show] do
           member do
+            # SEPARATE FROM ACCEPT, deliberately. PRODUCT.md's alert is "loud
+            # and repeating until acknowledged" — the tablet needs a way to say
+            # "a human is looking at this" the moment somebody taps the screen,
+            # BEFORE the kitchen has decided whether it can cook the order.
+            # Folding it into accept would mean the alarm can only be silenced
+            # by committing, which is how a cook under pressure accepts an
+            # order they cannot make.
+            post :acknowledge
             post :accept
             post :reject
             # `preparing` is not ceremony. Order::TRANSITIONS goes

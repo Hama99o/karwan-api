@@ -1,6 +1,6 @@
 # The order board: the merchant's default and only real screen.
 class Api::V1::Merchants::OrdersController < Api::V1::Merchants::BaseController
-  before_action :set_order, only: %i[show accept reject preparing ready]
+  before_action :set_order, only: %i[show acknowledge accept reject preparing ready]
 
   # Live orders by default, oldest first — the opposite of the customer's list.
   # A kitchen works the queue from the front; showing newest first would bury
@@ -17,6 +17,28 @@ class Api::V1::Merchants::OrdersController < Api::V1::Merchants::BaseController
     authorize @order, :show?
 
     render_blue(Merchants::OrderSerializer, @order, view: :detailed)
+  end
+
+  # ── A HUMAN HAS SEEN IT ───────────────────────────────────────────────────
+  #
+  # Not a state transition: the order is still `placed` afterwards and nothing
+  # about it has been decided. It answers the one question the server could not
+  # answer before — whether the alert was HEARD, as opposed to delivered.
+  #
+  # The console already counts pushes that reached no device. This is the other
+  # half and the worse one, because it looks fine: the push arrived, on a tablet
+  # on a counter in a noisy kitchen, and nobody looked at it.
+  #
+  # IDEMPOTENT, and it must be. The alarm screen retries on a bad connection,
+  # so the second call answers 200 with the FIRST acknowledgement's time rather
+  # than moving it — "when did somebody first see this" stops being answerable
+  # the moment a retry can overwrite it.
+  def acknowledge
+    authorize @order, :acknowledge?
+
+    @order.acknowledge_by_merchant!(current_user)
+
+    render_blue(Merchants::OrderSerializer, @order.reload, view: :detailed)
   end
 
   def accept

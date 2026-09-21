@@ -33,6 +33,19 @@ module Merchants
     view :board do
       fields :placed_at, :accepted_at, :ready_at
 
+      # ── WHAT SILENCES THE ALARM ───────────────────────────────────────────
+      #
+      # PRODUCT.md's incoming order is "loud and repeating until acknowledged",
+      # so the tablet needs a server answer to "has anybody here seen this
+      # yet" — not a local flag. A local one is lost on a restart, and a
+      # kitchen tablet gets restarted; it also cannot tell the second tablet on
+      # the counter that the first one already answered.
+      #
+      # Null means nobody has looked. The client should keep making noise.
+      field :acknowledged_at do |order|
+        order.merchant_acknowledged_at
+      end
+
       # ── IS A RIDER COMING? ───────────────────────────────────────────────
       #
       # The board could not tell. `ready` with nobody assigned and `ready` with

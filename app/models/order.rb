@@ -79,6 +79,10 @@ class Order < ApplicationRecord
   # the same human, and the same wallet, that carries passengers in the ride tab.
   belongs_to :courier, class_name: User.name, optional: true, inverse_of: :courier_orders
 
+  # WHO saw the alert, not just that somebody did. In a dispute about a late
+  # order the question is which person in that kitchen picked the tablet up.
+  belongs_to :merchant_acknowledged_by, class_name: User.name, optional: true
+
   has_many :order_items, dependent: :destroy
 
   # WHAT THIS ORDER NEEDS TO BE CARRIED IN, frozen at placement as the maximum
@@ -133,6 +137,20 @@ class Order < ApplicationRecord
 
   scope :for_merchant, ->(merchant) { where(merchant: merchant) }
 
+  # ── THE ALERT NOBODY HEARD ────────────────────────────────────────────────
+  #
+  # `needs_human_contact` on the audit row already covers a push that reached
+  # NO DEVICE. This covers the case that looks fine from the server: the push
+  # was delivered, to a tablet on a counter, and nobody looked at it.
+  #
+  # LIVE ONLY, and only once the order has waited. An order placed thirty
+  # seconds ago is not a problem, it is an order; a tile that counts it teaches
+  # an operator to ignore the tile.
+  scope :unacknowledged, -> { where(merchant_acknowledged_at: nil) }
+  scope :awaiting_acknowledgement, lambda { |after: 2.minutes|
+    live.unacknowledged.where(status: :placed).where(created_at: ..after.ago)
+  }
+
   # What the courier hands the merchant at pickup: the food, less our
   # commission. They fund this out of their own pocket, which is why the refusal
   # policy reimburses them the same day — losing 400 AFN through someone else's
@@ -169,6 +187,23 @@ class Order < ApplicationRecord
 
   # What the courier is left holding for us once the customer has paid and they
   # have kept their fee. This is our entire exposure per order.
+  def acknowledged_by_merchant? = merchant_acknowledged_at.present?
+
+  # FIRST acknowledgement wins and later ones are a no-op. The question this
+  # answers is "when did a human first see it", so overwriting the time on a
+  # second tap would replace the answer with the time of the most recent tap —
+  # a number that always looks recent and therefore always looks fine.
+  #
+  # Returns false when it was already acknowledged so the caller can stay
+  # idempotent without asking first, which matters because the alarm screen
+  # will retry on a bad connection.
+  def acknowledge_by_merchant!(user)
+    return false if acknowledged_by_merchant?
+
+    update!(merchant_acknowledged_at: Time.current, merchant_acknowledged_by: user)
+    true
+  end
+
   def platform_cash_held
     commission
   end

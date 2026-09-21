@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_18_195949) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_21_092740) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -387,6 +387,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_18_195949) do
     t.datetime "failed_at"
     t.integer "failure_reason"
     t.decimal "items_total", precision: 12, scale: 2, default: "0.0", null: false
+    t.datetime "merchant_acknowledged_at"
+    t.bigint "merchant_acknowledged_by_id"
     t.bigint "merchant_id", null: false
     t.datetime "merchant_paid_at"
     t.decimal "merchant_payout", precision: 12, scale: 2, default: "0.0", null: false
@@ -412,8 +414,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_18_195949) do
     t.index ["courier_id", "payment_status"], name: "index_orders_on_courier_id_and_payment_status"
     t.index ["courier_id"], name: "index_orders_on_courier_id"
     t.index ["created_at"], name: "index_orders_on_created_at"
+    t.index ["created_at"], name: "index_orders_unacknowledged", where: "(merchant_acknowledged_at IS NULL)"
     t.index ["customer_id"], name: "index_orders_on_customer_id"
     t.index ["distance_source"], name: "index_orders_on_distance_source"
+    t.index ["merchant_acknowledged_by_id"], name: "index_orders_on_merchant_acknowledged_by_id"
     t.index ["merchant_id", "status"], name: "index_orders_on_merchant_id_and_status"
     t.index ["merchant_id"], name: "index_orders_on_merchant_id"
     t.index ["payment_status"], name: "index_orders_on_payment_status"
@@ -646,6 +650,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_18_195949) do
   add_foreign_key "orders", "merchants"
   add_foreign_key "orders", "users", column: "courier_id"
   add_foreign_key "orders", "users", column: "customer_id"
+  add_foreign_key "orders", "users", column: "merchant_acknowledged_by_id"
   add_foreign_key "settings", "users", column: "updated_by_id"
   add_foreign_key "settlements", "users", column: "counted_by_id"
   add_foreign_key "settlements", "users", column: "courier_id"

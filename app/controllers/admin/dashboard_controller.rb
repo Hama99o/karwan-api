@@ -39,6 +39,19 @@ module Admin
       # one that has to be told. This is that telling.
       @merchants_to_ring = merchants_needing_a_call
 
+      # ── DELIVERED, AND NOBODY LOOKED ──────────────────────────────────
+      #
+      # The tile above counts alerts that reached no device. This counts the
+      # ones that arrived and were never acknowledged — a tablet on a counter
+      # in a noisy kitchen, an order going cold while the screen flashes at an
+      # empty room. It is the worse of the two because nothing in the system
+      # looks wrong.
+      #
+      # Two minutes' grace: an order placed thirty seconds ago is not a
+      # problem, it is an order, and a tile that counts it is a tile an
+      # operator learns to ignore.
+      @unacknowledged_orders = Order.awaiting_acknowledgement.count
+
       @recent_interventions = AuditLog.interventions.newest_first.limit(10)
     end
 

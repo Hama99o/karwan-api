@@ -13,6 +13,12 @@
       <span class="karwan-tile__number"><%= @overdue_orders %></span>
       <span class="karwan-tile__label">orders overdue</span>
     </a>
+    <%# Delivered, and nobody looked. Worse than the tile below because nothing
+        in the system looks wrong — the push succeeded. %>
+    <a class="karwan-tile <%= "karwan-tile--alert" if @unacknowledged_orders.positive? %>" href="<%= admin_orders_path %>">
+      <span class="karwan-tile__number"><%= @unacknowledged_orders %></span>
+      <span class="karwan-tile__label">orders the kitchen has not looked at</span>
+    </a>
     <%# A push that reached nobody. The one tile whose remedy is a telephone. %>
     <a class="karwan-tile <%= "karwan-tile--alert" if @merchants_to_ring.positive? %>" href="<%= admin_audit_logs_path %>">
       <span class="karwan-tile__number"><%= @merchants_to_ring %></span>
