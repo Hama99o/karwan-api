@@ -9,6 +9,7 @@ GET    /api/v1/courier/job                                  api/v1/couriers/jobs
 GET    /api/v1/courier/offer                                api/v1/couriers/offers#show
 GET    /api/v1/courier/registration                         api/v1/couriers/registrations#show
 GET    /api/v1/courier/shift                                api/v1/couriers/shifts#show
+GET    /api/v1/courier/today                                api/v1/couriers/today#show
 GET    /api/v1/courier/wallet                               api/v1/couriers/wallet#show
 GET    /api/v1/courier/wallet/entries                       api/v1/couriers/wallet#entries
 GET    /api/v1/courier/wallet/settlements                   api/v1/couriers/wallet#settlements

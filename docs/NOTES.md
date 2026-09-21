@@ -4795,3 +4795,50 @@ fixtures that made two implementations agree; this one is the same idea in its
 simplest form — **an example that never supplied the input where the
 alternatives differ.** In every case the green plant was the finding, and
 accepting it would have left a check that reads as coverage and is not.
+
+## THE RIDER'S "TODAY" HAD NO ENDPOINT EITHER
+
+`PRODUCT.md`'s Rider section: *"**Today** — deliveries, earnings, cash currently
+in hand."* Every other Rider screen has an API; this had none, so a courier
+ending a shift could not answer what he had earned without adding up wallet
+entries himself. `GET /api/v1/courier/today`, singular for the same reason as
+the merchant's.
+
+### Both demand types, named separately
+
+PRODUCT.md says "deliveries" because it was written when this was food-only.
+Correction 9 settles it: one person, two job kinds. A courier who did three
+deliveries and two rides did five jobs, and collapsing them hides the half
+`CLAUDE.md` says the company turns on — *"two demand streams on one pool fill
+the idle hours, which is the number the whole business turns on."*
+
+### `cash_in_hand_now`, and the name is the point
+
+Deliveries and earnings are counted over today. **Cash in hand is a running
+total** and can include money collected yesterday and not yet settled. Under a
+heading saying "today" it reads as *"this is what I took today"*, and a courier
+reconciling his pocket against it comes up short by exactly what he owes from
+yesterday. It comes from `Couriers::CashPosition` — the same source the shift
+screen and the wallet screen use, so three screens cannot disagree about what is
+in his pocket, and there is a spec that fetches both endpoints and compares.
+
+Verified on real rig data: courier 10615 on 16 Sept, `deliveries=1 earnings=100`,
+matching the columns summed directly from the tables.
+
+### A fifth plant came back green, and this time the input was unreachable
+
+Dropping `status: :delivered` and filtering on `delivered_at` alone changed
+nothing, because through the app nothing has one without the other — `delivered`
+is terminal, so no transition leaves it. The guard is for a row that arrived
+another way, which `db/seeds/stress.rb` writes in bulk.
+
+Same shape as the merchant screen's summed payout, and handled the same way: the
+discriminating example plants the row with `update_columns`. **A check nothing
+can currently trip is still the check that catches the day something does** —
+and leaving the green plant unexplained would have been the thing worth
+criticising, not the plant.
+
+Five green plants today: the `CourierReadiness` ordering, the dashboard's SMS
+rule, the summed payout, the expiry boundary, and this. Three were fixtures that
+made two implementations agree; two were inputs that could not occur through the
+app. **In all five the green was the finding.**

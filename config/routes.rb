@@ -222,6 +222,12 @@ Rails.application.routes.draw do
           end
         end
 
+        # PRODUCT.md's Rider "Today": deliveries, earnings, cash currently in
+        # hand. Singular for the same reason as the merchant's — a date
+        # parameter would be a second earnings history beside the wallet
+        # entries below.
+        resource :today, only: :show, controller: "today"
+
         # Singular: one courier, one wallet.
         resource :wallet, only: :show, controller: "wallet" do
           get :entries
