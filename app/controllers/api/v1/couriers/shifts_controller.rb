@@ -88,7 +88,24 @@ class Api::V1::Couriers::ShiftsController < Api::V1::Couriers::BaseController
       # Money of ours they are holding, and what they may still collect before
       # settling. Shown rather than discovered when dispatch goes quiet.
       cash_in_hand: cash.held,
-      cash_allowance_remaining: cash.remaining_allowance
+      cash_allowance_remaining: cash.remaining_allowance,
+      # ── AND THE ANSWER, NOT ONLY THE INGREDIENTS ────────────────────────
+      #
+      # Everything above is a FACT the phone would have to reassemble into
+      # "why is nothing coming?" — which means reimplementing the dispatcher
+      # on the device, and then the device can disagree with it. Same argument
+      # `Couriers::JobSteps` makes for the step list.
+      #
+      # `update` already refuses to go on shift with a reason, because "a
+      # courier who goes online and then silently never receives an offer
+      # concludes the app is broken, when in fact they need to top up". This
+      # is that sentence applied to the screen they actually sit looking at.
+      #
+      # NULL IS A NEGATIVE CLAIM. It means nothing about this courier is
+      # blocking him — not that work is coming. Six of the fourteen dispatch
+      # reasons are about a PAIRING and cannot be answered without a job, and
+      # the commonest reason of all is that nobody has ordered anything.
+      blocked_by: Dispatch::CourierReadiness.new(current_user).blocked_by
     }
   end
 end

@@ -4411,3 +4411,77 @@ would record that an admin cancelled 21 rides nobody touched. The transition log
 already holds the truth — a nil actor is the system — and `Orders::EndedReason`
 reads it that way. **Derive who from the transition, not from
 `cancelled_by_role`.**
+
+## THE COURIER WAS NEVER TOLD WHY HIS PHONE WAS QUIET
+
+`Dispatch::Eligibility` names **fourteen** reasons a courier is skipped. The
+courier was told none of them.
+
+The shift payload carried the raw facts — `is_available`, `location_fresh`, the
+wallet, `cash_in_hand`, `cash_allowance_remaining` — and its own comment says
+they are *"shown rather than discovered when dispatch goes quiet"*. But facts
+are not an answer. To turn them into one the phone must reimplement the
+dispatcher, and then the phone can disagree with it — the same argument
+`Couriers::JobSteps` makes for the step list: *"deciding which here rather than
+on the device means the phone cannot disagree with the server about what happens
+next."*
+
+`ShiftsController#update` already refuses to go on shift **with** a reason,
+because *"a courier who goes online and then silently never receives an offer
+concludes the app is broken, when in fact they need to top up."* That sentence
+was true of the screen he sits looking at, and nothing applied it there.
+
+### And at least two reasons were not deducible at all
+
+Measured on the rig against a real courier:
+
+```
+is_available true   location_fresh false   wallet blocked false   cash_in_hand 0
+blocked_by   already_on_a_job          ← he is carrying Order#22012
+```
+
+**Nothing in the old payload said he was carrying a job.** There is no field for
+it, so a phone could not have worked it out however cleverly it tried.
+`not_approved` is the same. Three of the eight were plainly deducible
+(`off_shift`, `stale_location`, `wallet_blocked`); the rest were not.
+
+Note also that this courier had TWO faults — carrying a job and a stale fix —
+and is told `already_on_a_job`, which is the one dispatch meets first. Telling
+him the other one would send him to fix a phone that is not his problem.
+
+### Eight of fourteen, and it makes a NEGATIVE claim
+
+Six reasons are about a PAIRING — wrong job kind, vehicle too small, wrong
+vehicle class, too many passengers, too far, insufficient credit for THIS job —
+and cannot be answered without a job in hand. A shift screen has none, so it
+must not speak to them.
+
+So `blocked_by` is null when nothing about the courier is blocking him, and null
+means exactly that. **It does not mean work is coming**: the six pairing reasons
+are live, and the commonest reason of all is that nobody has ordered anything. A
+field promising work would be the same species of lie as a card reading "open
+now, opens at 08:00".
+
+### One vocabulary, in a second context — the thing for the mobile side to notice
+
+Those fourteen words are already published as **error codes** (`API_VOCABULARY.md`
+category D); they arrive on a 422 when a courier taps accept. Eight of them now
+also arrive as a **field value on a 200**, describing the courier rather than a
+refused action. **A client that translates them only inside its error handler
+will render nothing on the screen that needs them most.**
+
+### The gate I wrote first could not catch the thing that matters
+
+The checks exist twice, because `Eligibility`'s ordering is load-bearing and
+interleaves courier and pairing reasons — its comments explain why each sits
+where it does, and reordering it to extract a block would change which reason a
+courier is skipped for. Duplication was the cheaper risk, so the spec proves the
+two AGREE rather than assuming it.
+
+**Except the first version proved nothing about order.** Every courier it built
+had exactly one fault, so any ordering gave the same answer — moving
+`wallet_blocked` above `stale_location` left it fully green. Found by planting,
+not by reading. Order is the entire point: told the wrong first reason, a
+courier tops up a wallet when the real problem is a phone that has not reported
+its position, and he has spent money to learn that. The spec now plants two
+faults at once and demands the same first answer from both.

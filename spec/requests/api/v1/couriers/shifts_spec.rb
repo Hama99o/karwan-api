@@ -58,6 +58,65 @@ RSpec.describe "Api::V1::Couriers::Shifts", type: :request do
       expect(json).to have_key("cash_allowance_remaining")
     end
 
+    # ── AND THE ANSWER, NOT ONLY THE INGREDIENTS ──────────────────────────
+    #
+    # Everything above is a fact the phone would have to reassemble into "why
+    # is nothing coming?", which means reimplementing the dispatcher on the
+    # device. `update` already refuses to go on shift WITH a reason, because
+    # "a courier who goes online and then silently never receives an offer
+    # concludes the app is broken, when in fact they need to top up". This is
+    # that sentence applied to the screen they sit looking at.
+    describe "why the phone is quiet" do
+      it "says nothing is blocking a courier who is ready" do
+        profile.update!(is_available: true, last_latitude: 34.5553,
+                        last_longitude: 69.2075, location_updated_at: Time.current)
+
+        get "/api/v1/courier/shift", headers: auth
+
+        expect(json).to have_key("blocked_by"), "the screen cannot answer the question it exists to answer"
+        expect(json["blocked_by"]).to be_nil
+      end
+
+      it "names the reason, as a code the client can translate" do
+        profile.update!(is_available: true, last_latitude: 34.5553,
+                        last_longitude: 69.2075, location_updated_at: 2.hours.ago)
+
+        get "/api/v1/courier/shift", headers: auth
+
+        expect(json["blocked_by"]).to eq("stale_location")
+        expect(Dispatch::Eligibility::REASONS).to have_key(:stale_location),
+                                                 "the payload is inventing a word dispatch does not use"
+      end
+
+      # THE ONE THE CONTROLLER'S OWN COMMENT IS ABOUT. A courier who cannot
+      # work because of money is told so on the screen, not by silence.
+      it "names a blocked wallet" do
+        profile.update!(is_available: true, last_latitude: 34.5553,
+                        last_longitude: 69.2075, location_updated_at: Time.current)
+        wallet.update!(balance: -500, credit_line: 500)
+
+        get "/api/v1/courier/shift", headers: auth
+
+        expect(json["blocked_by"]).to eq("wallet_blocked")
+        expect(json.dig("wallet", "top_up_code")).to be_present, "told the problem and not the way out of it"
+      end
+
+      # NULL IS A NEGATIVE CLAIM, and this is the example that keeps it honest.
+      # A courier with nothing blocking him is not promised work — six of the
+      # fourteen dispatch reasons are about a PAIRING, and the commonest reason
+      # of all is that nobody has ordered anything.
+      it "does not promise work to a courier who is merely unblocked" do
+        profile.update!(is_available: true, last_latitude: 34.5553,
+                        last_longitude: 69.2075, location_updated_at: Time.current)
+
+        get "/api/v1/courier/shift", headers: auth
+
+        expect(json["blocked_by"]).to be_nil
+        expect(json.keys).not_to include("will_receive_work", "work_coming", "jobs_available"),
+                                 "the payload is claiming something it cannot know"
+      end
+    end
+
     # Dispatch will not offer to a courier whose position is stale, so the app
     # has to know before the courier wonders why it has gone quiet.
     it "says the position is stale until one is reported" do

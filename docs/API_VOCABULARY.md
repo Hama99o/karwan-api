@@ -70,6 +70,27 @@ a place a re-declaration can silently disagree.
 | **order cancellation reason** | `customer_changed_mind` `merchant_unavailable` `no_courier_available` `duplicate` `other` | `customers/order_serializer.rb` (`ended_reason.code`). Read-only: `customers/orders#cancel` still hard-codes `customer_changed_mind` — see C |
 | **who ended it** | `customer` `courier` `merchant_owner` `admin` `system` — or **null** | `ended_reason.ended_by`. `system` means a nil actor did it (the timeout job); **null means no transition was recorded**, which is not the same fact and must not be rendered as "the system" |
 
+| **why a courier's phone is quiet** | eight of the fourteen eligibility reasons, or **null** | `couriers/shifts#show` (`blocked_by`) |
+
+**`blocked_by` REUSES THE ELIGIBILITY VOCABULARY IN A SECOND CONTEXT, and that
+is the thing to notice.** Those fourteen words are published in category D as
+ERROR CODES — they arrive on a 422 when a courier taps accept. Eight of them now
+also arrive as a **field value on a 200**, on the shift screen, describing the
+courier rather than a refused action. A client that translates them only inside
+its error handler will render nothing on the screen that needs them most.
+
+The eight: `no_profile` `not_approved` `off_shift` `already_on_a_job`
+`stale_location` `no_wallet` `wallet_blocked` `cash_in_hand`.
+
+The other six — `wrong_job_kind` `vehicle_too_small` `wrong_vehicle_class`
+`too_many_passengers` `too_far` `insufficient_credit` — are about a PAIRING and
+can never appear here, because a shift screen has no job to pair with.
+
+**NULL IS A NEGATIVE CLAIM.** It means nothing about this courier is blocking
+him. It does **not** mean work is coming: the six pairing reasons are still
+live, and the commonest reason of all is that nobody has ordered anything. Do
+not render it as "you will receive jobs".
+
 **`ended_reason` is an object or null**, never a bare string:
 
 ```json
