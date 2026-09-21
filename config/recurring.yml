@@ -28,6 +28,13 @@ production: &tasks
     # counting as capacity.
     schedule: every 5 minutes
 
+  issue_weekly_statements:
+    class: Merchants::IssueWeeklyStatementsJob
+    # Early on the Afghan week's first morning, in Kabul time, for the seven
+    # days that just ended. Idempotent, so a missed run is caught by the next
+    # one and a double run writes nothing twice.
+    schedule: every day at 3am
+
   # Kept from solid_queue's own template: finished jobs accumulate forever
   # otherwise, and the queue tables are on the same VPS as everything else.
   clear_solid_queue_finished_jobs:

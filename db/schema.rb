@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_21_124130) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_21_135251) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -282,6 +282,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_21_124130) do
     t.datetime "updated_at", null: false
     t.index ["merchant_id", "day_of_week"], name: "index_merchant_opening_hours_on_merchant_id_and_day_of_week"
     t.index ["merchant_id"], name: "index_merchant_opening_hours_on_merchant_id"
+  end
+
+  create_table "merchant_statements", force: :cascade do |t|
+    t.decimal "commission", precision: 12, scale: 2, default: "0.0", null: false
+    t.datetime "created_at", null: false
+    t.string "currency", null: false
+    t.datetime "issued_at", null: false
+    t.decimal "items_total", precision: 12, scale: 2, default: "0.0", null: false
+    t.bigint "merchant_id", null: false
+    t.decimal "net_received", precision: 12, scale: 2, default: "0.0", null: false
+    t.integer "orders_count", default: 0, null: false
+    t.date "period_end", null: false
+    t.date "period_start", null: false
+    t.datetime "updated_at", null: false
+    t.index ["merchant_id", "period_start", "period_end", "currency"], name: "index_merchant_statements_unique_period", unique: true
+    t.index ["merchant_id"], name: "index_merchant_statements_on_merchant_id"
   end
 
   create_table "merchants", force: :cascade do |t|
@@ -651,6 +667,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_21_124130) do
   add_foreign_key "merchant_category_assignments", "merchant_categories"
   add_foreign_key "merchant_category_assignments", "merchants"
   add_foreign_key "merchant_opening_hours", "merchants"
+  add_foreign_key "merchant_statements", "merchants"
   add_foreign_key "merchants", "admin_users", column: "verified_by_admin_user_id"
   add_foreign_key "merchants", "merchant_kinds"
   add_foreign_key "merchants", "users", column: "owner_id"

@@ -117,6 +117,10 @@ Rails.application.routes.draw do
     # what happened, and editing one falsifies the only data that answers how
     # much capacity there actually was.
     resources :courier_shifts, only: %i[index show]
+
+    # Read-only for the same reason: a statement is a financial record already
+    # shown to a partner, and editing one rewrites what they were told.
+    resources :merchant_statements, only: %i[index show]
     resources :settlements, only: %i[index show]
 
     # The numbers PRODUCT.md asks for that the landing page deliberately does
@@ -254,6 +258,10 @@ Rails.application.routes.draw do
         # `resources` would invite per-row edits, which is the half-saved
         # schedule the controller explains at length.
         resource :opening_hours, only: %i[show update], controller: "opening_hours"
+
+        # Read-only: statements are issued on a schedule so every shop's week is
+        # cut at the same boundary, and re-issuing would defeat the snapshot.
+        resources :statements, only: :index, controller: "statements"
 
         resources :catalog_categories, only: %i[create update destroy]
         resources :catalog_items, only: %i[index create update destroy] do

@@ -3811,3 +3811,47 @@ underneath it and it had to die. **The reasoning was still wrong, and the
 reasoning is the part that gets reused.** The check that would have settled it
 in one line is the one the guard now prints: ask the database who holds the
 lock, and compare `backend_start` against the processes you believe are running.
+
+## R19's MERCHANT STATEMENT IS BUILT — SNAPSHOT, AND NET IS NOT A RESIDUAL
+
+Hamma9900's words: *"merchants and couriers each need their own earnings view…
+What they want is a statement: sales, commission deducted, net received."* The
+courier half he answers himself — that is the wallet balance. The merchant half
+did not exist.
+
+`merchant_statements`, `GET /api/v1/merchant/statements`, issued by
+`Merchants::IssueWeeklyStatementsJob`, with a console page.
+
+**SNAPSHOT, which R19 itself asks for and gives the reason for:** a statement
+recomputed on demand is silently rewritten by any later change to the
+calculation, so the figure a merchant was shown last month becomes one nobody
+can reproduce. Asserted by editing the orders behind an issued statement and
+requiring it not to move.
+
+**`net_received` is summed from `merchant_payout`, NOT computed as sales minus
+commission.** A residual agrees with itself by construction and can never
+disagree with the orders it describes — which is the one thing a statement
+exists to let somebody check. All three figures come from three columns, and
+`reconciles?` is therefore an assertion rather than arithmetic restating itself.
+An example plants a payout that disagrees with its own order and requires the
+statement to report `reconciles: false` rather than hide it.
+
+**`items_total`, never `customer_total`.** The customer total includes a
+delivery fee that was never the shop's; sending it would overstate their sales
+by the whole delivery line.
+
+**The week is the AFGHAN week, Saturday to Friday, and fixed rather than
+rolling.** Written first as "yesterday minus six", which slides: run daily it
+issues a different window every morning and hands a merchant a new overlapping
+statement each day — "weekly" would have been the job's name and not a property
+of its output. A fixed boundary makes a daily schedule idempotent, so a missed
+morning costs nothing.
+
+**Issuing is on a schedule and the merchant has no way to trigger it.** Two
+shops comparing notes must be comparing the same seven days, and a
+merchant-triggered issue would let one shop's week end on Tuesday and another's
+on Thursday.
+
+**Still open from R19:** the payment system present-but-disabled in the
+interface. That is a mobile surface, and `payment_status` and `payment_method`
+already accommodate it with no migration.

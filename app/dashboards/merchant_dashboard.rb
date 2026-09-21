@@ -32,6 +32,9 @@ class MerchantDashboard < Administrate::BaseDashboard
     rejection_reason: Field::Text,
     deleted_at: Field::DateTime,
     opening_hours: Field::HasMany,
+    # Reachable from the SHOP, because "what did this restaurant earn" is asked
+    # about a restaurant rather than about a statement id.
+    statements: Field::HasMany,
     # The browse tags a customer filters by. Settable here because this is the
     # only place they can be assigned at all.
     merchant_categories: Field::HasMany,
@@ -50,7 +53,7 @@ class MerchantDashboard < Administrate::BaseDashboard
     name merchant_kind phone status is_open prep_time_minutes commission_rate
     latitude longitude landmark_note owner owner_name owner_phone
     owner_national_id_number license_number contact_person_name contact_person_phone
-    verified_at verified_by_admin_user rejection_reason deleted_at opening_hours merchant_categories
+    verified_at verified_by_admin_user rejection_reason deleted_at opening_hours statements merchant_categories
     logo storefront_photo license_photo catalog_categories catalog_items created_at
   ].freeze
   # Admin onboards merchants, so unlike orders the form IS the workflow — but

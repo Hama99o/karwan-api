@@ -158,6 +158,8 @@ class Merchant < ApplicationRecord
   validates :prep_time_minutes, numericality: { greater_than: 0 }, allow_nil: true
   validates :commission_rate, numericality: { greater_than_or_equal_to: 0, less_than: 1 }
 
+  has_many :statements, class_name: MerchantStatement.name, dependent: :destroy, inverse_of: :merchant
+
   scope :listed,       -> { kept.status_active }
   # The call list: shops that asked and have not been spoken to.
   scope :leads,        -> { kept.status_lead }

@@ -42,6 +42,10 @@ RSpec.describe "Every ops console page renders", type: :request do
     # would leave the show page's most interesting column untested.
     when "courier_shifts" then create(:user, :courier).courier_shifts.create!(started_at: 3.hours.ago,
                                                                              ended_at: 1.hour.ago)
+    when "merchant_statements" then create(:merchant).statements.create!(
+      period_start: 7.days.ago.to_date, period_end: 1.day.ago.to_date, currency: "AFN",
+      orders_count: 3, items_total: 1_200, commission: 150, net_received: 1_050, issued_at: Time.current
+    )
     when "merchant_opening_hours" then create(:merchant_opening_hour)
     when "catalog_categories" then create(:catalog_category)
     when "catalog_items" then create(:catalog_item)
@@ -57,7 +61,7 @@ RSpec.describe "Every ops console page renders", type: :request do
   RESOURCES = %w[
     orders trips merchants courier_profiles courier_wallets users
     settings pricing_rates audit_logs wallet_entries settlements
-    courier_shifts
+    courier_shifts merchant_statements
     merchant_opening_hours catalog_categories catalog_items merchant_categories
     catalog_item_options catalog_item_option_values
   ].freeze
