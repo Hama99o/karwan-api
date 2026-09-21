@@ -78,15 +78,42 @@ RSpec.describe "Api::V1::Public::Merchants", type: :request do
       end
     end
 
-    it "carries the next opening when the shop is outside its hours" do
+    it "carries the next opening when the shop is shut and outside its hours" do
       travel_to Time.zone.parse("2026-09-18 06:00") do
         MerchantOpeningHour::DAYS.each do |day|
           create(:merchant_opening_hour, merchant: shop, day_of_week: day,
                                          opens_at: "08:00", closes_at: "21:00")
         end
+        shop.update!(is_open: false)
 
         expect(card["hours_known"]).to be(true)
         expect(Time.zone.parse(card["next_opens_at"]).strftime("%H:%M")).to eq("08:00")
+      end
+    end
+
+    # ── THE CARD CONTRADICTED ITSELF, AND THIS EXAMPLE USED TO ASSERT IT ────
+    #
+    # This spec's own second example says *"a shop that is open should not
+    # advertise an opening time"* — and the example above it asserted a shop
+    # with `is_open: true` outside its posted hours serving BOTH
+    # `accepting_orders: true` and an opening time. The rule was enforced only
+    # when the SCHEDULE said open, never when the shop did.
+    #
+    # `is_open` is the authority — this model says so twice — so a shop that is
+    # taking orders has no next opening, whatever the posted week says. A shop
+    # left toggled on overnight is a real and common state, and it is the one
+    # where the two fields disagreed.
+    it "says nothing about opening again while the shop is taking orders, however stale its week" do
+      travel_to Time.zone.parse("2026-09-18 03:00") do
+        MerchantOpeningHour::DAYS.each do |day|
+          create(:merchant_opening_hour, merchant: shop, day_of_week: day,
+                                         opens_at: "08:00", closes_at: "22:00")
+        end
+
+        expect(card["accepting_orders"]).to be(true), "plant a shop that IS open, or this proves nothing"
+        expect(card["next_opens_at"]).to be_nil,
+                                         "the card says both 'open now' and 'opens at 08:00' — a client greying " \
+                                         "on the opening time hides a shop that is taking orders"
       end
     end
 

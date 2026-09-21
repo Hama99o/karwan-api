@@ -112,9 +112,28 @@ class Merchant < ApplicationRecord
   # Returned as a full time rather than "08:00" so the app can render it in the
   # Shamsi calendar and say "tomorrow" when it is tomorrow — AFGHAN_UX makes
   # both the client's job, and neither is possible from a bare clock face.
+  # ── TWO NOTIONS OF "OPEN" IN ONE MODEL, AND THIS READ THE WRONG ONE ───────
+  #
+  # `accepting_orders?` asks `is_open` — the shopkeeper's toggle, which this
+  # file names twice as the authority. This method asked the SCHEDULE instead,
+  # so a shop whose toggle is on outside its posted hours served both answers on
+  # one card. Measured at 03:00 against posted hours of 08:00–22:00:
+  #
+  #     accepting_orders  true
+  #     next_opens_at     08:00 today
+  #
+  # A client greying on `next_opens_at` greys a shop taking orders; one
+  # branching on `accepting_orders` renders "Open — opens at 8:00". The rule was
+  # already written down in the spec two examples above the one that asserted
+  # the contradiction: *a shop that is open should not advertise an opening
+  # time.* It was enforced only when the SCHEDULE said open.
+  #
+  # Asking the authority first makes the field mean one thing: **when will this
+  # shop next be open**, which a shop that is open now has no answer to.
   def next_opens_at(from = Time.zone.now)
     rows = opening_hours.to_a
     return nil if rows.empty?
+    return nil if accepting_orders?
     return nil if open_per_schedule?(from, rows)
 
     8.times do |offset|

@@ -215,4 +215,64 @@ RSpec.describe Merchant, type: :model do
       expect(order.merchant.destroy).to be false
     end
   end
+
+  # ── ONE NOTION OF "OPEN", ACROSS ALL FOUR COMBINATIONS ────────────────────
+  #
+  # The model has two: the shopkeeper's toggle, which it names the authority
+  # twice, and the posted week. `next_opens_at` asked the week while
+  # `accepting_orders?` asked the toggle, so one card could carry both "open
+  # now" and "opens at 08:00". Only the second row below changed; the table is
+  # here so the next change to either notion has to face all four at once.
+  describe "#next_opens_at" do
+    let(:shop) { create(:merchant, is_open: true) }
+
+    before do
+      MerchantOpeningHour::DAYS.each do |day|
+        create(:merchant_opening_hour, merchant: shop, day_of_week: day,
+                                       opens_at: "08:00", closes_at: "22:00")
+      end
+    end
+
+    it "says nothing when the shop is open and inside its week" do
+      travel_to Time.zone.parse("2026-09-18 12:00") do
+        expect(shop.reload.accepting_orders?).to be(true)
+        expect(shop.next_opens_at).to be_nil
+      end
+    end
+
+    # THE ONE THAT WAS WRONG. A shop left toggled on overnight.
+    it "says nothing when the shop is open and its week says otherwise" do
+      travel_to Time.zone.parse("2026-09-18 03:00") do
+        expect(shop.reload.accepting_orders?).to be(true)
+        expect(shop.next_opens_at).to be_nil,
+                                      "a shop that is taking orders has no next opening; the card would say both"
+      end
+    end
+
+    # Unchanged and deliberate: the schedule cannot know when a shopkeeper who
+    # shut early will come back, and "tomorrow at 08:00" is a worse answer than
+    # none.
+    it "says nothing when the shop shut early inside its own week" do
+      shop.update!(is_open: false)
+
+      travel_to Time.zone.parse("2026-09-18 12:00") do
+        expect(shop.reload.next_opens_at).to be_nil
+      end
+    end
+
+    it "gives the next opening only when the shop is shut and its week agrees" do
+      shop.update!(is_open: false)
+
+      travel_to Time.zone.parse("2026-09-18 06:00") do
+        expect(shop.reload.next_opens_at.strftime("%H:%M")).to eq("08:00")
+      end
+    end
+
+    it "says nothing at all when no week has been given" do
+      shop.opening_hours.destroy_all
+
+      expect(shop.reload.next_opens_at).to be_nil
+      expect(shop.hours_known?).to be(false)
+    end
+  end
 end

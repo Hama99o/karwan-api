@@ -4139,3 +4139,66 @@ early — onto orders no shop had touched. **Rows written before the fix still
 carry it**, and cannot be distinguished by reason alone; the admin report splits
 by ACTOR for exactly that reason. A client should not infer "the shop is
 closing" from the code alone on a historical order.
+
+## THE CARD SAID "OPEN NOW" AND "OPENS AT 08:00" AT THE SAME TIME
+
+`Merchant` holds **two notions of open** and one method read the wrong one.
+`accepting_orders?` asks `is_open` — the shopkeeper's toggle, which this file
+names the authority twice. `next_opens_at` asked the posted WEEK instead. So a
+shop whose toggle is on outside its posted hours served both answers on one
+card.
+
+Measured on the rig at 21:08, past a 21:00 posted close:
+
+```
+active + toggled open + has posted hours      32
+  ...and outside those hours right now        23   ← every one a contradictory card
+```
+
+**Twenty-three of thirty-two.** Not an edge case — it is what a shop looks like
+most evenings, because the toggle is what people forget.
+
+A client greying on `next_opens_at` hides a shop that is taking orders; one
+branching on `accepting_orders` renders "Open — opens at 8:00". The rule was
+already written down in `spec/requests/api/v1/public/merchants_spec.rb`, in the
+example two above the one that asserted the contradiction: *"a shop that is open
+should not advertise an opening time."* It was enforced only when the SCHEDULE
+said open, never when the shop did.
+
+Fixed by asking the authority first, so the field means one thing: **when will
+this shop next be open**, which a shop that is open now has no answer to. Only
+one of the four combinations changed; there is a model spec covering all four so
+the next change to either notion has to face them together.
+
+### HAMMA9900'S DECISION, NOT OURS: should posted hours ever override a stale toggle?
+
+The same measurement found the real operational problem, and it is a policy
+question with money in it rather than a bug.
+
+A shop that closed at 21:00 and left the toggle on is **orderable at 21:08**.
+The customer places an order into an empty kitchen, it sits in `placed` for two
+minutes, and `Dispatch::JobTimeoutsJob` closes it as `no_answer`. The customer
+waited for nothing and is told nobody answered. **This is a manufacturer of
+exactly the `no_answer` rejections the reports page now counts** — so the number
+on that page will be dominated by it, and reading it as "shops are not watching
+their tablets" would be wrong for most of the count.
+
+Three ways to go, with what each costs:
+
+1. **Leave it.** The toggle stays the sole authority. Costs nothing to build and
+   is defensible: a shop genuinely open past its posted hours keeps working, and
+   a shop blocked by hours somebody typed wrong a month ago cannot sell. The
+   cost is the failed orders above, paid by customers one at a time.
+2. **Hours gate the toggle** — `accepting_orders?` becomes `is_open && inside
+   the posted week`, for shops that have posted a week at all. Half a day. It
+   deletes the failed orders and it means a stale or mistyped week silently
+   closes a real shop, with nothing on the merchant's screen explaining why.
+3. **Auto-close on the schedule** — a job turns the toggle off at closing time,
+   leaving the shopkeeper free to turn it back on. A day, one job, one setting.
+   Keeps `is_open` the only authority, which preserves every reasoning above,
+   and makes the common case right without ever refusing a shop that says it is
+   open. **This is the one to recommend if asked**, but it changes a shop's
+   state without the shop acting, so it is his call and not ours.
+
+Not built. The contradiction above is fixed either way — it was wrong under all
+three.
