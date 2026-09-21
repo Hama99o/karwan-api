@@ -81,8 +81,8 @@ RSpec.describe "docs/API_VOCABULARY.md" do
   it "reachable_in_normal_use returns the 25 the document promises" do
     codes = ErrorCodes.reachable_in_normal_use
 
-    expect(codes.size).to eq(50),
-                          "the document says 50 codes are reachable in normal use; this returns #{codes.size}. " \
+    expect(codes.size).to eq(51),
+                          "the document says 51 codes are reachable in normal use; this returns #{codes.size}. " \
                           "If that is right, update docs/API_VOCABULARY.md in the same commit — the mobile " \
                           "session sizes its translation work from that number."
     expect(codes).not_to include(*ErrorCodes::OTP)

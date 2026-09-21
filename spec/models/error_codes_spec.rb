@@ -134,7 +134,8 @@ RSpec.describe ErrorCodes do
   it "puts each code in exactly one group" do
     flat = [ ErrorCodes::AUTH, ErrorCodes::OTP, ErrorCodes::RESET, ErrorCodes::ORDERING,
              ErrorCodes::DISPATCH, ErrorCodes::ACCOUNT_DELETION, ErrorCodes::ELIGIBILITY,
-             ErrorCodes::GEOGRAPHY, ErrorCodes::INFRASTRUCTURE ].flatten
+             ErrorCodes::MERCHANT_SELF_SERVICE, ErrorCodes::GEOGRAPHY,
+             ErrorCodes::INFRASTRUCTURE ].flatten
 
     expect(flat.uniq).to eq(flat), "a code is in two groups: #{flat.tally.select { |_, n| n > 1 }.keys.join(', ')}"
     expect(ErrorCodes::ALL.sort).to eq(flat.sort)

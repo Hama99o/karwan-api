@@ -78,6 +78,11 @@ module ErrorCodes
     too_far no_wallet wallet_blocked insufficient_credit cash_in_hand
   ].freeze
 
+  # A SHOP CORRECTING ITSELF. Its own group rather than folded into ORDERING:
+  # these refuse a merchant editing its own record, not a customer placing an
+  # order, and a client shows them on a settings screen rather than in a cart.
+  MERCHANT_SELF_SERVICE = %w[invalid_opening_hours].freeze
+
   # Where a thing is. `outside_service_area` and `unroutable` are DIFFERENT
   # answers and must not be collapsed: the first says we do not cover that
   # place, the second says we cover it and could not find a way. A client that
@@ -88,7 +93,7 @@ module ErrorCodes
   INFRASTRUCTURE = %w[bad_request not_found bad_platform rate_limited pending_migration].freeze
 
   ALL = (AUTH + OTP + RESET + ORDERING + DISPATCH + ACCOUNT_DELETION + ELIGIBILITY +
-         GEOGRAPHY + INFRASTRUCTURE).freeze
+         MERCHANT_SELF_SERVICE + GEOGRAPHY + INFRASTRUCTURE).freeze
 
   # Reachable by an ordinary person doing an ordinary thing, as opposed to by a
   # malformed request or a switched-off feature. These are the ones that most

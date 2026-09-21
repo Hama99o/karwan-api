@@ -97,7 +97,7 @@ question nobody asked about `roles`.
 ## D · ERROR CODES — the vocabulary that had no owner
 
 `code:` is what lets a client say something in Pashto; the `error` string is for
-a developer reading a log. **60 codes are declared in `ErrorCodes`**
+a developer reading a log. **61 codes are declared in `ErrorCodes`**
 (`app/models/concerns/error_codes.rb`), which exists because until now they had
 no declaration at all — every controller wrote its own inline, so the list could
 only be recovered with a grep, and it drifted to 35 while the app named 7.
@@ -112,6 +112,7 @@ may be undeclared, nothing declared may be unemitted.
 | **reset** | `reset_code_invalid` `reset_invalid` `reset_throttled` |
 | **ordering** | `no_merchant` `merchant_is_a_lead` `tier_unavailable` `not_cancellable` `invalid_transition` `reason_required` |
 | **dispatch** | `offer_expired` `not_your_job` `cannot_advance` `wrong_step` `too_early_to_arrive` `wallet_blocked` |
+| **merchant self-service** | `invalid_opening_hours` |
 | **geography** | `outside_service_area` `unroutable` |
 | **infrastructure** | `bad_request` `not_found` `bad_platform` `rate_limited` `pending_migration` |
 | **account deletion** — `me#destroy`, 422 | `holding_cash` `wallet_unsettled` `live_job` `live_order` `merchant_orders_in_flight` |
@@ -149,7 +150,7 @@ after the countdown — the job went to somebody else and another will come),
 `not_cancellable` (a customer cancels as the merchant accepts — the restaurant
 has started cooking), and `outside_service_area`.
 
-`ErrorCodes.reachable_in_normal_use` returns the **50** that are not OTP,
+`ErrorCodes.reachable_in_normal_use` returns the **51** that are not OTP,
 malformed requests or server state. The ten it excludes are `otp_*` (switched
 off), `bad_request`, `bad_platform`, `not_found`, `registration_invalid` and
 `pending_migration`.
