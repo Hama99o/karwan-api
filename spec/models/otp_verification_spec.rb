@@ -120,9 +120,38 @@ RSpec.describe OtpVerification, type: :model do
   end
 
   describe "predicates" do
+    # ── FROZEN, BECAUSE THIS RACED THE THING IT WAS MEASURING ─────────────
+    #
+    # Written against a live clock with a one-second margin, it failed in a full
+    # suite run on a loaded box and passed on its own: `build` and the predicate
+    # straddled the boundary. This file takes 40 seconds for 30 examples —
+    # bcrypt at cost 12 — so a second elapsing between two lines is ordinary
+    # here, not exotic.
+    #
+    # A flaky example is the sibling of a check that cannot fail: one is ignored
+    # because it never speaks, the other because it cries wolf, and both end
+    # with somebody scrolling past a red line. Freezing tests the boundary
+    # EXACTLY rather than widening the margin until the race is merely unlikely.
     it "#expired? tracks the expiry boundary" do
-      expect(build(:otp_verification, expires_at: 1.second.from_now)).not_to be_expired
-      expect(build(:otp_verification, expires_at: 1.second.ago)).to be_expired
+      freeze_time do
+        expect(build(:otp_verification, expires_at: 1.second.from_now)).not_to be_expired
+        expect(build(:otp_verification, expires_at: 1.second.ago)).to be_expired
+
+        # ── AND THE BOUNDARY ITSELF, WHICH THIS NEVER TESTED ──────────────
+        #
+        # One second either side does not test a boundary; `expires_at ==
+        # Time.current` is the only input where `<=` and `<` differ, and
+        # flipping the predicate to `<` left all thirty examples in this file
+        # green. So the example was named for a case it did not cover.
+        #
+        # A live clock could not have asserted this — hitting the exact instant
+        # is what freezing buys, over and above killing the flake.
+        #
+        # `<=` is the right direction: a code that expires at T is unusable AT
+        # T, not one second after it. The safer side of a one-time code.
+        expect(build(:otp_verification, expires_at: Time.current)).to be_expired,
+                                                                     "a code is usable at the instant it expires"
+      end
     end
 
     it "#usable? requires unconsumed, unexpired and attempts remaining" do
