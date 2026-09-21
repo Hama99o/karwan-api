@@ -5184,3 +5184,56 @@ attributes to a config file.
 Four plants, four reds, each naming the consequence: a sweep nothing runs, a
 class that does not exist, a 90-second sweep against a 60-second TTL, and
 development drifting from production.
+
+## EVERY CONSOLE PAGE IS NOW FETCHED, AND THE SWEEP FOUND THE REPO CLEAN
+
+`PRODUCT.md` calls the ops console *"the most important surface in v0 — what
+makes the business operable while everything else is half-built."* **Two of its
+twenty-six dashboards were ever fetched by a spec**: the landing page and the
+orders board.
+
+All twenty-one index routes and every filter now get a real request. They all
+answered 200, which is a useful negative — the `PricingRateDashboard` 500 fixed
+earlier tonight was the only one, and it had been found by accident rather than
+by a spec.
+
+### What it catches is ONE of the three failure modes, and saying so matters
+
+A status check sees a 500 and **cannot** see the other two, which both render
+200 — that is exactly why they are dangerous. Planting the private method back
+left this spec fully green, correctly. So:
+
+```
+empty cell   a spec that PARSES THE VALUE          cash_in_hand_is_visible_spec
+zero rows    a spec that CALLS each lambda         every_console_filter_runs_spec
+500          this file, through the real request   every_console_page_opens_spec
+```
+
+Writing "this guards all three" would have been the *title claims more than the
+body asserts* failure, in a comment about that exact failure.
+
+## A CONSTANT IN A DESCRIBE BLOCK LANDS ON `Object` — THE THIRD TIME
+
+RSpec runs a `describe` body in a class, but a constant assigned there is
+defined on `Object` and visible to every other spec. Two files with the same
+name share one value and the last loaded wins.
+
+**The failure looks like a bug in the innocent file.** Defining `RESOURCES` in
+the new console sweep broke `dashboards_spec.rb` — which had its own `RESOURCES`
+of strings — with *"comparison of Hash with Hash failed"*, in a file I had not
+touched. It passes when either runs alone and fails in the full suite.
+
+`docs/TESTING.md` already recorded this shape from two earlier gates that leaked
+`SANCTIONED` and turned an `include?` into a substring test. **Prose, enforced by
+nothing, and it caught nobody — including me, after I wrote it down.**
+
+### The gate asserts the collision, not the practice
+
+Forty-one constants are declared inside describe blocks here and almost all are
+fine: a name used once is a constant on `Object` that nothing else reads. **The
+defect is the COLLISION**, so that is what is asserted — a gate flagging all
+forty-one would be switched off by the second week.
+
+One deliberate sharing is named with its reason. Planting `RESOURCES` back
+reports both files and what happens: *"the last one loaded wins, and the failure
+appears in whichever file did NOT change."*
