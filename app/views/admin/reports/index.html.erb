@@ -100,6 +100,66 @@
     </tbody>
   </table>
 
+  <h2>Demand we could not serve — same <%= @days %> days</h2>
+  <%# THE OTHER HALF OF UTILISATION, and the half that cannot flatter.
+
+      The utilisation figure above divides by couriers who FINISHED a job, so
+      idle capacity is invisible and the number reads better than the truth.
+      This is the same shortage from the demand side: every one of these is a
+      person who asked and did not get anybody, and there is no way to count it
+      that makes it look better than it is.
+
+      Kept apart from the cancellations below on purpose. A passenger changing
+      their mind is normal and not actionable; nobody being available is the one
+      that means hire somebody. Averaged into "cancellations" they hide each
+      other. %>
+  <table class="karwan-report">
+    <thead><tr><th>&nbsp;</th><th>Deliveries</th><th>Rides</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Nobody available to take it</strong></td>
+        <td><strong><%= @lost[:unserved][:deliveries] %></strong></td>
+        <td><strong><%= @lost[:unserved][:rides] %></strong></td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="karwan-report__note">
+    <% unserved = @lost[:unserved][:deliveries] + @lost[:unserved][:rides] %>
+    <% if unserved.positive? %>
+      <strong><%= unserved %></strong> job<%= "s" unless unserved == 1 %> asked for and not served.
+      Read this next to the utilisation figure above, not instead of it: that one counts the couriers who
+      worked, this counts the demand they could not reach.
+    <% else %>
+      Every job asked for in this window found a courier.
+    <% end %>
+  </p>
+
+  <h2>Cancellations — same <%= @days %> days</h2>
+  <%# Ranked, and split by demand type rather than summed: a reason belongs to
+      one enum or the other, and `passenger_changed_mind` is not
+      `customer_changed_mind`. Adding them would invent a word neither list
+      contains. Reasons that did not occur are omitted, as elsewhere on this
+      page — except the shortage above, which is shown at zero because a zero
+      there is the thing being watched. %>
+  <table class="karwan-report">
+    <thead><tr><th>Reason</th><th>Deliveries</th><th>Rides</th></tr></thead>
+    <tbody>
+      <% @lost[:by_reason].each do |reason, split| %>
+        <tr>
+          <td><%= reason.to_s.humanize %></td>
+          <td><%= split[:deliveries] %></td>
+          <td><%= split[:rides] %></td>
+        </tr>
+      <% end %>
+      <% if @lost[:by_reason].empty? %>
+        <tr><td colspan="3">No cancellation carried a reason in this window.</td></tr>
+      <% end %>
+    </tbody>
+  </table>
+  <p class="karwan-report__note">
+    <%= @lost[:total] %> cancelled in total, including those with no reason on record.
+  </p>
+
   <h2>Why shops refused orders — same <%= @days %> days</h2>
   <%# THREE DIFFERENT EVENTS, AND THEY MUST NOT BE ADDED TOGETHER.
 

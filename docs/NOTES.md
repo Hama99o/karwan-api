@@ -4357,3 +4357,57 @@ credential is recognisable from its name, so this one matches a shape and names
 the EXCEPTIONS instead — one entry, `reset_password_sent_at`, which is a fact
 about a request rather than the secret. A column added by a future migration is
 covered the day it appears rather than the day somebody remembers to list it.
+
+## THE THIRD LOSS PATH: CANCELLATIONS, AND THE ONE THAT MEANS HIRE SOMEBODY
+
+`cancellation_reason` has been written since the first cancel endpoint and
+counted nowhere — after rejections and failures, the last of the three ways a
+job ends badly and the only one still invisible.
+
+One of its values is a different kind of number. `no_courier_available` is
+written by `Dispatch::JobTimeoutsJob` when a ride sat in `requested` and nobody
+took it: **a passenger asked and we had nobody to send.** On the rig, over
+fourteen days:
+
+```
+Nobody available to take it     deliveries 0     rides 21
+Customer changed mind           deliveries 3     rides  0
+36 cancelled in total
+```
+
+**Twenty-one of twenty-five trip cancellations.** The shortage is entirely on
+the ride side, which is what a courier pool shaped for food looks like from the
+demand side.
+
+### Why it is not in the ranked cancellation table
+
+It is the other half of utilisation and belongs next to it. The utilisation
+figure divides by couriers who FINISHED a job, so idle capacity is invisible and
+it flatters the business — its own comment says so. This number cannot flatter:
+every one of them is a person who asked for a car and did not get one.
+
+A passenger changing their mind is the opposite kind of fact — normal, not
+actionable. Averaged into one "cancellations" figure the two hide each other,
+so the shortage is pulled out above the ranked table and **shown even at zero**,
+because a zero there says demand was met and an absent row would read as "not
+measured". The ranked table omits zero rows as everywhere else on the page.
+
+### Deliveries and rides are counted side by side, never summed
+
+`passenger_changed_mind` is not `customer_changed_mind`; they are separate
+enums. Adding them would invent a word neither list contains.
+
+### `cancelled_by_role` IS NOT RELIABLE — do not build on it
+
+All 25 trip cancellations on the rig have `cancelled_by_role: nil`, including
+the 21 that carry a reason, because `JobTimeoutsJob#close!` writes
+`cancellation_reason` and never the role. The customer and admin paths do write
+it, so the column is populated for some rows and empty for others with no way to
+tell which from the column itself.
+
+**Making the job write it would be the `closing` mistake again**: the role enum
+is `Roles::ALL` and the job passes `actor_role: :admin` with a nil actor, so it
+would record that an admin cancelled 21 rides nobody touched. The transition log
+already holds the truth — a nil actor is the system — and `Orders::EndedReason`
+reads it that way. **Derive who from the transition, not from
+`cancelled_by_role`.**

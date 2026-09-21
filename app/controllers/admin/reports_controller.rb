@@ -38,6 +38,7 @@ module Admin
       @utilisation = utilisation_since(@from)
       @failures = failure_reasons_ranked
       @rejections = rejections_ranked
+      @lost = demand_we_lost
     end
 
     private
@@ -214,6 +215,60 @@ module Admin
     def rejection_transitions(scope)
       StatusTransition.where(subject_type: "Order", to_status: "rejected",
                              subject_id: scope.select(:id))
+    end
+
+    # ── DEMAND WE COULD NOT SERVE, WHICH IS NOT THE SAME AS WORK WE LOST ────
+    #
+    # `cancellation_reason` has been written since the first cancel endpoint and
+    # counted nowhere — the third loss path, after rejections and failures.
+    #
+    # ── AND ONE REASON IS A DIFFERENT KIND OF NUMBER ───────────────────────
+    #
+    # `no_courier_available` is not churn. `Dispatch::JobTimeoutsJob` writes it
+    # when a ride sat in `requested` and nobody took it, which means **a
+    # passenger asked and we had nobody to send.** Measured on the rig: 21 of 25
+    # trip cancellations in fourteen days.
+    #
+    # It belongs beside utilisation and is the other half of it. That figure
+    # divides by couriers who FINISHED a job and so flatters the business — its
+    # own comment says so. This is the same shortage seen from the demand side,
+    # and it cannot flatter: every one of these is a person who asked for a car
+    # and did not get one.
+    #
+    # A customer changing their mind is the opposite kind of fact — normal, not
+    # actionable, and averaging the two into "cancellations" hides the only one
+    # that means hire somebody.
+    UNSERVED = "no_courier_available".freeze
+
+    def demand_we_lost
+      deliveries = Order.where(status: :cancelled, cancelled_at: @from..)
+      rides = Trip.where(status: :cancelled, cancelled_at: @from..)
+
+      {
+        # ALWAYS SHOWN, even at zero, unlike the ranked reasons below. A zero
+        # here says demand was met, which is the thing being watched; an absent
+        # row would read as "not measured".
+        unserved: { deliveries: deliveries.where(cancellation_reason: UNSERVED).count,
+                    rides: rides.where(cancellation_reason: UNSERVED).count },
+        by_reason: other_cancellation_reasons(deliveries, rides),
+        total: deliveries.count + rides.count
+      }
+    end
+
+    # Everything that is not a shortage, ranked, by demand type. Kept separate
+    # rather than merged into one count: the two tables are different jobs and a
+    # reason can only ever belong to one of them — `passenger_changed_mind` is
+    # not `customer_changed_mind`, and adding them would invent a word neither
+    # enum contains.
+    def other_cancellation_reasons(deliveries, rides)
+      counts = Hash.new { |hash, key| hash[key] = { deliveries: 0, rides: 0 } }
+
+      deliveries.where.not(cancellation_reason: [ nil, UNSERVED ])
+                .group(:cancellation_reason).count.each { |reason, n| counts[reason][:deliveries] = n }
+      rides.where.not(cancellation_reason: [ nil, UNSERVED ])
+           .group(:cancellation_reason).count.each { |reason, n| counts[reason][:rides] = n }
+
+      counts.sort_by { |_reason, split| -(split[:deliveries] + split[:rides]) }
     end
 
     # Both demand types, ranked, over THE SAME WINDOW as everything else on the

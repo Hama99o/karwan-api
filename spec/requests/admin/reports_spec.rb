@@ -123,6 +123,113 @@ RSpec.describe "Admin reports", type: :request do
                                  "a reason that did not occur is listed, which hides the one that is climbing"
   end
 
+  # ── DEMAND WE COULD NOT SERVE ──────────────────────────────────────────────
+  #
+  # `cancellation_reason` has been written since the first cancel endpoint and
+  # counted nowhere. One of its values is a different kind of number:
+  # `no_courier_available` means a passenger asked and we had nobody to send —
+  # 21 of 25 trip cancellations on the rig.
+  describe "demand we could not serve" do
+    def unserved_ride
+      trip = create(:trip)
+      trip.transition_to!(:cancelled, actor: nil, actor_role: :admin, reason: "timed out")
+      trip.update!(cancellation_reason: :no_courier_available)
+      trip
+    end
+
+    def passenger_left
+      trip = create(:trip)
+      trip.transition_to!(:cancelled, actor: trip.passenger, actor_role: :customer)
+      trip.update!(cancellation_reason: :passenger_changed_mind)
+      trip
+    end
+
+    # THE POINT OF THE SPLIT. Both are cancellations and only one means hire
+    # somebody. Summed, four rides "cancelled" says nothing; split, three say
+    # there was nobody to send.
+    it "counts a shortage apart from a passenger changing their mind" do
+      3.times { unserved_ride }
+      passenger_left
+
+      get "/admin/reports"
+
+      expect(unserved("Rides")).to eq(3), "the shortage is not counted, or churn is counted as shortage"
+      expect(cancellation_count("Passenger changed mind", "Rides")).to eq(1)
+    end
+
+    # A zero here is the thing being watched — it says demand was met — so
+    # unlike the ranked reasons this line is shown even when it is empty. An
+    # absent row would read as "not measured".
+    it "shows the line at zero rather than hiding it" do
+      passenger_left
+
+      get "/admin/reports"
+
+      expect(unserved("Rides")).to eq(0)
+      expect(response.body).to include("Every job asked for in this window found a courier")
+    end
+
+    it "keeps the shortage out of the ranked cancellation reasons" do
+      2.times { unserved_ride }
+
+      get "/admin/reports"
+
+      expect(cancellation_count("No courier available", "Rides")).to be_nil,
+                                                                    "the shortage is counted twice — once as " \
+                                                                    "itself and once as an ordinary reason"
+    end
+
+    it "leaves an older cancellation out of the window" do
+      old = unserved_ride
+      old.update_column(:cancelled_at, 30.days.ago)
+
+      get "/admin/reports"
+
+      expect(unserved("Rides")).to eq(0)
+    end
+
+    # Deliveries and rides are different jobs and a reason belongs to one enum
+    # or the other. Summing them would invent a word neither list contains.
+    it "does not add a passenger's reason to a customer's" do
+      passenger_left
+      order = create(:order, :with_items)
+      order.transition_to!(:cancelled, actor: order.customer, actor_role: :customer)
+      order.update!(cancellation_reason: :customer_changed_mind)
+
+      get "/admin/reports"
+
+      expect(cancellation_count("Passenger changed mind", "Rides")).to eq(1)
+      expect(cancellation_count("Passenger changed mind", "Deliveries")).to eq(0)
+      expect(cancellation_count("Customer changed mind", "Deliveries")).to eq(1)
+    end
+
+    # Scoped to each table by heading, for the same reason the rejection helper
+    # is: three tables on this page use identical markup.
+    def section_table(heading)
+      page = Nokogiri::HTML(response.body)
+      node = page.css("h2").find { |h| h.text.include?(heading) }
+      raise "no section headed #{heading}" if node.nil?
+
+      node.xpath("following-sibling::table[1]").first
+    end
+
+    def unserved(column)
+      cell_in(section_table("Demand we could not serve"), "Nobody available", column)
+    end
+
+    def cancellation_count(label, column)
+      cell_in(section_table("Cancellations"), label, column)
+    end
+
+    def cell_in(table, row_label, column)
+      index = table.css("thead th").map { |th| th.text.strip }.index(column)
+      raise "no column #{column}" if index.nil?
+
+      row = table.css("tbody tr").find { |tr| tr.css("td").first.text.strip.start_with?(row_label) }
+      row && row.css("td")[index].text.strip.to_i
+    end
+  end
+
   # ── WHY SHOPS REFUSED WORK, AND WHETHER A PERSON REFUSED IT ────────────────
   #
   # The merchant board collects a reason from a fixed list because *"free text
