@@ -8,6 +8,21 @@ module Dispatch
   # ops console.
   class Eligibility
     REASONS = {
+      # ── THE MOST FUNDAMENTAL REFUSAL, SO IT IS ASKED FIRST ──────────────
+      #
+      # `IDENTITY_AND_ROLES.md` §3: *"Revocation is the mirror and is easy to
+      # forget... Rejecting or suspending a courier must stop dispatch
+      # considering them."* REJECTING was handled — `verification_approved?` —
+      # and SUSPENDING was not.
+      #
+      # `Authenticatable` already refuses a suspended account's token, so he
+      # cannot accept. That is not the same as not being offered: he stays the
+      # nearest candidate, the offer sits until `dispatch_offer_ttl_sec`
+      # expires, and the customer waits that long for nothing. With
+      # `dispatch_max_offers` capped, two suspended couriers in one
+      # neighbourhood can exhaust the budget and send an order to manual
+      # assignment that should have dispatched itself.
+      account_suspended: "courier's account is suspended",
       no_profile: "courier has no profile",
       not_approved: "courier is not approved",
       off_shift: "courier is not available",
@@ -35,6 +50,10 @@ module Dispatch
 
     # nil when eligible, otherwise the symbol naming the first failure.
     def reason
+      # Asked before the profile, because an account that cannot sign in cannot
+      # work whatever its profile says — and a courier told the more specific
+      # reason would go and fix the wrong thing.
+      return :account_suspended unless @courier.account_active?
       return :no_profile if profile.nil?
       return :not_approved unless profile.verification_approved?
       return :off_shift unless profile.is_available?

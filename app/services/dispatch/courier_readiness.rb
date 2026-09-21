@@ -41,8 +41,8 @@ module Dispatch
     # The courier-only reasons, in the order `Eligibility` would meet them, so
     # the courier is told the same FIRST reason the dispatcher would hit rather
     # than a different true one.
-    ORDER = %i[no_profile not_approved off_shift already_on_a_job stale_location
-               no_wallet wallet_blocked cash_in_hand].freeze
+    ORDER = %i[account_suspended no_profile not_approved off_shift already_on_a_job
+               stale_location no_wallet wallet_blocked cash_in_hand].freeze
 
     def initialize(courier)
       @courier = courier
@@ -50,6 +50,9 @@ module Dispatch
 
     # The first courier-only reason, or nil when none of them applies.
     def blocked_by
+      # First, as in `Eligibility`. The ordering spec demands the two agree, so
+      # a reason added to one and not the other turns it red.
+      return :account_suspended unless @courier.account_active?
       return :no_profile if profile.nil?
       return :not_approved unless profile.verification_approved?
       return :off_shift unless profile.is_available?

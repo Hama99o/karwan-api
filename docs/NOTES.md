@@ -5084,3 +5084,65 @@ planting the stale number back turns it red and says which side is behind.
 The same shape as the vocabulary section's "never met" rows a few hours ago: the
 value lists were asserted and **the sentences about them were not**. Prose is
 what a reader acts on, and a gate that mentions a document is not a gate on it.
+
+## REVOCATION WAS HALF BUILT: REJECTING A COURIER STOPPED DISPATCH, SUSPENDING DID NOT
+
+`IDENTITY_AND_ROLES.md` §3: *"Revocation is the mirror and is easy to forget.
+Unassigning a merchant's owner must revoke `merchant_owner`... **Rejecting or
+suspending a courier must stop dispatch considering them.**"*
+
+`verification_approved?` handled the rejection. Nothing anywhere looked at the
+USER's account status, so a suspended person with an approved, available profile
+stayed in `dispatchable_for`.
+
+### "He cannot accept anyway" is not an answer
+
+`Authenticatable` refuses a suspended account's token, so he could not take the
+job. He was still the nearest CANDIDATE: the offer sat until
+`dispatch_offer_ttl_sec` expired and the customer waited that long for nothing.
+With `dispatch_max_offers` capped, two suspended couriers in one neighbourhood
+can exhaust the offer budget and push an order to manual assignment that should
+have dispatched itself.
+
+Zero suspended couriers on the rig today, so this was latent — which is the
+point of `IDENTITY_AND_ROLES` §3 calling revocation the half that is easy to
+forget. It is forgotten while it costs nothing.
+
+### Filtered in the scope AND named in Eligibility, as the other three are
+
+`dispatchable_for` keeps him out of the candidate list cheaply; `Eligibility`
+still answers `:account_suspended` when asked about him directly, and
+`CourierReadiness` tells him so on his own screen. **Asked first in both**,
+because an account that cannot sign in cannot work whatever its profile says —
+and a courier told the more specific reason would go and fix the wrong thing.
+
+### An eighth plant came back green, and the fixture was why
+
+Moving the check from first to third in `Eligibility` — while `CourierReadiness`
+still asked it first — changed nothing, because the ordering example's courier
+is APPROVED: the two checks it now sat behind both pass, so the answer was the
+same either way.
+
+The discriminating input is a courier suspended AND unapproved — first gives
+`account_suspended`, third gives `not_approved` — and it is the realistic case,
+since an operator suspending an account is often suspending somebody never fully
+approved. With it, the re-plant reports *"dispatch skips him for :not_approved
+and he is told :account_suspended — the two orderings have come apart."*
+
+**Eighth time today**, and the shape has not varied: an example that does not
+supply the input on which the alternatives differ. Three fixtures that made two
+implementations agree, two inputs unreachable through the app, one assertion
+reading a single key, one boundary never tested, and this.
+
+### And a third self-inflicted revert
+
+The plant backups were taken BEFORE the feature was written, so restoring from
+them removed the feature rather than the plant — `eligibility.rb` and
+`courier_profile.rb` lost their changes and the next plant reported the previous
+example failing, which is what surfaced it.
+
+Twice earlier today `git checkout` on an uncommitted file did the same. The rule
+that survives all three: **take the backup after the work and before each
+plant**, and check the feature is still present after restoring, not only that
+the suite is green — a green suite is also what a reverted feature looks like
+when its spec went with it.

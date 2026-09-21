@@ -73,6 +73,7 @@ module ErrorCodes
   # `Dispatch::Eligibility::REASONS` — why a courier may not take this job.
   # Fourteen, and a courier meets several of them in an ordinary week.
   ELIGIBILITY = %w[
+    account_suspended
     no_profile not_approved off_shift wrong_job_kind vehicle_too_small
     too_many_passengers wrong_vehicle_class already_on_a_job stale_location
     too_far no_wallet wallet_blocked insufficient_credit cash_in_hand

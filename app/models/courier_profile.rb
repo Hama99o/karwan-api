@@ -89,7 +89,21 @@ class CourierProfile < ApplicationRecord
   # The only couriers dispatch may consider for a demand type: approved, on
   # shift, and willing to take that kind of work. One scope for every kind,
   # including ones that do not exist yet.
-  scope :dispatchable_for, ->(job_kind) { verification_approved.available.accepting(job_kind) }
+  # ── AND THE ACCOUNT BEHIND THE PROFILE ────────────────────────────────────
+  #
+  # A profile can be approved and available while the USER it belongs to is
+  # suspended. `IDENTITY_AND_ROLES.md` §3 names the pair — *"Rejecting or
+  # suspending a courier must stop dispatch considering them"* — and only the
+  # first half was here. `account_suspended` is the reason Eligibility gives.
+  #
+  # Filtered in the SCOPE as well as named in `Dispatch::Eligibility`, which is
+  # the pattern the other three already follow: the scope keeps him out of the
+  # candidate list cheaply, and Eligibility can still say why when asked about
+  # him directly.
+  scope :dispatchable_for, lambda { |job_kind|
+    verification_approved.available.accepting(job_kind)
+                         .joins(:user).where(users: { status: User.statuses[:active] })
+  }
 
   # What the applicant still owes, as field names the app can translate. Never
   # an English sentence: the courier reads Pashto.
