@@ -3855,3 +3855,58 @@ on Thursday.
 **Still open from R19:** the payment system present-but-disabled in the
 interface. That is a mobile surface, and `payment_status` and `payment_method`
 already accommodate it with no migration.
+
+## THE COURIER COULD NOT HEAR THE ADDRESS — R12's RECORDING NEVER REACHED HIM
+
+`Couriers::JobSteps` sent **`has_voice_note: false` as a literal**, on every
+delivery, since the day voice notes shipped.
+
+R12 exists because a large share of Afghan adults cannot read fluently: *"Typing
+'the blue gate near the mosque, second floor' in Pashto is the hardest single
+action in the order flow; SAYING it is trivial. So an address is a pin, a voice
+note, and a phone number, with the text field optional rather than primary."*
+
+So for exactly the customers the feature was built for, **the recording IS the
+address** — and the one person who has to find the door was told there wasn't
+one.
+
+**It was worse than a wrong boolean: the order never carried the recording at
+all.** `Orders::PlaceService` says *"The address is COPIED, not referenced. The
+customer edits and deletes their saved pins, and a past order must still say
+where it actually went"* — and copies the pin, the landmark text and the phone.
+The voice note was the part left behind, so there was nothing for the step list
+to be true about.
+
+**A copy of the bytes, not a second attachment on the same blob.** Replacing an
+attachment purges the old one, so a customer re-recording their door
+instructions would silently empty every past order pointing at it — the exact
+failure that comment exists to prevent. Asserted by re-recording and requiring
+the order's blob id to differ.
+
+**A failed copy must not fail the order.** Without the recording the courier
+still has the pin, the text and a phone number, which is the state every order
+was in until now. Trading a degraded delivery for no delivery would be a poor
+bargain, so the copy rescues itself and logs.
+
+**The address id is used for the recording ONLY**, resolved through the
+customer's own addresses. Every other field still comes from the request, so an
+id cannot make the order say one place while the recording describes another —
+and a stranger's id cannot attach their recording to an order somebody else is
+being sent to.
+
+### A MIGRATION 500s THE RUNNING APP UNTIL IT RESTARTS, AND NO SPEC CAN SEE IT
+
+Live QA placed an order and got **500 `undefined method
+'delivery_voice_note_seconds'`** — while `/up` was green and the whole suite
+passed. The container had been running since before the migration, so its
+`Order` class was loaded without the column. Rails reloads CODE in development;
+it does not re-derive attribute methods for a column that appeared underneath a
+running process.
+
+Every spec runs in a fresh process, so **no spec can ever catch this**. Neither
+can `/up`, which touches no model. `docker compose restart web` fixed it.
+
+**The general form:** adding a column needs the app restarted, not just
+migrated, and the gap between those two moments is a window where the suite is
+green and orders are failing. Worth knowing before it happens on a deploy rather
+than after.

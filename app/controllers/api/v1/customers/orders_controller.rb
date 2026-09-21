@@ -65,6 +65,7 @@ class Api::V1::Customers::OrdersController < Api::V1::BaseController
 
     merchant = Merchant.kept.status_active.find(order_params[:merchant_id])
     order = Orders::PlaceService.new(
+      delivery_address: own_delivery_address,
       customer: current_user, merchant: merchant, lines: cart_lines,
       delivery_latitude: order_params[:delivery_latitude],
       delivery_longitude: order_params[:delivery_longitude],
@@ -126,7 +127,7 @@ class Api::V1::Customers::OrdersController < Api::V1::BaseController
 
   def order_params
     params.require(:order).permit(
-      :merchant_id, :delivery_latitude, :delivery_longitude,
+      :merchant_id, :delivery_address_id, :delivery_latitude, :delivery_longitude,
       :delivery_landmark_note, :customer_phone, :notes, :service_tier
     )
   end
@@ -186,6 +187,22 @@ class Api::V1::Customers::OrdersController < Api::V1::BaseController
 
   # A stable marker per failure, so a client with three locales renders its own
   # message instead of showing an English sentence from the server.
+  # ── RESOLVED THROUGH THE CUSTOMER'S OWN ADDRESSES ─────────────────────────
+  #
+  # The id is used for ONE thing: copying the voice note. Every other field
+  # still comes from the parameters, so this cannot make the order say one place
+  # and the recording describe another.
+  #
+  # Scoped to the signed-in customer, because an id from the request is
+  # otherwise how one person attaches somebody else's recording of their own
+  # front door to an order a stranger will be sent to.
+  def own_delivery_address
+    id = order_params[:delivery_address_id]
+    return nil if id.blank?
+
+    current_user.addresses.kept.find_by(id: id)
+  end
+
   def error_code_for(error)
     case error
     when Orders::PlaceService::MerchantUnavailable then "merchant_unavailable"

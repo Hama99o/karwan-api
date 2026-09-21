@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_21_135251) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_21_144913) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -408,6 +408,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_21_135251) do
     t.text "delivery_landmark_note"
     t.decimal "delivery_latitude", precision: 10, scale: 6, null: false
     t.decimal "delivery_longitude", precision: 10, scale: 6, null: false
+    t.integer "delivery_voice_note_seconds"
     t.decimal "destination_snap_metres", precision: 8, scale: 1
     t.decimal "distance_km", precision: 8, scale: 3
     t.string "distance_source"

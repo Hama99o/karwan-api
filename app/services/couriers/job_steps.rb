@@ -65,7 +65,16 @@ module Couriers
           # The landmark note is the address in this market. A pin alone is not
           # enough in a city navigated by landmark.
           landmark_note: @job.delivery_landmark_note,
-          has_voice_note: false,
+          # ── THE RECORDING IS THE ADDRESS ────────────────────────────────
+          #
+          # This was the literal `false`. R12 exists because a large share of
+          # Afghan adults cannot read fluently, so for those customers the voice
+          # note IS the address and the text field is the optional part — and
+          # the one person who has to find the door was told there was no
+          # recording, on every order, since the feature was built.
+          has_voice_note: @job.is_a?(Order) && @job.delivery_voice_note?,
+          voice_note_seconds: (@job.delivery_voice_note_seconds if @job.is_a?(Order)),
+          voice_note_url: voice_note_url_for(@job),
           phone: @job.customer_phone,
           amount: nil
         },
@@ -192,6 +201,15 @@ module Couriers
       return nil unless done && step[:status_after].present?
 
       reached_at[step[:status_after]]
+    end
+
+    # Nil unless there is one to play. A URL that 404s is worse than none: the
+    # courier taps it at a junction and learns nothing except that the app is
+    # unreliable.
+    def voice_note_url_for(job)
+      return nil unless job.is_a?(Order) && job.delivery_voice_note?
+
+      Attachments::PublicUrl.for(job.delivery_voice_note)
     end
 
     def coordinates(latitude, longitude)

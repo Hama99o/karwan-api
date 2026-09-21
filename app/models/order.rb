@@ -8,6 +8,10 @@ class Order < ApplicationRecord
   # The letter a human reads out. `Dispatchable` owns the rest of the format.
   CODE_PREFIX = "K".freeze
 
+  # For `validates_attached` on the delivery voice note. An order carries an
+  # attachment for the same reason an address does — R12's recording is part of
+  # the address, and the order copies the address.
+  include AttachableDocuments
   include Monetary
   include Dispatchable
 
@@ -82,6 +86,22 @@ class Order < ApplicationRecord
   # WHO saw the alert, not just that somebody did. In a dispute about a late
   # order the question is which person in that kitchen picked the tablet up.
   belongs_to :merchant_acknowledged_by, class_name: User.name, optional: true
+
+  # ── THE SPOKEN HALF OF THE ADDRESS, COPIED LIKE THE REST OF IT ────────────
+  #
+  # R12 makes an address *a pin, a voice note and a phone number*. The order
+  # already copies the pin, the landmark text and the phone — "the customer
+  # edits and deletes their saved pins, and a past order must still say where it
+  # actually went" — and this is the part that was left behind.
+  #
+  # A COPY, not the address's own blob. Replacing an attachment purges the old
+  # one, so a customer re-recording their door instructions would silently
+  # empty every past order that pointed at it.
+  has_one_attached :delivery_voice_note
+  validates_attached :delivery_voice_note, as: :audio
+  validates :delivery_voice_note_seconds,
+            numericality: { greater_than: 0, less_than_or_equal_to: Address::MAX_VOICE_NOTE_SECONDS },
+            allow_nil: true
 
   has_many :order_items, dependent: :destroy
 
@@ -187,6 +207,8 @@ class Order < ApplicationRecord
 
   # What the courier is left holding for us once the customer has paid and they
   # have kept their fee. This is our entire exposure per order.
+  def delivery_voice_note? = delivery_voice_note.attached?
+
   def acknowledged_by_merchant? = merchant_acknowledged_at.present?
 
   # FIRST acknowledgement wins and later ones are a no-op. The question this

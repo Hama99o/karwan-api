@@ -35,6 +35,7 @@ module Orders
     # `lines` is an array of:
     #   { catalog_item_id:, quantity:, option_value_ids: [], notes: }
     def initialize(customer:, merchant:, lines:, delivery_latitude:, delivery_longitude:,
+                   delivery_address: nil,
                    delivery_landmark_note: nil, customer_phone: nil, notes: nil,
                    service_tier: :normal)
       @customer = customer
@@ -43,6 +44,10 @@ module Orders
       @delivery_latitude = delivery_latitude
       @delivery_longitude = delivery_longitude
       @delivery_landmark_note = delivery_landmark_note
+      # The saved pin this order came from, when there was one. Used ONLY to
+      # copy the voice note; every other field is taken from the parameters, so
+      # a caller cannot make the order say one thing and the address another.
+      @delivery_address = delivery_address
       # Falls back to the account's phone, but stays overridable: people order
       # for a relative, and the courier must ring whoever is at the door.
       @customer_phone = customer_phone.presence || customer.phone
@@ -75,6 +80,11 @@ module Orders
         # validation below refuses the order instead of shipping a total nobody
         # can explain.
         order.save!
+        # AFTER `save!`, because attaching needs a persisted record — and
+        # inside the transaction, so an order never exists without the voice
+        # note it was supposed to carry. The copy itself rescues its own
+        # failures rather than losing the order over a recording.
+        copy_voice_note!(order)
         record_placement(order)
         # A missed "new order" alert is a lost order. Enqueued inside the
         # transaction so it cannot fire for an order that failed to save;
@@ -129,6 +139,35 @@ module Orders
           placed_at: Time.current
         )
       )
+    end
+
+    # ── COPY THE VOICE NOTE, DO NOT POINT AT IT ───────────────────────────
+    #
+    # R12: for a customer who cannot read fluently this recording IS the
+    # address, so a courier who cannot hear it has the hardest part of the job
+    # missing. The order already copies the pin, the text and the phone.
+    #
+    # A real copy of the BYTES, not a second attachment on the same blob:
+    # replacing an attachment purges the old one, so a customer re-recording
+    # their door instructions would silently empty every past order pointing at
+    # it — the exact failure "the address is COPIED, not referenced" exists to
+    # prevent.
+    #
+    # Failure here must NOT fail the order. A missing voice note leaves the
+    # courier with the pin, the landmark text and a phone number, which is the
+    # state every order was in until today; a lost order helps nobody.
+    def copy_voice_note!(order)
+      source = @delivery_address&.voice_note
+      return unless source&.attached?
+
+      order.delivery_voice_note.attach(
+        io: StringIO.new(source.download),
+        filename: source.filename.to_s,
+        content_type: source.content_type
+      )
+      order.update_column(:delivery_voice_note_seconds, @delivery_address.voice_note_seconds)
+    rescue StandardError => e
+      Rails.logger.warn("[order #{order.id}] voice note not copied: #{e.class}")
     end
 
     def persist_line(order, line)
