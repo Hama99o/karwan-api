@@ -179,6 +179,11 @@ module Orders
         quantity: line[:quantity],
         line_total: line[:line_total],
         currency: line[:item].currency,
+        # How long the kitchen said this dish takes, as the menu said it at
+        # order time. `effective_prep_time_minutes` is the item's own value or
+        # the merchant's, and nil for anything not prepared — a book has no prep
+        # time and must not inherit a kitchen's.
+        prep_time_minutes: line[:item].effective_prep_time_minutes,
         notes: line[:notes]
       )
 

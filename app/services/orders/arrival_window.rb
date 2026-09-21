@@ -93,10 +93,35 @@ module Orders
 
     # How long until the food is ready. `ready_at` is the fact; everything before
     # it is the shop's own estimate counting down from when it started cooking.
+    # ── THE SLOWEST DISH, NOT THE SHOP'S AVERAGE ──────────────────────────
+    #
+    # This read `merchant.effective_prep_time_minutes` alone, so a customer who
+    # saw "45 minutes" on a dish — `CatalogItem#effective_prep_time_minutes` is
+    # already served to a browsing customer — was then promised a window built
+    # from the shop's default of 20. Two numbers for one dish in one app, and
+    # the promise was the optimistic one.
+    #
+    # MAX, NOT SUM. A kitchen cooks the order together and is finished when the
+    # slowest dish is finished; summing would promise two hours for three
+    # kebabs. The exception a sum would model — one cook working strictly in
+    # sequence — is not knowable from here and would make every multi-item order
+    # read as late.
+    #
+    # FROM THE SNAPSHOT on `order_items`, never from the live menu: one-way door
+    # 1, so a merchant raising a dish's prep time cannot retroactively change
+    # what a past customer was promised.
+    #
+    # Falls back to the merchant's when no line carries one — an order of
+    # unprepared goods, or an order placed before this column existed.
     def kitchen_minutes
       return 0 if @order.ready_at.present?
 
-      prep = @order.merchant&.effective_prep_time_minutes.to_i
+      # A FALLBACK, NOT A FLOOR. Written first as `max` of the two, which would
+      # override a dish the kitchen explicitly marked as 10 minutes with the
+      # shop's default of 20 — the snapshot on each line already resolves
+      # item-or-merchant, so the merchant's figure is only the answer when no
+      # line carries one at all.
+      prep = (slowest_line_minutes || @order.merchant&.effective_prep_time_minutes).to_i
       started = @order.preparing_at || @order.accepted_at
       # Not yet accepted: nobody has started, so the whole prep time is ahead.
       return prep if started.nil?
@@ -107,6 +132,14 @@ module Orders
     # The courier's ride TO the shop. Measured when he is assigned and reporting;
     # otherwise a tunable stand-in, because "zero" would quietly claim a courier
     # is already at the counter.
+    # Nil rather than 0 when nothing carries a time, so the caller can tell
+    # "no line has a prep time" from "every line takes no time".
+    def slowest_line_minutes
+      return nil unless @order.respond_to?(:order_items)
+
+      @order.order_items.filter_map(&:prep_time_minutes).max
+    end
+
     def approach_minutes
       if courier_coordinates && @order.merchant
         measured = Geo::Distance.travel_minutes(

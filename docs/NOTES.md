@@ -3910,3 +3910,40 @@ can `/up`, which touches no model. `docker compose restart web` fixed it.
 migrated, and the gap between those two moments is a window where the suite is
 green and orders are failing. Worth knowing before it happens on a deploy rather
 than after.
+
+## THE ETA IGNORED WHAT WAS ACTUALLY IN THE ORDER — 80 MINUTES TOO EARLY
+
+`CatalogItem#effective_prep_time_minutes` — the dish's own time, else the
+merchant's — has been SERVED to a browsing customer since the menu was built.
+`Orders::ArrivalWindow` computed its kitchen leg from
+`merchant.effective_prep_time_minutes` **alone**.
+
+So the app showed two numbers for one dish, and the promise was the optimistic
+one. Measured on the rig with a dish the kitchen marks at 75 minutes against a
+shop default of 20:
+
+```
+with the dish's own time   20:35 – 22:00
+the old behaviour          20:05 – 20:40
+```
+
+**The customer was being promised eighty minutes too early**, on a dish whose
+real prep time the same app had already shown them.
+
+**Fixed by snapshotting the prep time onto `order_items`** beside the name and
+the price — one-way door 1, so a merchant raising a dish's prep time cannot
+retroactively change what a past customer was promised. Reading it live would
+have done exactly that.
+
+**MAX, not sum.** A kitchen cooks the order together and is finished when the
+slowest dish is; summing would promise two hours for three kebabs. The case a
+sum models — one cook working strictly in sequence — is not knowable from here
+and would make every multi-item order read as late.
+
+**A FALLBACK, NOT A FLOOR**, and I wrote it wrong first. `max(slowest_line,
+merchant_default)` would override a dish the kitchen explicitly marked at 10
+minutes with the shop's 20. The per-line snapshot already resolves
+item-or-merchant, so the merchant's figure is the answer only when no line
+carries one — an order of unprepared goods, or one placed before the column
+existed. My own comment said "falls back" while the code said "max"; the comment
+was right.
