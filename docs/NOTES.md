@@ -3473,7 +3473,48 @@ is how a future column reusing that name inherits a pass in silence.
 `addresses.deposit_held` as a decimal to `karwan_test_99`, watched the gate name
 it, dropped it again.
 
-**Doors 1 and 3 are still comment-only** and are the next two worth doing —
-door 1 (never join a historical order to live menu rows) is checkable by reading
-the serializers, and door 3 (a timestamp AND actor per transition) by asserting
-no status write bypasses the transition path.
+**Doors 1 and 3 are now gated too. All six have a spec.**
+
+| door | gate |
+|---|---|
+| 1 · snapshot order lines | `order_lines_are_snapshots_spec.rb` |
+| 2 · currency on every amount | `currency_on_every_amount_spec.rb` |
+| 3 · timestamp and actor per transition | `every_transition_is_recorded_spec.rb` |
+| 4 · a ledger entry per money movement | `money_moves_only_through_the_ledger_spec.rb` |
+| 5 · an audit row per intervention | `every_intervention_is_audited_spec.rb` |
+| 6 · soft delete, never hard | `delete_is_discard_spec.rb` |
+
+**Door 1.** `order_items` snapshots `name`, `unit_price`, `options_total`,
+`line_total`, `currency`; `order_item_options` snapshots `option_name`,
+`value_name`, `price_delta`, `currency`. The live `catalog_item_id` is kept and
+read for exactly one purpose — whether to offer "order this again", guarded by
+`kept?`. The danger was never the current code: the association sits there,
+`optional: true`, and `item.catalog_item.name` would look like tidy
+de-duplication. **The damage is silent and retroactive** — a restaurant raising
+a price rewrites what every past customer was charged, in every receipt and
+dispute, with nothing to compare against afterwards. The gate also asserts it
+end to end: rename and re-price the menu item, and the order line must not move.
+
+**Door 3.** `Dispatchable#transition_to!` sets `status`, the matching
+`<status>_at`, and a `status_transitions` row with actor and role, in one
+transaction. The failure guarded against is not a wrong timestamp but a
+**missing row**: `order.update!(status: :ready)` is one line, works, errors
+nowhere, and silently loses how long the order sat in `preparing` — the metric
+CLAUDE.md says runs a delivery business and cannot be backfilled.
+
+### TWO MISTAKES IN THE DOOR-3 GATE, BOTH MINE, BOTH THE NIGHT'S PATTERN
+
+It failed three examples on first run and **the code was right every time**.
+
+1. I asserted `order.status_transitions`. The TABLE is `status_transitions`; the
+   ASSOCIATION is `transitions`. A schema name read as an API name.
+2. The receiver classifier took the **last** segment of the call chain, so
+   `order.offers.status_offered.update_all(status: …)` classified as an Order
+   write because it ends in a scope name. A scope can be named anything; the
+   model is somewhere in the middle. Fixed by checking every segment.
+
+The second is the more instructive: it produced a **specific, plausible, wrong**
+finding — a file and line number, pointing at real code, for a rule that code
+does not break. Exactly the shape that made three hypotheses dangerous
+yesterday. A classifier that reads one part of a name is guessing, and it guesses
+in a format that looks like evidence.
