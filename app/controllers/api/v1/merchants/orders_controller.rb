@@ -6,7 +6,10 @@ class Api::V1::Merchants::OrdersController < Api::V1::Merchants::BaseController
   # A kitchen works the queue from the front; showing newest first would bury
   # the order that has been waiting longest.
   def index
-    orders = merchant_orders.includes(order_items: :selected_options)
+    # `transitions` because every card now answers WHY it ended, and that reads
+    # the transition log to tell the shop's own refusal from a timeout. Without
+    # the preload it is a query per order on the board's busiest screen.
+    orders = merchant_orders.includes(:transitions, order_items: :selected_options)
     orders = params[:status].present? ? orders.where(status: params[:status]) : orders.live
     orders = orders.order(:created_at)
 
@@ -60,10 +63,15 @@ class Api::V1::Merchants::OrdersController < Api::V1::Merchants::BaseController
     # is for.
     authorize @order, :rejected?
 
+    # `MERCHANT_REJECTION_REASONS`, NOT the whole enum. The column also carries
+    # `no_answer`, which the timeout job writes about a shop that never replied —
+    # and a shop that CAN send it could label its own refusal as "we were never
+    # asked", which is the one line on the report that decides whether the owner
+    # rings a restaurant or replaces a tablet.
     reason = params[:reason].to_s
-    unless Order.rejection_reasons.key?(reason)
+    unless Order::MERCHANT_REJECTION_REASONS.include?(reason)
       return render_unprocessable_entity(
-        "reason must be one of: #{Order.rejection_reasons.keys.join(', ')}",
+        "reason must be one of: #{Order::MERCHANT_REJECTION_REASONS.join(', ')}",
         code: "reason_required"
       )
     end

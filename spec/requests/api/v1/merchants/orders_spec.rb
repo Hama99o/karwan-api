@@ -208,6 +208,75 @@ RSpec.describe "Api::V1::Merchants::Orders", type: :request do
     end
   end
 
+  # ── THE SHOP'S OWN BOARD MUST SEPARATE THE TWO ───────────────────────────
+  #
+  # The board showed `status: "rejected"` on its own history and a shop could
+  # not tell an order it refused from one it never answered. **This is the
+  # surface where that distinction is actionable** — the customer can only shop
+  # elsewhere; the person holding this tablet is the one who can go and look at
+  # it. PRODUCT.md's alert is "loud and repeating until acknowledged" precisely
+  # because a push arrives on a counter in a noisy kitchen and nobody looks.
+  describe "why an order ended, on the board" do
+    def rejected(reason, actor:, actor_role: :merchant_owner)
+      job = create(:order, :with_items, merchant: merchant)
+      job.transition_to!(:rejected, actor: actor, actor_role: actor_role)
+      job.update!(rejection_reason: reason)
+      job
+    end
+
+    it "tells the shop which of its own refusals this was" do
+      job = rejected(:too_busy, actor: owner)
+
+      get "/api/v1/merchant/orders/#{job.id}", headers: auth
+
+      expect(json["order"]["ended_reason"]).to eq(
+        "outcome" => "rejected", "code" => "too_busy", "ended_by" => "merchant_owner"
+      )
+    end
+
+    # THE ONE THE SHOP CAN ACT ON. Four of these in a week is a tablet nobody
+    # is watching, and until now nothing on this board said so.
+    it "tells the shop when nobody in it ever answered" do
+      job = rejected(:no_answer, actor: nil, actor_role: :admin)
+
+      get "/api/v1/merchant/orders/#{job.id}", headers: auth
+
+      expect(json["order"]["ended_reason"]["code"]).to eq("no_answer")
+      expect(json["order"]["ended_reason"]["ended_by"]).to eq("system")
+    end
+
+    it "says nothing about an order still on the board" do
+      get "/api/v1/merchant/orders/#{order.id}", headers: auth
+
+      expect(json["order"]["ended_reason"]).to be_nil
+    end
+
+    it "is on the list too, where the shop actually looks" do
+      rejected(:no_answer, actor: nil, actor_role: :admin)
+
+      get "/api/v1/merchant/orders", params: { status: "rejected" }, headers: auth
+
+      expect(json["orders"].first["ended_reason"]["code"]).to eq("no_answer")
+    end
+
+    # The board is polled while a kitchen is busy. One extra query per card is
+    # the shape that makes a screen slow without anyone noticing why.
+    it "does not cost a query per card" do
+      3.times { rejected(:no_answer, actor: nil, actor_role: :admin) }
+
+      seen = []
+      subscriber = ActiveSupport::Notifications.subscribe("sql.active_record") do |*, payload|
+        seen << payload[:sql] unless payload[:name].to_s.in?([ "SCHEMA", "TRANSACTION" ])
+      end
+      get "/api/v1/merchant/orders", params: { status: "rejected" }, headers: auth
+      ActiveSupport::Notifications.unsubscribe(subscriber)
+
+      transition_queries = seen.count { |sql| sql.include?("status_transitions") }
+      expect(transition_queries).to be <= 1,
+                                    "#{transition_queries} queries for transitions — the preload is not being used"
+    end
+  end
+
   describe "POST /api/v1/merchant/orders/:id/reject" do
     # A reason from a fixed list, because "failure reasons ranked" is a report
     # the owner asked for and free text cannot be counted.
@@ -234,6 +303,25 @@ RSpec.describe "Api::V1::Merchants::Orders", type: :request do
 
       expect(json["code"]).to eq("reason_required")
       expect(order.reload.status).to eq("placed")
+    end
+
+    # ── THE COLUMN HOLDS IT; THE BOARD MAY NOT SEND IT ────────────────────
+    #
+    # `no_answer` is a real value of `rejection_reason` — the timeout job writes
+    # it about a shop that never replied. Validating against the ENUM rather
+    # than against `MERCHANT_REJECTION_REASONS` would let a shop that refused an
+    # order file it as one nobody showed them, which is the one line on the
+    # reports page that decides whether the owner rings a restaurant or
+    # replaces a tablet.
+    it "refuses the one reason only the system may write" do
+      expect(Order.rejection_reasons).to have_key("no_answer"), "plant a storable value, or this proves nothing"
+
+      post "/api/v1/merchant/orders/#{order.id}/reject",
+           params: { reason: "no_answer" }, headers: auth
+
+      expect(json["code"]).to eq("reason_required")
+      expect(order.reload.status).to eq("placed")
+      expect(order.rejection_reason).to be_nil
     end
   end
 

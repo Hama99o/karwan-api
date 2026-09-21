@@ -30,6 +30,25 @@ module Merchants
       order.order_items.sum(&:quantity)
     end
 
+    # ── AND WHY IT ENDED, WHICH THIS BOARD NEEDS MOST ─────────────────────────
+    #
+    # The shop saw `status: "rejected"` on its own history and could not tell an
+    # order it refused from one it never answered. **This is the surface where
+    # that distinction is actionable** — the customer can only shop elsewhere,
+    # but the person holding this tablet is the one who can go and look at it.
+    #
+    # PRODUCT.md's alert is "loud and repeating until acknowledged" and the
+    # acknowledgement endpoint exists for exactly this failure: a push arrives,
+    # on a counter, in a noisy kitchen, and nobody looks. A shop whose board
+    # shows four `no_answer` rejections this week has a hardware problem it can
+    # fix today, and until now nothing told it.
+    #
+    # Same service and same shape as the customer's, deliberately. Two
+    # computations of one fact is how two screens come to disagree.
+    field :ended_reason do |order|
+      Orders::EndedReason.for(order)
+    end
+
     view :board do
       fields :placed_at, :accepted_at, :ready_at
 

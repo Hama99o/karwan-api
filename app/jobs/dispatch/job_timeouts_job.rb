@@ -23,7 +23,11 @@ module Dispatch
 
     # The states a machine may close by itself: nothing has been committed.
     SELF_CLOSING = {
-      "Order" => { state: :placed, to: :rejected, reason: :closing },
+      # `no_answer`, NOT `closing`. The job used to write the reason a shop gives
+      # when it shuts early, about shops that said nothing at all — so a column
+      # meaning "the merchant's stated reason" carried a sentence no merchant
+      # had uttered, and every reader downstream had to know that.
+      "Order" => { state: :placed, to: :rejected, reason: :no_answer },
       "Trip"  => { state: :requested, to: :cancelled, reason: :no_courier_available }
     }.freeze
 

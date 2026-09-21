@@ -141,14 +141,12 @@ RSpec.describe "Admin reports", type: :request do
       order
     end
 
-    # Exactly what the timeout job does: **nil actor**, reason `closing`. In the
-    # orders table this row is indistinguishable from a shop that tapped
-    # "closing" — which is the reason this split has to exist.
-    def nobody_answers
+    # Exactly what the timeout job does: **nil actor**, reason `no_answer`.
+    def nobody_answers(reason: :no_answer)
       order = create(:order, :with_items)
       order.transition_to!(:rejected, actor: nil, actor_role: :admin,
                                       reason: "timed out in placed with no response")
-      order.update!(rejection_reason: :closing)
+      order.update!(rejection_reason: reason)
       order
     end
 
@@ -167,9 +165,14 @@ RSpec.describe "Admin reports", type: :request do
     # early, and the owner rings four restaurants about a problem three of them
     # do not have — while the real problem, a tablet nobody watches, is not on
     # the page at all.
+    # THE ROWS ALREADY IN THE DATABASE. Until the job was corrected it wrote
+    # `closing` on orders no shop had touched, and those rows do not go away —
+    # eighty-one of them exist in the dev database. The split is by ACTOR, not
+    # by reason, which is what makes it classify them correctly anyway. Planting
+    # the legacy reason here is the assertion that it still does.
     it "does not count an order nobody answered as a shop that said it was closing" do
       merchant_rejects(:closing)
-      3.times { nobody_answers }
+      3.times { nobody_answers(reason: :closing) }
 
       get "/admin/reports"
 

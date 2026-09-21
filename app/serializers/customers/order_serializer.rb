@@ -53,6 +53,24 @@ module Customers
       end
     end
 
+    # ── WHY IT ENDED, WHEN IT ENDED BADLY ─────────────────────────────────────
+    #
+    # Nil on a live order and on a delivered one. The merchant board has always
+    # been REFUSED a rejection without a reason from a fixed list — and that
+    # reason reached the operator and never the customer, who saw
+    # `status: "rejected"` and had to guess between "order something else now",
+    # "the same shop later" and "a different shop tonight".
+    #
+    # A CODE, never a sentence: the server cannot say "they have run out" in
+    # Pashto, which is the same rule `Couriers::JobSteps` states for its labels.
+    #
+    # In the BASE fields, so the history list carries it too. A customer
+    # scrolling last week's orders is asking exactly this question, and making
+    # them tap each one to find out is the wrong way round.
+    field :ended_reason do |order|
+      Orders::EndedReason.for(order)
+    end
+
     # HE IS AT THE GATE. The same fact the notification carries, on the screen
     # the app already polls — because push is ONE of three channels and never
     # the channel: a notification can be refused, delayed by OEM power

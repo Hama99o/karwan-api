@@ -314,6 +314,134 @@ RSpec.describe "Api::V1::Customers::Orders", type: :request do
     end
   end
 
+  # ── WHY IT ENDED, TOLD TO THE PERSON IT HAPPENED TO ───────────────────────
+  #
+  # The merchant board has REFUSED a rejection without a reason from a fixed
+  # list since it shipped, *"so somebody can count why orders are refused"* —
+  # and the reason went to the operator and to nobody else. The customer got
+  # `status: "rejected"`, which is the same word whether the shop ran out of
+  # the dish, was too busy, had closed, or never picked up the tablet. Those
+  # are four different next actions for somebody standing in their kitchen.
+  describe "why an order ended" do
+    def rejected_order(reason, actor:, actor_role: :merchant_owner)
+      order = create(:order, :with_items, customer: customer, merchant: merchant)
+      order.transition_to!(:rejected, actor: actor, actor_role: actor_role)
+      order.update!(rejection_reason: reason)
+      order
+    end
+
+    it "tells the customer which of the four reasons it was" do
+      order = rejected_order(:out_of_stock, actor: create(:user, :merchant_owner))
+
+      get "/api/v1/customer/orders/#{order.id}", headers: auth
+
+      expect(json["order"]["ended_reason"]).to eq(
+        "outcome" => "rejected", "code" => "out_of_stock", "ended_by" => "merchant_owner"
+      )
+    end
+
+    # THE SAME SPLIT AS THE ADMIN REPORT, and it matters more here. A shop that
+    # said "closing" is shut; a shop that never answered may be open with a
+    # tablet nobody is watching — the customer's sensible next move differs, and
+    # so does whether ringing the shop is worth it.
+    it "does not tell the customer a shop said something when no shop said anything" do
+      order = rejected_order(:no_answer, actor: nil, actor_role: :admin)
+
+      get "/api/v1/customer/orders/#{order.id}", headers: auth
+
+      reason = json["order"]["ended_reason"]
+      expect(reason["code"]).to eq("no_answer")
+      expect(reason["ended_by"]).to eq("system")
+      expect(reason["code"]).not_to eq("closing"),
+                                   "the customer is being told the shop was closing, which no shop said"
+    end
+
+    # Nil, not an object with empty fields — the client branches on presence,
+    # and an `ended_reason` on a delivered order is an explanation for something
+    # that did not go wrong.
+    it "says nothing about an order that is still running" do
+      order = create(:order, :with_items, :preparing, customer: customer, merchant: merchant)
+
+      get "/api/v1/customer/orders/#{order.id}", headers: auth
+
+      expect(json["order"]["ended_reason"]).to be_nil
+    end
+
+    it "says nothing about an order that arrived" do
+      order = create(:order, :with_items, :delivered, customer: customer, merchant: merchant)
+
+      get "/api/v1/customer/orders/#{order.id}", headers: auth
+
+      expect(json["order"]["ended_reason"]).to be_nil
+    end
+
+    # `rejection_reason` is nullable and rows predate the column. `unknown` is a
+    # word the client can render; a null inside the object reads as a bug to the
+    # person it happened to.
+    it "says unknown rather than nothing when the reason was never recorded" do
+      order = rejected_order(nil, actor: create(:user, :merchant_owner))
+
+      get "/api/v1/customer/orders/#{order.id}", headers: auth
+
+      expect(json["order"]["ended_reason"]["code"]).to eq("unknown")
+    end
+
+    # NOT "system". Nothing recorded who ended it, and answering "the system
+    # did" is asserting a cause the data does not carry — the exact mistake the
+    # admin report made until it was rendered against a real database.
+    it "does not blame the system for an ending nothing recorded" do
+      order = create(:order, :with_items, customer: customer, merchant: merchant)
+      order.update!(status: :rejected, rejected_at: Time.current, rejection_reason: :too_busy)
+
+      get "/api/v1/customer/orders/#{order.id}", headers: auth
+
+      expect(order.transitions.where(to_status: "rejected")).to be_empty,
+                                                                "plant a row with no transition, or this proves nothing"
+      expect(json["order"]["ended_reason"]["ended_by"]).to be_nil
+      expect(json["order"]["ended_reason"]["code"]).to eq("too_busy")
+    end
+
+    # ON THE LIST TOO. A customer scrolling last week's orders is asking exactly
+    # this question, and making them open each one to find out is the wrong way
+    # round — it is also three round trips on a connection that drops.
+    it "is on the history list, not only on the order screen" do
+      rejected_order(:too_busy, actor: create(:user, :merchant_owner))
+
+      get "/api/v1/customer/orders", headers: auth
+
+      expect(json["orders"].first["ended_reason"]["code"]).to eq("too_busy")
+    end
+
+    # A cancellation and a failure are different vocabularies, and `outcome`
+    # is what tells the client which list to look the code up in.
+    it "names which vocabulary the code came from" do
+      failed = create(:order, :with_items, :failed, customer: customer, merchant: merchant,
+                                                    failure_reason: :nobody_home)
+
+      get "/api/v1/customer/orders/#{failed.id}", headers: auth
+
+      expect(json["order"]["ended_reason"]["outcome"]).to eq("failed")
+      expect(json["order"]["ended_reason"]["code"]).to eq("nobody_home")
+    end
+
+    # The history list is the screen this could quietly make expensive: one
+    # extra query per row, on the payload a customer opens most.
+    it "does not cost a query per order on the list" do
+      3.times { rejected_order(:too_busy, actor: create(:user, :merchant_owner)) }
+
+      counts = []
+      subscriber = ActiveSupport::Notifications.subscribe("sql.active_record") do |*, payload|
+        counts << payload[:sql] unless payload[:name].to_s.in?([ "SCHEMA", "TRANSACTION" ])
+      end
+      get "/api/v1/customer/orders", headers: auth
+      ActiveSupport::Notifications.unsubscribe(subscriber)
+
+      transition_queries = counts.count { |sql| sql.include?("status_transitions") }
+      expect(transition_queries).to be <= 1,
+                                    "#{transition_queries} queries for transitions — the preload is not being used"
+    end
+  end
+
   describe "GET /api/v1/customer/orders/:id" do
     let!(:order) { create(:order, :with_items, customer: customer, merchant: merchant) }
 

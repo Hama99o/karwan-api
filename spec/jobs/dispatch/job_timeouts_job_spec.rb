@@ -5,13 +5,26 @@ RSpec.describe Dispatch::JobTimeoutsJob do
   # committed means a machine may close it and tell the customer. Food cooked,
   # a courier en route, or cash moved means a human decides.
   describe "states nothing has been committed in — closed automatically" do
-    it "rejects an order the merchant never answered" do
+    # ── THE REASON IS `no_answer`, NOT `closing` ─────────────────────────
+    #
+    # It wrote `closing` — the reason a shop gives when it shuts early — onto
+    # orders no shop had touched. So a column documented as the MERCHANT'S
+    # stated reason carried a sentence no merchant had said, and every reader
+    # downstream had to know that: the admin report worked around it, and the
+    # customer's payload would have had to work around it a second time.
+    #
+    # `no_answer` is storable and unsendable — `Order::MERCHANT_REJECTION_REASONS`
+    # does not contain it, so a shop cannot claim its own refusal was one.
+    it "rejects an order the merchant never answered, and says so" do
       order = create(:order, :overdue)
 
       result = described_class.new.perform
 
       expect(order.reload.status).to eq("rejected")
-      expect(order.rejection_reason).to eq("closing")
+      expect(order.rejection_reason).to eq("no_answer")
+      expect(Order::MERCHANT_REJECTION_REASONS).not_to include(order.rejection_reason),
+                                                       "the system is writing a reason a merchant could also have sent, " \
+                                                       "which makes the column unable to tell them apart"
       expect(result[:closed]).to eq(1)
     end
 

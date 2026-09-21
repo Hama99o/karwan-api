@@ -27,7 +27,10 @@ class Api::V1::Customers::OrdersController < Api::V1::BaseController
   before_action :refuse_disabled_tier, only: %i[quote create]
 
   def index
-    orders = policy_scope(Order).includes(:merchant, :order_items).newest_first
+    # `transitions` because every row now answers WHY it ended, and that answer
+    # reads the transition log to tell a shop's decision from a timeout. Without
+    # the preload it is a query per order on the screen a customer opens most.
+    orders = policy_scope(Order).includes(:merchant, :order_items, :transitions).newest_first
 
     paginate_blue(Customers::OrderSerializer, orders, extra: { view: :list })
   end
@@ -121,7 +124,7 @@ class Api::V1::Customers::OrdersController < Api::V1::BaseController
     # its dish is still on the menu — without it that is a query per line on a
     # screen a customer opens while waiting for food.
     @order = policy_scope(Order)
-             .includes(order_items: [ :catalog_item, :selected_options ])
+             .includes(:transitions, order_items: [ :catalog_item, :selected_options ])
              .find(params[:id])
   end
 

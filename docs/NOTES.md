@@ -4001,3 +4001,81 @@ but it means **every figure derived from `status_transitions` reads low against
 a stress-seeded database**, not only this one. Anything counting who did what,
 or how long a job sat in a state, is affected. Worth knowing before a number
 from a dev console is quoted at anybody.
+
+## THE TIMEOUT WROTE A MERCHANT'S REASON FOR A DECISION NO MERCHANT MADE
+
+`Dispatch::JobTimeoutsJob` closed an unanswered order as `rejected` with
+`rejection_reason: :closing` — the reason a shop gives when it shuts early —
+about shops that had touched nothing. So a column whose whole purpose is *the
+merchant's stated reason* carried a sentence no merchant had uttered, and every
+reader downstream had to know that.
+
+**It was costing a workaround per reader.** The admin report needed one. The
+customer's payload would have needed a second. The workarounds were correct and
+the write was the defect.
+
+Fixed by adding `no_answer` to `Order.rejection_reasons` and having the job
+write that instead. The value is **storable and unsendable**:
+`Order::MERCHANT_REJECTION_REASONS` is the board's list and does not contain it,
+because *"we never answered"* is an observation the system makes about a shop,
+not a reason a shop offers. Validating the board against the enum instead would
+let a shop file its own refusal as an order nobody showed it — which is the one
+line on the reports page that decides whether the owner rings a restaurant or
+replaces a tablet.
+
+**The rows already written keep the old value** and are not rewritten. The admin
+split is by ACTOR, not by reason, which is what makes it classify them correctly
+anyway; there is a spec planting the legacy `closing`+nil-actor shape.
+
+## THE CUSTOMER WAS NEVER TOLD WHY THEIR ORDER ENDED
+
+The merchant board has REFUSED a rejection without a reason from a fixed list
+since it shipped. That reason went to the operator and **to nobody else**. The
+customer's payload carried `status: "rejected"` — the same word whether the shop
+had run out of the dish, was too busy, had closed, or never picked up the
+tablet.
+
+Those are four different next actions for somebody standing in their kitchen:
+
+```
+out_of_stock  order something else from the same shop, now
+too_busy      the same shop, later
+closing       a different shop, tonight
+no_answer     a different shop, and this one may have a broken tablet
+```
+
+`Orders::EndedReason` now serves `{ outcome, code, ended_by }`, null on a live
+order and on a delivered one. Three decisions worth keeping:
+
+- **A code, never a sentence.** The server cannot say "they have run out" in
+  Pashto — the same rule `Couriers::JobSteps` states for its step labels.
+- **`outcome` names which vocabulary `code` came from.** Rejection, cancellation
+  and failure are three separate enums; merged into one client lookup they
+  collide the day two of them share a word.
+- **`ended_by` is null, not `system`, when nothing recorded the ending.** A row
+  with no transition is a real state — `db/seeds/stress.rb` makes them in bulk —
+  and answering "the system did it" asserts a cause the data does not carry.
+  That is the same mistake the admin rejections report made until it was
+  rendered against a real database, caught here before it shipped because the
+  first one had already been paid for.
+
+**On the history list as well as the order screen.** A customer scrolling last
+week's orders is asking exactly this question, and `customers/orders#index`
+preloads `:transitions` so it does not cost a query per row — there is a spec
+counting them.
+
+**And on the MERCHANT board, which is where it is actionable.** The customer can
+only shop elsewhere; the person holding the tablet is the one who can go and
+look at it. A shop whose board shows four `no_answer` rejections this week has a
+hardware or staffing problem it can fix today, and its board showed the same
+word `rejected` for those as for the orders it refused on purpose. Same service,
+same shape, same preload — two computations of one fact is how two screens come
+to disagree.
+
+Measured on the rig, the shop's own board after the change:
+
+```
+KQA00004  rejected  out_of_stock  merchant_owner
+K277205   rejected  out_of_stock  merchant_owner
+K773419   rejected  no_answer     system
+```

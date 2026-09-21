@@ -70,7 +70,25 @@ class Order < ApplicationRecord
   enum :payment_status, { pending: 0, collected: 1, settled: 2 }, prefix: :payment
   enum :payment_method, { cash: 0 }, prefix: :pay_by
 
-  enum :rejection_reason,    { out_of_stock: 0, too_busy: 1, closing: 2, other: 3 }, prefix: :rejected_for
+  # ── THE MERCHANT'S REASONS, AND ONE THAT IS NOT THE MERCHANT'S ────────────
+  #
+  # `no_answer` is written by `Dispatch::JobTimeoutsJob` when nobody in the shop
+  # ever touched the order. It is in the enum because it is a real state of a
+  # real column, and it is NOT in `MERCHANT_REJECTION_REASONS` because no
+  # merchant may claim it: "we never answered" is an observation the system
+  # makes about a shop, not a reason a shop offers.
+  #
+  # Before this existed the job wrote `closing`, which is a decision a human
+  # takes. Every screen reading the column therefore had to know that `closing`
+  # sometimes means "the shop said so" and sometimes means "nobody was there" —
+  # the admin report had to work around it, and the customer's payload would
+  # have had to work around it a second time. Two workarounds for one bad write.
+  enum :rejection_reason,    { out_of_stock: 0, too_busy: 1, closing: 2, other: 3, no_answer: 4 },
+       prefix: :rejected_for
+
+  # What the BOARD may send. The enum is the column's vocabulary; this is the
+  # merchant's, and they are deliberately different.
+  MERCHANT_REJECTION_REASONS = %w[out_of_stock too_busy closing other].freeze
   enum :cancellation_reason, { customer_changed_mind: 0, merchant_unavailable: 1,
                                no_courier_available: 2, duplicate: 3, other: 4 }, prefix: :cancelled_for
   enum :failure_reason,      { customer_refused: 0, nobody_home: 1, customer_unreachable: 2,

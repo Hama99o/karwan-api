@@ -23,6 +23,12 @@ RSpec.describe "docs/API_VOCABULARY.md" do
     "Trip.statuses" => %w[requested accepted arrived in_progress completed cancelled failed],
     "Order.failure_reasons" => %w[customer_refused nobody_home customer_unreachable wrong_address other],
     "Order.cancellation_reasons" => %w[customer_changed_mind merchant_unavailable no_courier_available duplicate other],
+    # TWO LISTS, AND THE DIFFERENCE IS THE POINT. The column carries
+    # `no_answer`, which the timeout job writes about a shop that never replied;
+    # the board may not send it. A merchant-side picker built from the wrong one
+    # lets a shop label its own refusal "we were never asked".
+    "Order.rejection_reasons" => %w[out_of_stock too_busy closing other no_answer],
+    "Order::MERCHANT_REJECTION_REASONS" => %w[out_of_stock too_busy closing other],
     "ServiceTiers::ALL" => %w[normal premium],
     "VehicleTypes::ALL" => %w[motorbike bicycle car on_foot rishka zarang],
     "WalletEntry.kinds" => %w[commission top_up reimbursement adjustment commission_topup],
@@ -39,6 +45,8 @@ RSpec.describe "docs/API_VOCABULARY.md" do
     when "Trip.statuses" then Trip.statuses.keys
     when "Order.failure_reasons" then Order.failure_reasons.keys
     when "Order.cancellation_reasons" then Order.cancellation_reasons.keys
+    when "Order.rejection_reasons" then Order.rejection_reasons.keys
+    when "Order::MERCHANT_REJECTION_REASONS" then Order::MERCHANT_REJECTION_REASONS
     when "ServiceTiers::ALL" then ServiceTiers::ALL.keys.map(&:to_s)
     when "VehicleTypes::ALL" then VehicleTypes::ALL.keys.map(&:to_s)
     when "WalletEntry.kinds" then WalletEntry.kinds.keys
@@ -87,6 +95,16 @@ RSpec.describe "docs/API_VOCABULARY.md" do
                           "session sizes its translation work from that number."
     expect(codes).not_to include(*ErrorCodes::OTP)
     expect(codes).to include("offer_expired", "not_cancellable", "outside_service_area")
+  end
+
+  # The gap between the column and the board, asserted rather than left to two
+  # literal lists that could drift into agreement. If a later value is added to
+  # the enum for the system's use, this fails until somebody decides which side
+  # of the line it is on.
+  it "keeps no_answer out of what a merchant may send" do
+    expect(Order.rejection_reasons.keys - Order::MERCHANT_REJECTION_REASONS).to eq(%w[no_answer])
+    expect(Order::MERCHANT_REJECTION_REASONS - Order.rejection_reasons.keys).to be_empty,
+                                                                               "the board offers a reason the column cannot store"
   end
 
   # `merchant` is the UI's word, not the server's, and writing it into this

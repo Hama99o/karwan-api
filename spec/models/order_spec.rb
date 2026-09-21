@@ -200,8 +200,16 @@ RSpec.describe Order, type: :model do
       expect(described_class.payment_methods.keys).to eq(%w[cash])
     end
 
+    # THE COLUMN'S LIST AND THE BOARD'S LIST ARE DIFFERENT, on purpose.
+    # `no_answer` is a fact the system records about a shop that never replied,
+    # not a reason a shop offers — so it is storable and unsendable.
     it "gives the merchant a fixed reason list to reject with" do
-      expect(described_class.rejection_reasons.keys).to eq(%w[out_of_stock too_busy closing other])
+      expect(described_class::MERCHANT_REJECTION_REASONS).to eq(%w[out_of_stock too_busy closing other])
+    end
+
+    it "can also store the one reason no merchant may claim" do
+      expect(described_class.rejection_reasons.keys).to eq(%w[out_of_stock too_busy closing other no_answer])
+      expect(described_class::MERCHANT_REJECTION_REASONS).not_to include("no_answer")
     end
   end
 

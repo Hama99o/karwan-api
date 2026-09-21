@@ -91,7 +91,7 @@ RSpec.describe "payload key sets" do
       expect(keys_of(JSON.parse(response.body)["order"])).to eq(%w[
         amount_to_pay_in_cash arrival_window can_cancel code courier courier_arrived_at currency
         customer_phone customer_total delivery_fee delivery_landmark_note
-        delivery_location distance_source id is_live item_count items items_total
+        delivery_location distance_source ended_reason id is_live item_count items items_total
         merchant_id merchant_name merchant_phone notes pin_far_from_road
         placed_at status suggested_notes timeline
       ])
@@ -107,7 +107,7 @@ RSpec.describe "payload key sets" do
       summary = keys_of(JSON.parse(response.body)["orders"])
       expect(summary).to eq(%w[
         amount_to_pay_in_cash code courier_arrived_at currency customer_total
-        delivery_fee id is_live item_count items_total merchant_id merchant_name
+        delivery_fee ended_reason id is_live item_count items_total merchant_id merchant_name
         placed_at status suggested_notes
       ])
       expect(summary).not_to include("items", "timeline", "courier")
@@ -158,7 +158,7 @@ RSpec.describe "payload key sets" do
 
       board = keys_of(JSON.parse(response.body)["orders"])
       expect(board).to eq(%w[
-        accepted_at acknowledged_at code courier currency id is_overdue
+        accepted_at acknowledged_at code courier currency ended_reason id is_overdue
         item_count items items_total merchant_payout minutes_in_state notes
         placed_at ready_at status
       ])

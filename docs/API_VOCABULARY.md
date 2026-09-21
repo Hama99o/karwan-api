@@ -65,6 +65,22 @@ a place a re-declaration can silently disagree.
 | **wallet entry kind** | `commission` `top_up` `reimbursement` `adjustment` `commission_topup` | `couriers/wallet_entry_serializer.rb` |
 | **currency** | `AFN` | every money-bearing payload. `Monetary::SUPPORTED_CURRENCIES` is a one-element list **today** — it is a field on every amount by a one-way-door decision, so treat it as a real dimension, not a constant to hard-code |
 | **locale** | `ps` `fa` `en` | `shared/user_serializer.rb`, and accepted nearly everywhere as a parameter |
+| **order rejection reason** | `out_of_stock` `too_busy` `closing` `other` `no_answer` | `customers/order_serializer.rb` (`ended_reason.code`). **The column's vocabulary, which is wider than the board's** |
+| **what the BOARD may send** | `out_of_stock` `too_busy` `closing` `other` | `Order::MERCHANT_REJECTION_REASONS`, enforced by `merchants/orders#reject`. `no_answer` is written only by `Dispatch::JobTimeoutsJob`, about a shop that never replied — a merchant sending it would label its own refusal "we were never asked". **A merchant-side picker must offer these four, not the five above.** |
+| **order cancellation reason** | `customer_changed_mind` `merchant_unavailable` `no_courier_available` `duplicate` `other` | `customers/order_serializer.rb` (`ended_reason.code`). Read-only: `customers/orders#cancel` still hard-codes `customer_changed_mind` — see C |
+| **who ended it** | `customer` `courier` `merchant_owner` `admin` `system` — or **null** | `ended_reason.ended_by`. `system` means a nil actor did it (the timeout job); **null means no transition was recorded**, which is not the same fact and must not be rendered as "the system" |
+
+**`ended_reason` is an object or null**, never a bare string:
+
+```json
+{ "outcome": "rejected", "code": "out_of_stock", "ended_by": "merchant_owner" }
+```
+
+Null on a live order and on a delivered one — there is nothing to explain about
+an order that arrived. `code` is `unknown` when the column was never filled.
+`outcome` is one of `rejected` `cancelled` `failed`, and it tells the client
+WHICH vocabulary `code` is drawn from; the three lists do not overlap by
+accident and must not be merged into one lookup.
 
 **Money shapes:** every amount is a JSON **string** (`"500.0"`, `"-50.0"`),
 never a number, and each is paired with a `currency`. A client comparing them
@@ -81,7 +97,7 @@ invents its own there is nothing to catch it.
 
 | vocabulary | values | status |
 |---|---|---|
-| **order cancellation reason** | `customer_changed_mind` `merchant_unavailable` `no_courier_available` `duplicate` `other` | **Not serialized anywhere.** `customers/orders#cancel` HARD-CODES `customer_changed_mind` and puts `params[:reason]` into the transition's free text instead. So five values exist and a customer can express exactly one. |
+| **order cancellation reason, as an INPUT** | `customer_changed_mind` `merchant_unavailable` `no_courier_available` `duplicate` `other` | It is now READ on the wire (category B), but still cannot be SENT: `customers/orders#cancel` HARD-CODES `customer_changed_mind` and puts `params[:reason]` into the transition's free text. Five values exist and a customer can express exactly one. Whether a customer may claim `merchant_unavailable` is Hamma9900's. |
 | **trip cancellation reason** | `passenger_changed_mind` `courier_unavailable` `no_courier_available` `duplicate` `other` | same — not on the wire |
 | **payment status** | `pending` `collected` `settled` | not in any mobile serializer. Drives the cash-in-hand gate that stops dispatch offering work, and no app can see it |
 | **theme** | `system` `light` `dark` | stored on `User`, **not serialized**. A settings screen would invent its own |
