@@ -4647,3 +4647,151 @@ one variable cannot be it.**
 tile it was planted into. Every other plant in this session was reverted from a
 scratchpad copy taken before the edit, which is the only safe way while the work
 is uncommitted.
+
+## §5 MADE THE PLATFORM OWE A RESTAURANT MONEY, AND THERE IS NO WAY TO PAY ONE
+
+Not a bug and not mine to decide — recorded because it is money, it is reachable
+in ordinary use, and nothing anywhere records it.
+
+`MONEY_AND_SETTLEMENT.md` §5 was **rewritten on 16 Sept 2026** and settles the
+refusal case in Hamma9900's own numbers (food 300, restaurant keeps 250, courier
+20, platform 30):
+
+```
+restaurant refunds the courier his advance and pays his fee     −270
+the PLATFORM reimburses the restaurant that fee plus the
+  commission it is forfeiting                                    + 50
+restaurant ends                                                  + 30, keeps a resellable meal
+```
+
+The cash between courier and restaurant moves at the door and needs nothing from
+us. **The `+50` does.** And `CLAUDE.md` says of `payouts`: *"not in v0 (Model A
+means we never owe restaurants money), but leave room."* §5 made that sentence
+false in exactly one case, three months after it was written.
+
+### What happens today, verified rather than assumed
+
+`couriers/jobs#problem` transitions the job to `failed`, stores
+`failure_reason`, and writes an audit row noting *"reported by the courier;
+needs a human"*. **No money moves**, which is correct — §5's refunds are cash at
+the door. `MerchantStatement` excludes failed orders, which is also correct:
+*"no commission on a cancelled job, for anybody"*, and the restaurant refunded
+the advance, so it did not keep the payout.
+
+**So the only thing missing is the platform's `+50`, and nothing records that we
+owe it.** The audit row is the entire mechanism: a human notices and settles out
+of band. On the rig today, 1 order is in this state.
+
+### The three ways forward, with what each costs
+
+1. **Leave it.** The audit row already says "needs a human", which is the v0
+   answer to several things here. Costs nothing to build. The cost is that the
+   debt exists only in a log line nobody counts, and a restaurant chasing it has
+   better records than we do.
+2. **Record it without paying it** — a `MerchantCredit` row per refusal, shown
+   on the shop's statement as an amount owed. Half a day, no payout mechanism,
+   and it makes the debt countable and auditable. Does not decide §2.
+3. **Build restaurant payouts.** The `payouts` table CLAUDE.md left room for.
+   Days, not hours, and it is entangled with §2 — if the restaurant becomes the
+   collection channel (Option A), this reverses into a netting-off rather than a
+   payment, and building it first would be building the wrong thing.
+
+**Recommendation if asked: (2), and not before §2 is answered.** It makes the
+money visible without committing to a channel, and (3) cannot be designed
+sensibly until §2 is decided. But it is his call — this is the second live
+consequence of §2 being open, alongside the premium uplift.
+
+## "TODAY" WAS THE ONE RESTAURANT SCREEN WITH NO ENDPOINT
+
+`PRODUCT.md` names five screens for the Restaurant role. Four had APIs. The
+fifth is specified in one line — *"**Today** — orders, items sold, cash received
+from riders, our commission. No charts."* — and was served by nothing.
+
+`GET /api/v1/merchant/today`, singular because there is one today. A `resources`
+would invite a date parameter and a second history screen beside the weekly
+statements, which is how one question gets two answers.
+
+### The constraint that shaped it: the same arithmetic as the statement
+
+`Merchants::IssueStatement` counts DELIVERED orders by `delivered_at`, sums
+`items_total`, `commission` and `merchant_payout` each from its own column, and
+groups by currency. `TodaysTrade` does the same over one day. A shop reading one
+number here on Friday and a different one on the statement for the same week
+stops believing both — and the statement is the one that matters, because it is
+a financial record already shown to a partner.
+
+Proven on real rig data rather than fixtures: merchant 273 on 17 Sept, both
+computations run, `orders=1 items_total=550.0 commission=68.75 net=481.25`,
+identical. (The statement row that QA created was removed afterwards.)
+
+### Why DELIVERED and not PICKED UP, which is not obvious
+
+Under Model A the courier hands the shop its cash at **pickup**, so "cash
+received from riders" looks like `merchant_paid_at`. It is not, and §5 is why:
+when food comes back *"the restaurant refunds him his advance and pays his
+fee"*. A picked-up order is money the shop is **holding and may have to hand
+straight back**, so counting it would overstate a day that one refusal reverses.
+Delivered is the point at which the shop keeps it. `in_the_kitchen` carries the
+difference rather than hiding it, because a shopkeeper comparing this screen to
+the drawer needs to know what is still out on the road.
+
+### A third plant came back green, and the reason is worth keeping
+
+`net_received` is summed from `merchant_payout`, never derived as
+`items_total - commission` — the statement's own reasoning. Planting the
+residual left **every example green**, because `Order` VALIDATES
+`merchant_payout == items_total - commission`, so nothing built through the app
+can tell the two apart.
+
+That validation is exactly why the residual looks harmless, and exactly why
+summing matters: **the check exists for a row that got in another way** — a
+migration, a console fix, a future bug. The discriminating example plants that
+row with `update_columns`, deliberately bypassing the validation.
+`docs/TESTING.md` asks whether a database state could occur through the app; the
+answer here is no, and that is the point.
+
+**Third time today a plant came back green**, after the `CourierReadiness`
+ordering and the dashboard's SMS rule. All three have one shape: **the fixture
+made the two implementations agree.** Single-fault couriers, a one-entry list, a
+validated invariant. A plant that does not go red is not a passing check — it is
+a check with no input that separates the alternatives, and the fix is always to
+find that input rather than to accept the green.
+
+## A FLAKY EXAMPLE, AND UNDERNEATH IT AN EXAMPLE THAT TESTED NOTHING
+
+`spec/models/otp_verification_spec.rb` — *"#expired? tracks the expiry
+boundary"* — failed once in a full suite run on a loaded box and passed on its
+own. It was written against a live clock:
+
+```ruby
+expect(build(:otp_verification, expires_at: 1.second.from_now)).not_to be_expired
+```
+
+`build` and the predicate straddled the boundary. That file takes 40 seconds for
+30 examples (bcrypt at cost 12), so a second elapsing between two lines is
+ordinary here rather than exotic.
+
+**A flaky example is the sibling of a check that cannot fail.** One is ignored
+because it never speaks, the other because it cries wolf, and both end with
+somebody scrolling past a red line. Fixed by freezing time, which tests the
+boundary exactly rather than widening the margin until the race is merely
+unlikely.
+
+### And freezing it exposed that the example never tested a boundary
+
+Flipping `expired?` from `expires_at <= Time.current` to `<` left **all thirty
+examples green**. One second either side does not test a boundary —
+`expires_at == Time.current` is the only input where the two differ, and nothing
+asserted it. The example was named for a case it did not cover.
+
+**A live clock could not have asserted it.** Hitting the exact instant is what
+freezing buys over and above killing the flake, so the fix and the finding are
+the same change. `<=` is the right direction: a one-time code that expires at T
+is unusable AT T.
+
+**Fourth plant today to come back green**, after the `CourierReadiness`
+ordering, the dashboard's SMS rule and the summed payout. The first three were
+fixtures that made two implementations agree; this one is the same idea in its
+simplest form — **an example that never supplied the input where the
+alternatives differ.** In every case the green plant was the finding, and
+accepting it would have left a check that reads as coverage and is not.

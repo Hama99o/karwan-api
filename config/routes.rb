@@ -259,6 +259,14 @@ Rails.application.routes.draw do
         # schedule the controller explains at length.
         resource :opening_hours, only: %i[show update], controller: "opening_hours"
 
+        # PRODUCT.md's fifth Restaurant screen, and the one nothing served:
+        # "Today — orders, items sold, cash received from riders, our
+        # commission. No charts." SINGULAR, because there is one today — a
+        # `resources` would invite a date parameter and a second history screen
+        # beside the statements below, which is how one question gets two
+        # answers.
+        resource :today, only: :show, controller: "today"
+
         # Read-only: statements are issued on a schedule so every shop's week is
         # cut at the same boundary, and re-issuing would defeat the snapshot.
         resources :statements, only: :index, controller: "statements"

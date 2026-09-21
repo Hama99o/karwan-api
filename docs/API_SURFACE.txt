@@ -23,6 +23,7 @@ GET    /api/v1/merchant/orders                              api/v1/merchants/ord
 GET    /api/v1/merchant/orders/:id                          api/v1/merchants/orders#show
 GET    /api/v1/merchant/profile                             api/v1/merchants/profiles#show
 GET    /api/v1/merchant/statements                          api/v1/merchants/statements#index
+GET    /api/v1/merchant/today                               api/v1/merchants/today#show
 GET    /api/v1/merchant_application                         api/v1/merchant_applications#show
 GET    /api/v1/public/app_config                            api/v1/public/app_config#show
 GET    /api/v1/public/merchant_categories                   api/v1/public/merchant_categories#index
