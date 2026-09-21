@@ -140,7 +140,7 @@ module Couriers
                  following.present? && reached.include?(following[:status_after])
         end
 
-        step.merge(completed: done)
+        step.merge(completed: done, at: completed_at_for(step, done))
       end
 
       current_assigned = false
@@ -154,6 +154,44 @@ module Couriers
 
     def statuses_reached
       @statuses_reached ||= @job.transitions.pluck(:to_status).to_set
+    end
+
+    # ── WHEN HE DID IT, NOT ONLY THAT HE DID ──────────────────────────────
+    #
+    # The stepper showed ticks and no times, while the CUSTOMER's timeline —
+    # built from the same transitions — showed both. That asymmetry is the
+    # wrong way round for the one party who is out of pocket: the courier
+    # advances his own money to the restaurant at step 2 and is repaid by the
+    # customer at step 4, so **he is the person who may later need to prove
+    # when he paid**. It is the same reasoning that makes the settlement screen
+    # show expected AND counted rather than only the variance — a man told only
+    # the conclusion cannot check it.
+    #
+    # THE SAME SOURCE as the customer's timeline, deliberately. Two
+    # computations of one moment is how two screens come to disagree, and here
+    # they would disagree about a handover of cash.
+    #
+    # EARLIEST WINS. `||=` keeps the first transition into a status, because the
+    # question is when it first happened; a later one overwriting it would give
+    # an answer that always looks recent.
+    def reached_at
+      @reached_at ||= @job.transitions.order(:created_at).each_with_object({}) do |transition, times|
+        times[transition.to_status] ||= transition.created_at
+      end
+    end
+
+    # ── A NAVIGATION STEP HAS NO MOMENT OF ITS OWN ────────────────────────
+    #
+    # "Go to the merchant" carries no transition. It is marked complete because
+    # the step it leads to is complete — *you have arrived when you have paid* —
+    # so the only time available is the PAYMENT's, and stamping it here would
+    # report the moment he handed over the money as the moment he arrived.
+    # Those are different facts and he may be asked about both. Nil is the
+    # honest answer, and the client renders a tick without a clock.
+    def completed_at_for(step, done)
+      return nil unless done && step[:status_after].present?
+
+      reached_at[step[:status_after]]
     end
 
     def coordinates(latitude, longitude)

@@ -651,12 +651,27 @@ defaulted to a container that is up on this box, once per feature.
   for 500" was simply wrong. Left here rather than deleted because the reason
   is the transferable part — **a money rule on the device is a money rule
   Hamma9900 cannot change.**
-- **`Couriers::JobSteps` sends `completed` but no timestamp per step.** The
-  courier's stepper therefore shows ticks and no times, while the customer's —
-  built from the transition log — shows both. Correct for a man being told what
-  to do next; add `at` if he ever needs to prove when he paid. **Still true:**
-  `app/services/couriers/job_steps.rb` merges `completed:` into each step and
-  no timestamp beside it.
+- ~~**`Couriers::JobSteps` sends `completed` but no timestamp per step.**~~
+  **CLOSED 2026-09-21.** The old note said "add `at` if he ever needs to prove
+  when he paid" — he does, and the asymmetry ran the wrong way: the CUSTOMER's
+  timeline showed times while the man who is **out of pocket** saw only ticks.
+  He advances his own money to the restaurant at step 2 and is repaid by the
+  customer at step 4, so he is the party who may later be asked when he paid.
+  Same reasoning as the settlement screen showing expected AND counted.
+
+  **Built from `@job.transitions`, the SAME source as the customer's timeline**,
+  and the spec asserts the two are EQUAL rather than each plausible — two
+  computations of one moment is how two screens come to disagree, and here they
+  would disagree about a handover of cash.
+
+  **A navigation step still carries no time, deliberately.** "Go to the
+  merchant" has no transition; it is complete because the step it leads to is —
+  *you have arrived when you have paid* — so the only time available is the
+  payment's, and stamping it there would report the moment he handed over money
+  as the moment he arrived. Two different facts, and he may be asked about both.
+
+  Does not foreclose correction 19: `at` is per-step data, so a batch is a
+  longer step list rather than a new shape.
 - **A `ready` order has nothing to say to the merchant.** No merchant action
   exists (the COURIER records the handover, which is the right side of the
   transaction to trust), so the card carries no button and no copy. It needs a
