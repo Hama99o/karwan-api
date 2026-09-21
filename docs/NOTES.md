@@ -333,17 +333,42 @@ Apple and Google require deletion to be available and honoured, not
 instantaneous, so a stated grace period is ordinary practice. The scope of the
 scrub is engineering and compliance rather than his call.
 
-### MERCHANT PROFILE IS READ-ONLY — `PATCH merchant/profile` DOES NOT EXIST
+### MERCHANT PROFILE — `PATCH merchant/profile` NOW EXISTS, WITH TWO FIELDS HELD BACK
 
-`GET /api/v1/merchant/profile` exists and nothing writes it, so **a shop cannot
-change its hours, phone, pin, logo or storefront photo after applying.** Every
-correction goes through an operator in the console today.
+**Built 2026-09-21.** A shop can correct `phone`, `description`,
+`prep_time_minutes` and `landmark_note`, and every change writes an audit row
+carrying before AND after — "prep time is 40" answers nothing without "it was
+15".
 
-Not built yet, deliberately: it is a contract ADDITION and the mobile session is
-mid-rewrite of the Profile screen. **Trigger: when Karwan reaches the merchant
-workspace, Hamma9901 pairs the two sides in one pass** — the serializer spec and
-`src/types/api.ts` moving together, per the paired-commit rule. A contract change
-landing on one side only is a broken app with green tests on both.
+The paired-commit concern that deferred this does not apply to an ADDITION:
+`show` is untouched, no existing field changes meaning, and a client that never
+calls PATCH is unaffected. The rule exists for contract CHANGES, where one side
+landing alone is a broken app with green tests on both.
+
+**`prep_time_minutes` is what earns the endpoint.** It feeds
+`Orders::ArrivalWindow`, so it is the number behind the range the CUSTOMER sees.
+Only the kitchen knows it is slammed tonight, and until now telling anyone meant
+ringing an operator — so the honest answer was the one nobody could give in a
+rush. Asserted end to end rather than at the column: change the prep time, and
+the customer's window moves.
+
+**STILL OPEN AND WORTH A DECISION: the map pin.** `latitude`/`longitude` are
+deliberately NOT editable here. Distance decides the delivery fee, and
+`MAP_AND_ROUTING.md` requires a fare to be explainable afterwards, so a shop
+nudging its own pin is a **money change wearing a profile edit's clothes** — it
+would move every future fare with nothing on the order saying why. Left with the
+operator.
+
+The open question is whether audited self-service would do instead, because the
+operator route has its own cost: a shop that moved premises waits on a human,
+and in the meantime every courier is sent to the old address. **The cost of
+each:** self-service needs the audit row to carry both pins and somebody to
+actually read it; operator-only needs a support channel that answers, which is
+`support_phone` and still empty. Neither is free and the choice is his.
+
+**Also not built:** opening hours (a collection on another table, its own
+endpoint and its own pass) and the logo/storefront photos (Active Storage
+uploads, the `me/avatar` pattern, separate surface).
 
 ### WHAT IS OPEN IS HAMMA9900'S — EXCEPT ONE LINE OF OURS
 

@@ -236,7 +236,11 @@ Rails.application.routes.draw do
         # PRODUCT.md calls the sold-out one "one tap from the order board" —
         # and a form that could fail validation for an unrelated reason must
         # not be able to leave a shop marked open that isn't.
-        resource :profile, only: :show, controller: "profiles" do
+        # `update` is ADDITIVE — `show` is untouched, so a client that never
+        # calls PATCH is unaffected. That is what made it safe to add while the
+        # mobile merchant workspace is still unbuilt, rather than waiting to
+        # pair the two sides: there is no existing field whose meaning changes.
+        resource :profile, only: %i[show update], controller: "profiles" do
           post :open_now
           post :close_now
         end

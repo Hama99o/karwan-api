@@ -35,6 +35,7 @@ PATCH  /api/v1/customer/addresses/:id                       api/v1/customers/add
 PATCH  /api/v1/me                                           api/v1/me#update
 PATCH  /api/v1/merchant/catalog_categories/:id              api/v1/merchants/catalog_categories#update
 PATCH  /api/v1/merchant/catalog_items/:id                   api/v1/merchants/catalog_items#update
+PATCH  /api/v1/merchant/profile                             api/v1/merchants/profiles#update
 POST   /api/v1/auth/otp                                     api/v1/auth/otp#create
 POST   /api/v1/auth/password_reset                          api/v1/auth/password_resets#create
 POST   /api/v1/auth/registration                            api/v1/auth/registrations#create
@@ -72,3 +73,4 @@ PUT    /api/v1/customer/addresses/:id                       api/v1/customers/add
 PUT    /api/v1/me                                           api/v1/me#update
 PUT    /api/v1/merchant/catalog_categories/:id              api/v1/merchants/catalog_categories#update
 PUT    /api/v1/merchant/catalog_items/:id                   api/v1/merchants/catalog_items#update
+PUT    /api/v1/merchant/profile                             api/v1/merchants/profiles#update
