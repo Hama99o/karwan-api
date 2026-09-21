@@ -4079,3 +4079,63 @@ KQA00004  rejected  out_of_stock  merchant_owner
 K277205   rejected  out_of_stock  merchant_owner
 K773419   rejected  no_answer     system
 ```
+
+## HANDOVER TO THE NEXT KARWAN MOBILE SESSION — A WIRE CHANGE IT CANNOT SEE COMING
+
+Written here because Karwan's mobile side was closed when this shipped, and a
+wire change with nobody to tell is how the `Role` mismatch happened: two types
+called the same thing, no translation, and nothing broken only because nothing
+had read the field yet.
+
+**Read `docs/API_VOCABULARY.md` for the vocabulary; this is the list of what
+moved and what it will break if ignored.**
+
+### 1 · A new field on three payloads: `ended_reason`
+
+An object or null, never a bare string:
+
+```json
+{ "outcome": "rejected", "code": "out_of_stock", "ended_by": "merchant_owner" }
+```
+
+Null on a live order and on a delivered one. It appears on:
+
+| payload | serializer |
+|---|---|
+| customer order detail | `customers/order_serializer.rb` |
+| customer order list | same, base fields — **the list carries it too** |
+| merchant order board | `merchants/order_serializer.rb` |
+
+`spec/serializers/payload_key_sets_spec.rb` holds the exact key set of each and
+will fail if a fourth payload gains it without being declared.
+
+- **`outcome` says WHICH vocabulary `code` came from** — `rejected`,
+  `cancelled` or `failed`, three separate enums. One client lookup merging them
+  collides the day two of them share a word.
+- **`ended_by` may be null, and null is not `system`.** `system` means a nil
+  actor did it — the timeout job. Null means no transition was recorded and
+  nothing knows who. Rendering null as "the system cancelled it" asserts a cause
+  the data does not carry.
+- **`code` may be `unknown`**, when the reason column was never filled.
+
+### 2 · THE TRAP: the merchant picker must offer FOUR reasons, not five
+
+`Order.rejection_reasons` has **five** values — `out_of_stock` `too_busy`
+`closing` `other` `no_answer`.
+
+`Order::MERCHANT_REJECTION_REASONS` has **four**. `no_answer` is written only by
+`Dispatch::JobTimeoutsJob`, about a shop that never replied, and
+`merchants/orders#reject` answers **422 `reason_required`** to it.
+
+**A mobile session building the reject sheet from the enum will find five, ship
+five, and one of them will always fail.** Build it from the four. The two lists
+are asserted against each other in `spec/config/api_vocabulary_spec.rb`, so the
+server side cannot drift; nothing on this side can see the client.
+
+### 3 · What `closing` used to mean, and what rows still say it
+
+Until this change the timeout job wrote `closing` — a shop's reason for shutting
+early — onto orders no shop had touched. **Rows written before the fix still
+carry it**, and cannot be distinguished by reason alone; the admin report splits
+by ACTOR for exactly that reason. A client should not infer "the shop is
+closing" from the code alone on a historical order.
