@@ -4327,3 +4327,33 @@ only matched literals, and this one missed a whole write surface because it
 looked for assignments. **A gate that scans source for a pattern cannot see a
 framework that writes generically from data.** Whenever a write happens because
 a symbol appears in a list, the gate has to read the list.
+
+## "REVOKE, NEVER DISPLAY" WAS A COMMENT IN routes.rb, AND NOTHING ENFORCED IT
+
+`config/routes.rb`, on the revoke-sessions action: *"A lost phone in a cash
+business: somebody can go on shift as that courier and collect our money.
+**Revoke, never display.**"* A real rule, stated once, held by nothing.
+
+Administrate RENDERS a page from a dashboard's attribute lists exactly as it
+WRITES from `FORM_ATTRIBUTES` — generically, from data. So a credential reaches
+a browser page by adding one symbol to an array. Same blind spot as the balance
+form, the other half of it: that gate closed the write, this closes the read.
+
+**The two are not equally bad, and the worse one is less obvious.**
+`encrypted_password` on a page is a bcrypt digest — embarrassing, not dangerous.
+`reset_password_token` is a **live credential**: anyone who reads it off a
+screen, a screenshot, or during a support call takes the account over. So is
+`token_digest`, which is what `UserSession` authenticates against.
+
+Nothing exposes any of them today — verified twice, at two layers. The gate
+reads the dashboard constants; the rendered pages on the rig were also fetched
+and scanned for bcrypt hashes and each column name, and came back clean. Those
+are different checks: a `display_resource` that interpolated a token would pass
+the first and fail the second.
+
+**Derived from the schema, not from a list.** The protected-column gate names
+its columns because "may an operator edit this" is a product judgement. A
+credential is recognisable from its name, so this one matches a shape and names
+the EXCEPTIONS instead — one entry, `reset_password_sent_at`, which is a fact
+about a request rather than the secret. A column added by a future migration is
+covered the day it appears rather than the day somebody remembers to list it.
