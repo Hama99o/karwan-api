@@ -21,7 +21,7 @@ class Setting < ApplicationRecord
   DEFAULT_OFFER_RADIUS_KM = "8.0".freeze
 
   DEFINITIONS = {
-    "commission_rate"        => { type: :decimal, default: "0.125", description: "Platform share of the food total (0.125 = 12.5%)" },
+    "commission_rate"        => { type: :decimal, default: "0.125", description: "The STANDARD share of the food total a NEW shop is onboarded at (0.125 = 12.5%). Each merchant then carries its own rate — editing this changes what the next shop is offered, never what an existing one is paid." },
     # Delivery fee, distance-based. Replaces an earlier flat `delivery_fee`,
     # per Hamma9900: "we will do a simple algorithm, we will test how many
     # kilometers". Two mechanisms would mean code deciding which to trust, so

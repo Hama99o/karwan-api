@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_21_151905) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_21_170703) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -301,7 +301,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_21_151905) do
   end
 
   create_table "merchants", force: :cascade do |t|
-    t.decimal "commission_rate", precision: 5, scale: 4, default: "0.125", null: false
+    t.decimal "commission_rate", precision: 5, scale: 4, null: false
     t.string "contact_person_name"
     t.string "contact_person_phone"
     t.datetime "created_at", null: false

@@ -275,4 +275,98 @@ RSpec.describe Merchant, type: :model do
       expect(shop.hours_known?).to be(false)
     end
   end
+
+  # ── THE STANDARD RATE, WHICH WAS A DEAD ROW ON THE CONFIG SCREEN ──────────
+  #
+  # CLAUDE.md asks for both a per-restaurant commission rate AND commission % as
+  # an admin-editable setting that "gets tuned weekly". It was neither: the
+  # column is `null: false` with a DATABASE default, so a new shop took 0.125
+  # from the schema and `Setting.fetch("commission_rate")` was called by nothing
+  # in the whole app. Hamma9900 could set that row to 0.20 and every shop he
+  # onboarded afterwards would still be at 0.125.
+  describe "the standard commission rate" do
+    # Built without the factory's `commission_rate`, which states 0.125
+    # explicitly — and an explicit value is exactly what this callback must not
+    # override. Using the factory here would test nothing.
+    def onboard(attrs = {})
+      described_class.create!({ name: "Shop #{SecureRandom.hex(3)}", phone: "+9370#{rand(1_000_000..9_999_999)}",
+                                latitude: 34.5, longitude: 69.2,
+                                merchant_kind: MerchantKind.first || create(:merchant_kind) }.merge(attrs))
+    end
+
+    def standard!(value)
+      Setting.find_or_initialize_by(key: "commission_rate").update!(value: value, value_type: :decimal)
+    end
+
+    it "onboards a new shop at the standard, not at the schema's default" do
+      standard!("0.2")
+
+      shop = onboard
+
+      expect(shop.commission_rate).to eq(BigDecimal("0.2")),
+                                      "the shop took the database default, so the Config screen changes nothing"
+    end
+
+    # ── THE PATH THIS EXISTS FOR, AND IT WAS DEAD ────────────────────────
+    #
+    # The ops console's new-merchant form carried a `commission_rate` field
+    # pre-filled from the column default, so every console onboarding "supplied"
+    # a rate and the standard never applied. Found on the rig, not here — the
+    # earlier examples all passed because they never sent a blank field.
+    #
+    # An empty number input submits "", which is what this plants.
+    it "applies the standard when the console form is left blank" do
+      standard!("0.2")
+
+      shop = onboard(commission_rate: "")
+
+      expect(shop.commission_rate).to eq(BigDecimal("0.2")),
+                                      "a blank field counts as a supplied rate, so the standard is skipped"
+    end
+
+    # And the reason the blank case exists at all: nothing may put the column
+    # default back, because the form reads it and submits it.
+    it "has no column default competing with the standard" do
+      expect(described_class.columns_hash["commission_rate"].default).to be_nil,
+                                                                        "the schema default is back — the console " \
+                                                                        "form will pre-fill and submit it, and the " \
+                                                                        "standard will never apply again"
+      expect(described_class.new.commission_rate).to be_nil
+    end
+
+    it "leaves a shop onboarded at its own negotiated rate alone" do
+      standard!("0.2")
+
+      shop = onboard(commission_rate: 0.08)
+
+      expect(shop.commission_rate).to eq(BigDecimal("0.08"))
+    end
+
+    # ON CREATE ONLY, and this is the half that matters. A shop's rate is what
+    # it agreed to. Re-reading the setting later would let one edit rewrite what
+    # every existing shop is paid, retroactively — the shape one-way door 1
+    # exists to prevent.
+    it "never rewrites what an existing shop already agreed to" do
+      shop = onboard
+      before = shop.commission_rate
+
+      standard!("0.4")
+      shop.update!(name: "Existing, renamed")
+
+      expect(shop.reload.commission_rate).to eq(before),
+                                             "raising the standard has changed what an existing shop is paid"
+    end
+
+    # The validation runs AFTER the callback, so a standard nobody can honour is
+    # refused at the merchant rather than stored and discovered on an order.
+    it "refuses to onboard against an impossible standard" do
+      standard!("1.5")
+
+      shop = described_class.new(name: "Impossible", phone: "+93700001237", latitude: 34.5, longitude: 69.2,
+                                 merchant_kind: MerchantKind.first || create(:merchant_kind))
+
+      expect(shop).not_to be_valid
+      expect(shop.errors[:commission_rate]).to be_present
+    end
+  end
 end

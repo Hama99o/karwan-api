@@ -4202,3 +4202,74 @@ Three ways to go, with what each costs:
 
 Not built. The contradiction above is fixed either way — it was wrong under all
 three.
+
+## THE CONFIG SCREEN HAD TWO ROWS THAT DID NOTHING, AND ONE THAT LIED
+
+Correction 13's promise is that Hamma9900 "retunes prices from the admin console
+with no deploy". Three ways that was not true, all found by reading
+`Setting::DEFINITIONS` against the code and then against the rig.
+
+### 1 · `commission_rate` was read by nothing at all
+
+The row is named after the most important number in the business. Nothing
+fetched it. `merchants.commission_rate` is `null: false` with a **database**
+default of 0.125, so a new shop took its rate from the schema and the setting
+was decoration. He could set it to 0.20 and every shop onboarded afterwards
+would still be at 0.125.
+
+CLAUDE.md asks for both — a rate per restaurant, and commission % among the
+"settings rows, editable by admin". The only reading in which both sentences are
+true: **the setting is the standard rate a new shop onboards at; the column is
+that shop's own.** Wired on create only — a shop's rate is what it agreed to,
+and re-reading the setting later would let one edit rewrite what every existing
+shop is paid.
+
+**AND IT WAS STILL DEAD AFTER I WIRED IT.** The ops console's new-merchant form
+carries a `commission_rate` field, which Administrate pre-filled from the column
+default and submitted — so every console onboarding "supplied" a rate and the
+standard never applied. Measured on the rig; **no spec would have caught it**,
+because a spec constructs the model directly and never sends a form. Fixed by
+dropping the column default so the field renders empty, and by treating a blank
+submission as "no rate supplied", which is what an empty number input sends.
+
+Verified end to end through the real console: standard set to 0.18 on the Config
+screen → shop onboarded with the rate left blank → created at **0.18**.
+
+### 2 · `delivery_fee` and `courier_fee` were rows nothing *could* read
+
+Left behind when the single fee became the two-part tariff. Neither key is in
+`DEFINITIONS` any more, so `Setting.fetch` raises `KeyError` on both — they were
+not merely unused but **unreadable**, and they were the two names he would look
+for first. A migration deletes them, and the Config screen is now scoped to keys
+`DEFINITIONS` knows, so a third cannot be reached even if it survives.
+Administrate's `find_resource` is `scoped_resource.find`, so that covers show
+and edit as well as the list.
+
+### 3 · Nothing would have stopped a fourth
+
+`spec/models/every_setting_is_read_spec.rb` now fails on any `DEFINITIONS` key
+no code reads. Two lists, both checked rather than trusted: keys built by
+interpolation name the file and the fragment that builds them, **and the spec
+asserts that fragment is really there**; keys deliberately unwired name the
+reason. `batch_max_jobs` is the only one — correction 19, batching is not in v0,
+and its description invites raising it to 3, which today does nothing.
+
+**The gate took three attempts and the first two could not fail.** Version one
+searched `app/` for the key and passed for everything, because
+`Setting::DEFINITIONS` is itself in `app/` — the definition was being read as a
+use, so it reported zero dead rows at the moment there were two. Version two
+tried to be clever about interpolated keys by accepting any prefix found in the
+source, which swallowed the check from the other end: `delivery_base_fee_on_
+tuesdays` passed because `delivery_base_fee` is read. Same failure twice — a
+matcher widened until nothing could fail it. The version that shipped has no
+cleverness and an example that runs the rule against a source missing a key it
+must catch.
+
+### A structural note, not a bug today
+
+`bin/docker-entrypoint` runs `db:prepare`, which seeds only a FRESH database. So
+on an existing deploy a key added to `DEFINITIONS` gets **no row**, and
+`Setting.fetch` quietly serves the definition default — the app is correct and
+the number is invisible and uneditable on the Config screen. Zero such keys on
+the rig today because it was seeded recently. Worth knowing before the first
+setting added after launch.

@@ -177,6 +177,10 @@ class Merchant < ApplicationRecord
   validates :prep_time_minutes, numericality: { greater_than: 0 }, allow_nil: true
   validates :commission_rate, numericality: { greater_than_or_equal_to: 0, less_than: 1 }
 
+  # Before validation, so an out-of-range standard is refused at the merchant
+  # rather than stored and discovered on an order.
+  before_validation :apply_standard_commission_rate, on: :create
+
   has_many :statements, class_name: MerchantStatement.name, dependent: :destroy, inverse_of: :merchant
 
   scope :listed,       -> { kept.status_active }
@@ -257,6 +261,46 @@ class Merchant < ApplicationRecord
 
   def commission_on(items_total)
     (items_total * commission_rate).round(2)
+  end
+
+  # ── THE STANDARD RATE A NEW SHOP ONBOARDS AT ──────────────────────────────
+  #
+  # CLAUDE.md asks for BOTH: a commission rate per restaurant, and commission %
+  # among the "settings rows, editable by admin" that "get tuned weekly". The
+  # only reading in which both sentences are true is the one here — the setting
+  # is the STANDARD rate, the column is this shop's own.
+  #
+  # It was neither. `merchants.commission_rate` is `null: false` with a DATABASE
+  # default of 0.125, so a new shop took its rate from the schema and the
+  # `commission_rate` Setting was read by nothing at all — a row on the Config
+  # screen, named after the most important number in the business, that
+  # Hamma9900 could set to 0.20 and watch change nothing. Setting's own file
+  # says why that is the worst kind of row: *"a dead price key on the Config
+  # screen is a number Hamma9900 would type and watch do nothing."*
+  #
+  # ON CREATE ONLY, and that is the important half. A shop's rate is what it
+  # agreed to; re-reading the setting later would let one edit rewrite what
+  # every existing shop is paid, retroactively, which is the shape one-way door
+  # 1 exists to prevent. Changing the standard changes what the NEXT shop is
+  # offered and nothing else.
+  #
+  # ── "NO USABLE VALUE", WHICH IS TWO STATES AND NOT ONE ────────────────────
+  #
+  # Written first as `came_from_user?` alone, and QA on the rig found it dead on
+  # the only path that matters. The console's new-merchant form had a
+  # `commission_rate` field pre-filled from the column default and submitted it,
+  # so every console onboarding "supplied" a rate and the standard never
+  # applied. A migration drops that default; this then has to handle what an
+  # empty form field actually sends, which is a blank string rather than nothing
+  # at all.
+  #
+  # So the rule is the plain one: **apply the standard unless a usable rate was
+  # supplied.** Not mentioned, or mentioned blank, both mean the same thing to
+  # the person filling in the form.
+  def apply_standard_commission_rate
+    return if commission_rate_came_from_user? && commission_rate.present?
+
+    self.commission_rate = Setting.fetch("commission_rate")
   end
 
   private

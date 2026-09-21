@@ -160,4 +160,61 @@ RSpec.describe "Admin config reachability", type: :request do
       expect(Setting.fetch("courier_min_earnings_per_km")).to eq(25)
     end
   end
+
+  # ── A ROW NOTHING CAN READ MUST NOT BE ON THE SCREEN ──────────────────────
+  #
+  # `Setting.fetch` raises `KeyError` on a key that is not in `DEFINITIONS`,
+  # deliberately, so a silent nil never becomes a zero fee. That makes such a
+  # row UNREADABLE rather than merely unused — and the Config screen listed two
+  # of them, `delivery_fee` and `courier_fee`, left behind when the single fee
+  # became a two-part tariff. Both were editable, and both were the name
+  # Hamma9900 would look for first.
+  describe "a key nothing can read" do
+    # The readable rows have to exist for the "not listed" assertion to mean
+    # anything — without them the screen is empty and every `not_to include`
+    # passes. The guard inside that example caught exactly this.
+    before { Setting.seed_defaults! }
+
+    let!(:orphan) do
+      Setting.create!(key: "delivery_fee", value: "100", value_type: :decimal,
+                      description: "left behind by the two-part tariff")
+    end
+
+    it "is refused by Setting.fetch, which is what makes it unreadable" do
+      expect { Setting.fetch("delivery_fee") }.to raise_error(KeyError),
+                                                 "plant a key the app cannot read, or this proves nothing"
+    end
+
+    it "is not listed on the Config screen" do
+      get "/admin/settings", params: { per_page: 100 }
+
+      expect(response.body).to include("delivery_base_fee"), "the list is empty — the check below is vacuous"
+      expect(response.body).not_to match(/(?<![a-z_])delivery_fee(?![a-z_])/),
+                                       "a number Hamma9900 can type that no code path could consult"
+    end
+
+    # A scoped index with an unscoped find leaves the row reachable by typing
+    # its id into the address bar, and the edit form would then accept a value
+    # for a key nothing reads. Administrate's `find_resource` is
+    # `scoped_resource.find`, so scoping the one covers the three — asserted
+    # rather than assumed.
+    it "cannot be reached, shown or edited by its id" do
+      %W[/admin/settings/#{orphan.id} /admin/settings/#{orphan.id}/edit].each do |path|
+        get path
+        expect(response).to have_http_status(:not_found), "#{path} still reaches a dead row"
+      end
+
+      patch "/admin/settings/#{orphan.id}", params: { setting: { value: "999" } }
+      expect(response).to have_http_status(:not_found)
+      expect(orphan.reload.value).to eq("100")
+    end
+
+    it "still shows every key that IS readable" do
+      get "/admin/settings", params: { per_page: 100 }
+
+      %w[commission_rate delivery_base_fee delivery_fee_per_km cash_in_hand_limit].each do |key|
+        expect(response.body).to include(key), "#{key} is readable and has gone missing from the screen"
+      end
+    end
+  end
 end
