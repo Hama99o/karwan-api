@@ -47,14 +47,49 @@ RSpec.describe "what both sides know before the door opens" do
       expect(collect[:bring_change_for]).to be_nil
     end
 
-    # A ride collects a fare and advances nothing; the step list is different
-    # and must not grow a delivery's field by accident.
-    it "leaves the ride steps alone" do
-      trip = create(:trip, :in_progress, courier: courier)
+    # ── REVERSED ON 23 SEPT 2026, AND THE OLD PIN IS KEPT HERE ─────────────
+    #
+    # This example used to assert that NO ride step carries `bring_change_for`,
+    # for the stated reason: *"A ride collects a fare and advances nothing; the
+    # step list is different and must not grow a delivery's field by accident."*
+    #
+    # The guard was against COPY-PASTE DRIFT and that half is right and is kept
+    # below. The conclusion did not follow from it. *"A ride advances nothing"*
+    # is the argument for having no PAY step — and it is correct for that. It
+    # says nothing about the COLLECT step, because change advice is about the
+    # cash taken at the door, not the cash put up at the shop.
+    #
+    # This file's own heading is what decided it: AFGHAN_UX §6, *"the exact cash
+    # amount on the courier's screen AND the customer's, **plus whether change
+    # is needed**. People carry particular notes."* That is a question about the
+    # person who must produce change at a door, and a driver finishing a 160 AFN
+    # fare against a 500 note is at that door. `CLAUDE.md` correction 8 puts
+    # rides under the same model — *"the courier collects the fare in cash"* —
+    # and its own policy list says *"no change → riders carry a change float."*
+    #
+    # Found by capturing the payload rather than by reading: the ride's collect
+    # step simply had no such key, while the rider's on the same screen did.
+    it "tells a driver about change too, on the step where cash changes hands" do
+      trip = create(:trip, :in_progress, courier: courier, fare: 160, commission: 20,
+                                  courier_earnings: 140)
 
-      Couriers::JobSteps.new(trip).call.each do |step|
-        expect(step).not_to have_key(:bring_change_for)
-      end
+      collect = Couriers::JobSteps.new(trip).call.find { |s| s[:key] == "complete_and_collect" }
+
+      expect(collect[:bring_change_for].to_f).to eq(500),
+                                                 "the driver is the one who has to produce it"
+    end
+
+    # THE HALF OF THE OLD PIN THAT WAS ALWAYS RIGHT, stated as what it meant.
+    # A ride must not grow a DELIVERY's fields — the ones that describe
+    # advancing money to a shop and finding a customer's door.
+    it "still does not grow the fields a delivery has and a ride cannot" do
+      trip = create(:trip, :in_progress, courier: courier, fare: 160, commission: 20,
+                                  courier_earnings: 140)
+      steps = Couriers::JobSteps.new(trip).call
+
+      expect(steps.map { |step| step[:amount_direction] }).not_to include("pay"),
+                                                                 "a driver is being asked to hand a passenger money"
+      expect(steps.flat_map(&:keys).uniq).not_to include(:has_voice_note, :voice_note_url, :place_name)
     end
   end
 

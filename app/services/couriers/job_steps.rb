@@ -108,6 +108,14 @@ module Couriers
     # Three legs: to the passenger, start, finish and take the fare. Nothing is
     # advanced, which is why there is no pay step — and why a courier too short
     # for a delivery can still take a ride.
+    #
+    # BUT THE CASH AT THE END IS THE SAME CASH. Correction 8: *"Model A applies
+    # to rides too — same wallet, same commission, simpler flow"*, and the
+    # courier *"collects the fare in cash"*. So the collect step here carries
+    # the same change advice the delivery's does — it was missing, and a driver
+    # taking a 160 AFN fare from a 500 note was the only person on this screen
+    # never told to carry a float. `AFGHAN_UX.md` §6 asks the question of the
+    # COURIER, not of the demand type.
     def ride_steps
       [
         {
@@ -135,7 +143,11 @@ module Couriers
           landmark_note: @job.dropoff_landmark_note,
           phone: @job.passenger_phone,
           amount: @job.fare,
-          amount_direction: "collect"
+          amount_direction: "collect",
+          # Same method as the delivery's and as the customer's quote, so no two
+          # screens can advise differently about one journey. Nil on a round
+          # hundred, which is the case a float already covers.
+          bring_change_for: Monetary.change_advice(@job.fare)
         }
       ]
     end

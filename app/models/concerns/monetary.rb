@@ -34,11 +34,26 @@ module Monetary
   # Otherwise the next multiple of 500 — the note people actually carry — which
   # is 500 for a 450 total, exactly as the walkthrough says, and 1,500 for
   # 1,250, which a flat "have change for 500" got wrong.
+  # ── AND IT COMES BACK AS AN AMOUNT, NOT AS A NUMBER ──────────────────────
+  #
+  # `.ceil` on a BigDecimal returns an **Integer**, and Integer × Integer is an
+  # Integer — so this used to serialise as a bare `500` in three payloads, each
+  # time beside an `amount` rendered `"445.0"`. `docs/API_VOCABULARY.md` states
+  # the rule it was breaking: *"every amount is a JSON string ("500.0"), never a
+  # number."* Two shapes for one idea, in one object, in the same breath.
+  #
+  # It was invisible because every committed example happened to have a round
+  # hundred and got `nil`. The courier-job capture is what showed it, with a
+  # 160 AFN fare.
+  #
+  # `.to_d` at the end, rather than at each call site: the rule belongs where
+  # the number is made. Value-equal to the Integer it replaces, so
+  # `expect(...).to eq(1000)` still holds.
   def self.change_advice(total)
     amount = total.to_d
     return nil if amount <= 0 || (amount % 100).zero?
 
-    (amount / CHANGE_STEP).ceil * CHANGE_STEP
+    ((amount / CHANGE_STEP).ceil * CHANGE_STEP).to_d
   end
 
   # How far the parts may miss the whole before a record is rejected: one minor

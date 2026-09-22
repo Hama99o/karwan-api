@@ -1,0 +1,103 @@
+{
+  "job": {
+    "id": 1,
+    "advance_required": "350.0",
+    "arrival_window": {
+      "from": "2026-09-22T20:10:00.000+04:30",
+      "to": "2026-09-22T20:25:00.000+04:30",
+      "basis": "measured"
+    },
+    "arrived_at": null,
+    "can_be_combined": true,
+    "code": "K000042",
+    "currency": "AFN",
+    "earnings": "100.0",
+    "items": [
+      {
+        "name": "Chicken Kabab",
+        "quantity": 1,
+        "options": []
+      }
+    ],
+    "kind": "delivery",
+    "problem_reasons": [
+      "customer_refused",
+      "nobody_home",
+      "customer_unreachable",
+      "wrong_address",
+      "other"
+    ],
+    "service_tier": "normal",
+    "status": "picked_up",
+    "steps": [
+      {
+        "key": "go_to_merchant",
+        "label_key": "courier.steps.go_to_merchant",
+        "status_after": null,
+        "location": {
+          "latitude": "34.5553",
+          "longitude": "69.2075"
+        },
+        "landmark_note": "دروازه آبی، نزدیک پارک",
+        "place_name": "کباب شهر نو",
+        "phone": "+93780000000",
+        "amount": null,
+        "completed": true,
+        "at": null,
+        "current": false
+      },
+      {
+        "key": "pay_merchant",
+        "label_key": "courier.steps.pay_merchant",
+        "status_after": "picked_up",
+        "location": {
+          "latitude": "34.5553",
+          "longitude": "69.2075"
+        },
+        "place_name": "کباب شهر نو",
+        "phone": "+93780000000",
+        "amount": "350.0",
+        "amount_direction": "pay",
+        "completed": true,
+        "at": "2026-09-22T20:00:00.000+04:30",
+        "current": false
+      },
+      {
+        "key": "go_to_customer",
+        "label_key": "courier.steps.go_to_customer",
+        "status_after": null,
+        "location": {
+          "latitude": "34.531",
+          "longitude": "69.168"
+        },
+        "landmark_note": "منزل سوم، پشت مسجد",
+        "has_voice_note": false,
+        "voice_note_seconds": null,
+        "voice_note_url": null,
+        "phone": "+93770000000",
+        "amount": null,
+        "completed": false,
+        "at": null,
+        "current": true
+      },
+      {
+        "key": "collect_and_deliver",
+        "label_key": "courier.steps.collect_and_deliver",
+        "status_after": "delivered",
+        "location": {
+          "latitude": "34.531",
+          "longitude": "69.168"
+        },
+        "landmark_note": "منزل سوم، پشت مسجد",
+        "phone": "+93770000000",
+        "amount": "500.0",
+        "amount_direction": "collect",
+        "bring_change_for": null,
+        "completed": false,
+        "at": null,
+        "current": false
+      }
+    ],
+    "total_to_collect": "500.0"
+  }
+}

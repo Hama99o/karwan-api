@@ -1,0 +1,72 @@
+{
+  "job": {
+    "id": 1,
+    "advance_required": 0,
+    "arrival_window": null,
+    "arrived_at": null,
+    "can_be_combined": true,
+    "code": "R000042",
+    "currency": "AFN",
+    "earnings": "140.0",
+    "items": [],
+    "kind": "ride",
+    "problem_reasons": [
+      "passenger_no_show",
+      "passenger_unreachable",
+      "passenger_refused",
+      "unsafe",
+      "other"
+    ],
+    "service_tier": "normal",
+    "status": "accepted",
+    "steps": [
+      {
+        "key": "go_to_pickup",
+        "label_key": "courier.steps.go_to_pickup",
+        "status_after": "arrived",
+        "location": {
+          "latitude": "34.5553",
+          "longitude": "69.2075"
+        },
+        "landmark_note": "سرک دوم، کنار نانوایی",
+        "phone": "+93770000000",
+        "amount": null,
+        "completed": false,
+        "at": null,
+        "current": true
+      },
+      {
+        "key": "start_ride",
+        "label_key": "courier.steps.start_ride",
+        "status_after": "in_progress",
+        "location": {
+          "latitude": "34.5553",
+          "longitude": "69.2075"
+        },
+        "phone": "+93770000000",
+        "amount": null,
+        "completed": false,
+        "at": null,
+        "current": false
+      },
+      {
+        "key": "complete_and_collect",
+        "label_key": "courier.steps.complete_and_collect",
+        "status_after": "completed",
+        "location": {
+          "latitude": "34.51",
+          "longitude": "69.155"
+        },
+        "landmark_note": "چهارراهی، مقابل دواخانه",
+        "phone": "+93770000000",
+        "amount": "160.0",
+        "amount_direction": "collect",
+        "bring_change_for": "500.0",
+        "completed": false,
+        "at": null,
+        "current": false
+      }
+    ],
+    "total_to_collect": "160.0"
+  }
+}
