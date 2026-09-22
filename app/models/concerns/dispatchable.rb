@@ -65,7 +65,7 @@ module Dispatchable
     # `#state_entered_at`, so a row whose state column is somehow nil is still
     # judged rather than silently treated as fresh.
     scope :overdue, -> { where(overdue_condition) }
-    scope :newest_first, -> { order(created_at: :desc) }
+    scope :newest_first, -> { order(created_at: :desc, id: :desc) }
     scope :for_courier, ->(courier) { where(courier: courier) }
     # Money that has not yet reached us, whatever the payment method.
     scope :unsettled, -> { where(payment_status: %i[pending collected]) }

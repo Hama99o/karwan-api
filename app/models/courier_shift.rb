@@ -15,7 +15,7 @@ class CourierShift < ApplicationRecord
   validate  :ends_after_it_starts
 
   scope :open_now, -> { where(ended_at: nil) }
-  scope :newest_first, -> { order(started_at: :desc) }
+  scope :newest_first, -> { order(started_at: :desc, id: :desc) }
 
   # Shifts that were open at any point inside the window. A shift that began
   # before the window and is still open counts, which is the common case for

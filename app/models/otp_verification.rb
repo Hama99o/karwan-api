@@ -28,7 +28,7 @@ class OtpVerification < ApplicationRecord
 
   scope :for_phone, ->(phone) { where(phone: phone) }
   scope :live, -> { where(consumed_at: nil).where(expires_at: Time.current..) }
-  scope :newest_first, -> { order(created_at: :desc) }
+  scope :newest_first, -> { order(created_at: :desc, id: :desc) }
 
   # How many codes this number may still be sent, and when the next one is
   # allowed. Nil `retry_after` means "now".

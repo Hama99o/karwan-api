@@ -14,7 +14,7 @@ class Settlement < ApplicationRecord
   validates :counted_by_name, presence: true
   validates :settled_at, presence: true
 
-  scope :newest_first, -> { order(settled_at: :desc) }
+  scope :newest_first, -> { order(settled_at: :desc, id: :desc) }
   scope :mismatched,   -> { where.not("counted_amount = expected_amount") }
 
   def variance

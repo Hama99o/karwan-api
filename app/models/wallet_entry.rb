@@ -42,7 +42,7 @@ class WalletEntry < ApplicationRecord
   validates :balance_after, numericality: true
 
   scope :chronological, -> { order(:created_at) }
-  scope :newest_first,  -> { order(created_at: :desc) }
+  scope :newest_first,  -> { order(created_at: :desc, id: :desc) }
 
   # Never sum a mixed-currency relation. Group by it and let the caller decide
   # what to do with more than one group.

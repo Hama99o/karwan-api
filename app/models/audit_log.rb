@@ -18,7 +18,7 @@ class AuditLog < ApplicationRecord
 
   validates :action, presence: true
 
-  scope :newest_first, -> { order(created_at: :desc) }
+  scope :newest_first, -> { order(created_at: :desc, id: :desc) }
   scope :for_action, ->(action) { where(action: action) }
 
   # Logging must never be the reason an action fails — but a swallowed

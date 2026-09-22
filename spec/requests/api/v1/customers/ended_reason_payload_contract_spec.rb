@@ -9,15 +9,26 @@ require "rails_helper"
 # `ended_reason` is the subtlest contract in the API and the one a prose
 # description cannot carry, because **prose has no way to say that null here and
 # null there are different facts.** The fixture puts all of them in ONE
-# response, three rows apart, where a client can see them together:
+# response, three rows apart, where a client can see them together — newest
+# first, the order the endpoint serves them in:
 #
-#   K000001  rejected   out_of_stock           ended_by "merchant_owner"
-#   K000002  rejected   no_answer              ended_by "system"      ← a machine
-#   K000003  cancelled  customer_changed_mind  ended_by "customer"
-#   K000004  failed     nobody_home            ended_by "courier"
-#   K000005  rejected   too_busy               ended_by NULL          ← nothing knows
-#   K000006  delivered  ended_reason NULL                             ← nothing to explain
 #   K000007  preparing  ended_reason NULL                             ← not over yet
+#   K000006  delivered  ended_reason NULL                             ← nothing to explain
+#   K000005  rejected   too_busy               ended_by NULL          ← nothing knows
+#   K000004  failed     nobody_home            ended_by "courier"
+#   K000003  cancelled  customer_changed_mind  ended_by "customer"
+#   K000002  rejected   no_answer              ended_by "system"      ← a machine
+#   K000001  rejected   out_of_stock           ended_by "merchant_owner"
+#
+# ── THE ROW ORDER IS PART OF THE CONTRACT, AND IT DID NOT USED TO BE ──────
+#
+# The first capture of this fixture pinned the rows ASCENDING, which is not
+# what `newest_first` means and was never what the endpoint promised. Under
+# `travel_to` all seven share `created_at` to the microsecond, so
+# `order(created_at: :desc)` was a tie for every row and Postgres was free to
+# answer differently each run — it did, on a later seed, and this example is
+# what caught it. `newest_first` now breaks ties on `id`, so there is an order
+# to pin. See `spec/models/every_newest_first_is_a_total_order_spec.rb`.
 #
 # ── THE THREE DISTINCTIONS, AND WHAT EACH COSTS IF A CLIENT COLLAPSES IT ──
 #
