@@ -1,0 +1,159 @@
+{
+  "orders": [
+    {
+      "id": 1,
+      "amount_to_pay_in_cash": "500.0",
+      "code": "K000001",
+      "courier_arrived_at": null,
+      "currency": "AFN",
+      "customer_total": "500.0",
+      "delivery_fee": "100.0",
+      "ended_reason": {
+        "outcome": "rejected",
+        "code": "out_of_stock",
+        "ended_by": "merchant_owner"
+      },
+      "is_live": false,
+      "item_count": 1,
+      "items_total": "400.0",
+      "merchant_id": 1,
+      "merchant_name": "کباب شهر نو",
+      "placed_at": "2026-09-22T15:00:00.000+04:30",
+      "status": "rejected",
+      "suggested_notes": null
+    },
+    {
+      "id": 2,
+      "amount_to_pay_in_cash": "500.0",
+      "code": "K000002",
+      "courier_arrived_at": null,
+      "currency": "AFN",
+      "customer_total": "500.0",
+      "delivery_fee": "100.0",
+      "ended_reason": {
+        "outcome": "rejected",
+        "code": "no_answer",
+        "ended_by": "system"
+      },
+      "is_live": false,
+      "item_count": 1,
+      "items_total": "400.0",
+      "merchant_id": 1,
+      "merchant_name": "کباب شهر نو",
+      "placed_at": "2026-09-22T16:00:00.000+04:30",
+      "status": "rejected",
+      "suggested_notes": null
+    },
+    {
+      "id": 3,
+      "amount_to_pay_in_cash": "500.0",
+      "code": "K000003",
+      "courier_arrived_at": null,
+      "currency": "AFN",
+      "customer_total": "500.0",
+      "delivery_fee": "100.0",
+      "ended_reason": {
+        "outcome": "cancelled",
+        "code": "customer_changed_mind",
+        "ended_by": "customer"
+      },
+      "is_live": false,
+      "item_count": 1,
+      "items_total": "400.0",
+      "merchant_id": 1,
+      "merchant_name": "کباب شهر نو",
+      "placed_at": "2026-09-22T17:00:00.000+04:30",
+      "status": "cancelled",
+      "suggested_notes": null
+    },
+    {
+      "id": 4,
+      "amount_to_pay_in_cash": "500.0",
+      "code": "K000004",
+      "courier_arrived_at": null,
+      "currency": "AFN",
+      "customer_total": "500.0",
+      "delivery_fee": "100.0",
+      "ended_reason": {
+        "outcome": "failed",
+        "code": "nobody_home",
+        "ended_by": "courier"
+      },
+      "is_live": false,
+      "item_count": 1,
+      "items_total": "400.0",
+      "merchant_id": 1,
+      "merchant_name": "کباب شهر نو",
+      "placed_at": "2026-09-22T18:00:00.000+04:30",
+      "status": "failed",
+      "suggested_notes": null
+    },
+    {
+      "id": 5,
+      "amount_to_pay_in_cash": "500.0",
+      "code": "K000005",
+      "courier_arrived_at": null,
+      "currency": "AFN",
+      "customer_total": "500.0",
+      "delivery_fee": "100.0",
+      "ended_reason": {
+        "outcome": "rejected",
+        "code": "too_busy",
+        "ended_by": null
+      },
+      "is_live": false,
+      "item_count": 1,
+      "items_total": "400.0",
+      "merchant_id": 1,
+      "merchant_name": "کباب شهر نو",
+      "placed_at": "2026-09-22T18:30:00.000+04:30",
+      "status": "rejected",
+      "suggested_notes": null
+    },
+    {
+      "id": 6,
+      "amount_to_pay_in_cash": "500.0",
+      "code": "K000006",
+      "courier_arrived_at": null,
+      "currency": "AFN",
+      "customer_total": "500.0",
+      "delivery_fee": "100.0",
+      "ended_reason": null,
+      "is_live": false,
+      "item_count": 1,
+      "items_total": "400.0",
+      "merchant_id": 1,
+      "merchant_name": "کباب شهر نو",
+      "placed_at": "2026-09-22T19:00:00.000+04:30",
+      "status": "delivered",
+      "suggested_notes": null
+    },
+    {
+      "id": 7,
+      "amount_to_pay_in_cash": "500.0",
+      "code": "K000007",
+      "courier_arrived_at": null,
+      "currency": "AFN",
+      "customer_total": "500.0",
+      "delivery_fee": "100.0",
+      "ended_reason": null,
+      "is_live": true,
+      "item_count": 1,
+      "items_total": "400.0",
+      "merchant_id": 1,
+      "merchant_name": "کباب شهر نو",
+      "placed_at": "2026-09-22T19:40:00.000+04:30",
+      "status": "preparing",
+      "suggested_notes": null
+    }
+  ],
+  "meta": {
+    "pagination": {
+      "current_page": 1,
+      "next_page": null,
+      "prev_page": null,
+      "total_count": 7,
+      "total_pages": 1
+    }
+  }
+}

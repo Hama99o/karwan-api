@@ -106,6 +106,15 @@ an order that arrived. `code` is `unknown` when the column was never filled.
 WHICH vocabulary `code` is drawn from; the three lists do not overlap by
 accident and must not be merged into one lookup.
 
+**Two nulls that are different facts, and the fixture shows them three rows
+apart.** `ended_by: "system"` means a machine closed it — the timeout job, a nil
+actor. `ended_by: null` means **nothing recorded who**, which
+`db/seeds/stress.rb` produces in bulk. Rendering the second as "cancelled by
+Karwan" tells a customer something the data does not support. And
+`ended_reason: null` — the whole object absent — is a third fact again: the
+order has not ended badly. A client testing only `ended_reason?.ended_by`
+cannot tell a delivered order from an unattributed rejection.
+
 **Money shapes:** every amount is a JSON **string** (`"500.0"`, `"-50.0"`),
 never a number, and each is paired with a `currency`. A client comparing them
 numerically without parsing gets the wrong answer for negatives — which is the
@@ -127,6 +136,7 @@ producing it, and the failure names the fixture to regenerate:
 | `couriers/wallet#settlements` | `spec/fixtures/files/courier_wallet_settlements.json` |
 | `merchants/today#show` | `spec/fixtures/files/merchant_today.json` |
 | `couriers/today#show` | `spec/fixtures/files/courier_today.json` |
+| `customers/orders#index` — every `ended_reason` state at once | `spec/fixtures/files/customer_orders_ended_reason.json` |
 
 `from`/`to` in both `today` payloads are **Kabul** boundaries (`+04:30`). A
 client comparing them against a UTC day is off by four and a half hours and

@@ -5408,3 +5408,57 @@ before making the column NOT NULL"*.
 The old pin is not deleted: the example now states what it used to say, why it
 was reversed, and that the use case survives. A reversed decision with its
 reasoning is worth more than a clean file.
+
+
+---
+
+## THE `ended_reason` CONTRACT FIXTURE, AND THE SEQUENCE NUMBER IT PINNED
+
+**23 Sept 2026.** `spec/fixtures/files/customer_orders_ended_reason.json` plus
+`spec/requests/api/v1/customers/ended_reason_payload_contract_spec.rb` — the
+third captured payload, after `courier_today.json` and
+`courier_wallet_settlements.json`, and the one with the strongest case for
+being captured rather than described: **prose has no way to say that null here
+and null there are different facts.**
+
+Seven orders in one response, so a client meets every ending together:
+
+```
+K000001  rejected   out_of_stock           ended_by "merchant_owner"
+K000002  rejected   no_answer              ended_by "system"     ← a machine
+K000003  cancelled  customer_changed_mind  ended_by "customer"
+K000004  failed     nobody_home            ended_by "courier"
+K000005  rejected   too_busy               ended_by NULL         ← nothing knows
+K000006  delivered  ended_reason NULL                            ← nothing to explain
+K000007  preparing  ended_reason NULL                            ← not over yet
+```
+
+Three plants, all red: an unrecorded ending reported as `system`, the `outcome`
+key dropped, and an object served on a delivered order. And a fourth check
+that matters as much — the TARGETED examples were verified to fire
+independently of the whole-fixture diff, because an example that only ever
+fails alongside the fixture comparison is not earning its place.
+
+### What the run found that the file could not
+
+**The spec was green on its own and red against its own directory.** One field:
+
+```
+-"merchant_id" => 1      # captured alone
++"merchant_id" => 71     # after 70 other examples had made merchants
+```
+
+A Postgres sequence does not roll back with the transaction — transactional
+examples undo the ROWS and leave the COUNTER. So a captured id is a fact about
+what ran before it. `id` was already renumbered; the foreign key was not, and
+nothing said why one and not the other.
+
+The fix is the part worth keeping: **normalise what is a sequence number,
+assert what is a contract.** `expect(order["merchant_id"]).to eq(merchant.id)`
+first, then flatten it. Stripping the key unchecked would have deleted the only
+thing the field exists to say. Planted by serving one row from a second shop —
+red with `row 6 lost its shop`, which is the message a reader needs.
+
+Recorded in `docs/TESTING.md` beside the constant-collision entry, because it
+is the same family: **a spec that has only ever run alone has only been tested
+alone.**

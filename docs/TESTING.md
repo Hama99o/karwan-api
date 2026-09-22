@@ -1851,3 +1851,100 @@ never recurred. This mechanism produces exactly that signature — fails in a fu
 run, passes alone, no data explanation. Worth checking against before assuming
 the data hypothesis, though that file defines no constants today, so it is a
 candidate rather than a finding.
+
+---
+
+## A LAZY `let` MAKES AN EXAMPLE ASSERT AGAINST THE WRONG RESPONSE
+
+An example asserting that an empty day sends `[]`:
+
+```ruby
+let(:merchant) { create(:merchant, owner: owner) }
+
+it "sends an empty array rather than omitting the day" do
+  get "/api/v1/merchant/today", headers: auth
+  expect(JSON.parse(response.body)["by_currency"]).to eq([])   # got nil
+end
+```
+
+`let` is lazy. Nothing in the example referenced `merchant`, so no shop existed,
+`require_merchant!` refused, and **the example was asserting against a 403
+body.** It reported `nil` where it expected `[]` — a real failure, but not the
+one it was named for, and had the payload happened to omit the key it would have
+PASSED while measuring an error page.
+
+The fix is one line and the discipline is the point:
+
+```ruby
+expect(merchant).to be_present                 # touch the lazy subject
+get "/api/v1/merchant/today", headers: auth
+expect(response).to have_http_status(:ok), "not the payload at all: #{response.body[0, 120]}"
+```
+
+**A request example should assert its STATUS before its BODY.** Every parse of
+an error body is an assertion about a document the example never meant to read,
+and `JSON.parse` succeeds on `{"error": ...}` exactly as happily as on the real
+thing.
+
+### The same mask, in three tools, in one night
+
+This is `docs/NOTES.md`'s "green result that measured nothing" in its Ruby form,
+and two other sessions hit it the same evening in other tools: a `longPressOn`
+reporting COMPLETED for a gesture the keyboard swallowed, and an
+`assertNotVisible` passing against a sheet that was entirely covered. **Three
+instruments, three green results, none measuring what its name said.**
+
+The question that kills all three:
+
+> **If this step had done nothing at all, would its report look any different?**
+
+And the operational form, which is the one that holds when you are tired:
+
+> **Look at what the run produced, not at what you meant it to do.**
+
+That is also the whole argument for a committed payload fixture over a prose
+description — see `spec/requests/api/v1/today_payload_contract_spec.rb`. Capturing
+`courier/today` as a file immediately showed two different shapes for
+per-currency money in one payload. **The description of that payload had been
+written twice, by the person who wrote the code, and was wrong both times** —
+not stale, not second-hand, just never compared against the response.
+
+
+---
+
+## A COMMITTED PAYLOAD FIXTURE MUST NOT PIN A DATABASE-ASSIGNED ID
+
+`customer_orders_ended_reason.json` was green on its own and red the moment it
+ran with the rest of `spec/requests/api/v1`:
+
+```
+-"merchant_id" => 1      # what the fixture was captured against
++"merchant_id" => 71     # after 70 other examples had created merchants
+```
+
+**A Postgres sequence does not roll back with the transaction.** Transactional
+examples undo the ROWS and leave the COUNTER where it was, so every `id` in a
+captured payload is a fact about what ran before it, not about the payload.
+Run the file alone and you get 1; run the suite and you get whatever the seed
+order produced — which makes it a failure that appears and disappears with
+`--seed`.
+
+The fix is not to delete the field. **Normalise what is a sequence number,
+assert what is a contract:**
+
+```ruby
+body["orders"].each_with_index do |order, i|
+  expect(order["merchant_id"]).to eq(merchant.id), "row #{i} lost its shop"
+  order["id"] = i + 1          # the ORDER of rows is contract; the value is not
+  order["merchant_id"] = 1
+end
+```
+
+Stripping the foreign key unchecked would have thrown away the only thing the
+field exists to say — that each row names the shop it came from. That is the
+general rule for any captured payload: **a field you cannot pin is still a
+field you must check**, just with a different assertion.
+
+Same family as the constant collision above, and it is the reason the contract
+is run against its whole directory before it is committed rather than on its
+own: **a spec that has only ever run alone has only been tested alone.**
