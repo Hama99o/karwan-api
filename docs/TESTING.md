@@ -1948,3 +1948,39 @@ field you must check**, just with a different assertion.
 Same family as the constant collision above, and it is the reason the contract
 is run against its whole directory before it is committed rather than on its
 own: **a spec that has only ever run alone has only been tested alone.**
+
+
+---
+
+## A HEALTH CHECK THAT ANSWERS 200 HAS NOT TOLD YOU WHICH APP ANSWERED
+
+The rig check for the operator/system fix started:
+
+```
+curl localhost:3000/up            200        ← "the rig is healthy"
+curl localhost:3000/admin/login   404
+curl localhost:3000/admin/orders/2 404  ActionController::RoutingError
+                                        actionpack (8.0.1)
+```
+
+Both routes exist in `config/routes.rb` and the container reported **Rails
+8.1.3.1**. The 404s were right: **port 3000 is a different application.** This
+rig publishes **3017**, and `docker-compose.yml` says so.
+
+The 200 was true and meaningless. `/up` proves *something* is listening and
+healthy; it says nothing about which codebase, which database or which commit.
+Had the QA been a read that happened to succeed — a catalog page, a public
+endpoint — it would have "passed" against a stranger's app and been believed.
+
+**Tie the port to the repo before you trust anything it says.** The cheap
+version is one line, and it fails loudly rather than silently:
+
+```bash
+docker compose ps --format '{{.Service}} {{.Publishers}}'   # where is it really
+docker compose exec -T web bin/rails -v                     # and what is it running
+```
+
+Same family as the whole rest of this file: the instrument was working
+perfectly and was pointed somewhere else. What gave it away was the **version
+string in the 404**, and only because the 404 came first — a green result would
+have ended the check.

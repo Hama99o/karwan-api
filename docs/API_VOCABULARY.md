@@ -106,6 +106,14 @@ an order that arrived. `code` is `unknown` when the column was never filled.
 WHICH vocabulary `code` is drawn from; the three lists do not overlap by
 accident and must not be merged into one lookup.
 
+**`ended_by` has FOUR possible speakers, and `admin` is one of them.**
+`customer`, `courier`, `merchant_owner` — and **`admin`, which means a person at
+Karwan decided it from the ops console.** That one is not a machine and must not
+be rendered as one: it is the case where there is somebody to ring, and the
+support number is in the app for exactly this. It used to come out as `system`,
+because a console operator is an `AdminUser` and `status_transitions.actor_id`
+references `users`, so the console had nowhere to record itself.
+
 **Two nulls that are different facts, and the fixture shows them three rows
 apart.** `ended_by: "system"` means a machine closed it — the timeout job, a nil
 actor. `ended_by: null` means **nothing recorded who**, which

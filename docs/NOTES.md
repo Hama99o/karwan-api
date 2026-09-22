@@ -5345,6 +5345,12 @@ running total, not a figure about today**, and the name says so deliberately.
   `Order.rejection_reasons` has `out_of_stock too_busy closing other no_answer`;
   `Order::MERCHANT_REJECTION_REASONS` has the first four. `no_answer` is the
   system's, and the board answers **422** to it. Build the picker from the four.
+- **`ended_by` can now say `admin`, and it is not a machine.** The fourth
+  speaker beside `customer`, `courier` and `merchant_owner`: a person at Karwan
+  ended it from the ops console. It used to come out as `system`, so the client
+  needs a string for it — and it is the one ending where there is somebody to
+  ring, so the support number belongs on that screen. `by_system` in the order
+  timeline is `false` for those steps now, for the same reason.
 - **Eligibility reasons now number fifteen** — `account_suspended` is new.
 - **Nine of them also arrive as a FIELD VALUE on a 200**, in `blocked_by`, not
   only as error codes on a 422. A client translating them only inside its error
@@ -5462,3 +5468,180 @@ red with `row 6 lost its shop`, which is the message a reader needs.
 Recorded in `docs/TESTING.md` beside the constant-collision entry, because it
 is the same family: **a spec that has only ever run alone has only been tested
 alone.**
+
+
+---
+
+## ONE NIL MEANT TWO OPPOSITE THINGS, AND THE CUSTOMER WAS TOLD THE WRONG ONE
+
+**23 Sept 2026.** `StatusTransition#system?` was `actor_id.nil?`, and its
+comment said why: *"A nil actor means the system did it — i.e. a timeout
+fired."*
+
+True in `Dispatch::JobTimeoutsJob`, which passes `actor: nil` **because nobody
+acted**. False in `Admin::OrdersController`, which passes `actor: nil` because
+the person who acted is an **`AdminUser`** and `StatusTransition#actor` is
+`belongs_to class_name: User`. **The console had an operator and nowhere to put
+them.** One nil, two opposite meanings, and three readers could not tell them
+apart:
+
+| reader | what it said when an operator cancelled |
+|---|---|
+| `Orders::EndedReason` | `ended_by: "system"` on the customer's order |
+| `Customers::OrderSerializer` | `by_system: true` on the customer's timeline |
+| `Admin::ReportsController` | the "never answered" bucket, by the same test |
+
+### Why it is not cosmetic
+
+The two answers send the customer somewhere different. *"Nobody at the shop
+answered"* means try another shop. *"Karwan cancelled this"* means a person
+decided it and there is a number in the app to ring — `CLAUDE.md`: support is a
+human and the app must admit it. Saying a machine did it removes the one thing
+they could act on.
+
+And it was a hole in an irreversible record. One-way door 3 is *"a timestamp per
+state transition... **Record the actor too**"*, and **every console intervention
+recorded no actor at all.** `AuditLog` had already solved it and said how, in a
+comment on the same problem: *"Two kinds of actor, because there are two kinds of
+answer to 'who did this': an app user or a staff member in the ops console."*
+**The append-only table with the stronger claim on it had the weaker actor
+model** — and nothing compared them, because each file was right on its own.
+
+### The fix, and what it deliberately does not do
+
+`status_transitions.admin_user_id`, additive and nullable; `system?` becomes
+**no human of either kind**; the console passes `current_admin_user`; the report
+asks the same question. Rows already written keep their nil actor and stay
+indistinguishable from a timeout — that information was never captured and
+cannot be invented now. **Only rows written from here on can answer.**
+
+Two more places the same nil reached:
+
+- **The console's own order page** showed an empty actor for its own
+  operators — the screen you open to find out who cancelled it. It now carries
+  `author`, the same method and the same order as `AuditLog#author`, so an
+  intervention reads identically in both logs.
+- **`AdminUser` now `restrict_with_error`s on its transitions** rather than
+  nullifying like `audit_logs` does. Emptying the actor out of an append-only
+  history to make a staff account deletable deletes the only answer to "who
+  cancelled that order" — and a nulled `admin_user_id` reads as the system.
+
+### `cancelled_by_role` is now provably redundant, and is left alone
+
+`docs/NOTES.md` already called it unreliable. Looked at properly it is worse and
+better than that: written by exactly two paths (`customers/orders#cancel` and
+`admin/orders#cancel`), **never by the timeout job**, and **read by nothing** —
+no serializer, no report, no policy, no console field. Both writers call
+`transition_to!` with an `actor_role` one line earlier, so for every row it is
+populated on, the transition log already holds the same answer.
+
+Dropping a column is Hamma9900's (`HOW_WE_WORK.md`: *anything irreversible*), so
+it stays. Recorded here so the next person to reach for it knows it is a second
+answer to a question the log already answers, and a half-populated one.
+
+### Verified on the rig, over HTTP, not only in specs
+
+Migrated the dev database, logged into the console, cancelled a real order
+(`K2609155744`) with the reason *"QA: proving an operator is not the system"* —
+it is left cancelled, and the reason text says why — and then read what the two
+readers actually serve:
+
+```
+transition:   accepted -> cancelled   actor_id nil   admin_user "Karwan Operations"
+              system? false           author "Karwan Operations"
+GET /api/v1/customer/orders/2
+              ended_reason {"outcome":"cancelled","code":"other","ended_by":"admin"}
+              timeline     [["accepted",false],["cancelled",false]]
+console page  shows "Karwan Operations" in the Transitions table
+```
+
+**110 of the rig's 152 transitions have both actors nil** — the rows written
+before the column existed. They stay indistinguishable from a timeout, which is
+what "cannot be backfilled" means in practice rather than in principle.
+
+### A 200 FROM THE WRONG SERVER, which is worth more than the fix
+
+The first rig check ran against `localhost:3000` and got **`/up` 200** — and
+then 404 on every console route, from `actionpack 8.0.1` against a repo on
+Rails 8.1.3.1. **Port 3000 is another app entirely.** The rig is on 3017, which
+`docker-compose.yml` says plainly.
+
+A health check answered 200 and confirmed nothing, because nothing tied that
+port to this repo. It is the same shape as everything else in this file: the
+instrument was working perfectly and was pointed somewhere else. **Check that
+the thing that answered is the thing you meant to ask** — the version string in
+the 404 is what gave it away, and only because the 404 came first.
+
+### What the plants proved
+
+Four, each hitting only its own examples: `system?` back to one column (the two
+customer-facing examples), the report's old bucket definition (the report
+example), the dashboard column removed (**the console page example — worth
+planting, because the operator's name could have been in the page chrome and the
+assertion would have been vacuous**), and `restrict_with_error` back to
+`nullify`. The feature's own spec was written first and ran red four ways before
+any of it existed.
+
+
+---
+
+## `ORDER BY` A COLUMN THAT REPEATS IS NOT AN ORDER, AND EVERY LIST HERE DID IT
+
+**23 Sept 2026, found by the fixture written the same night.** The
+`ended_reason` contract went red on a full run with two orders swapped:
+
+```
+-  K000001 (15:00), K000002 (16:00), …
++  K000002 (16:00), K000001 (15:00), …
+```
+
+Not the schema this time. Under `travel_to` every row shares `created_at` **to
+the microsecond**, so `newest_first` — `order(created_at: :desc)` — was a tie
+for all seven, and Postgres is free to return tied rows in any order, a
+different one per query. The fixture had pinned one arbitrary answer and got
+away with it twice.
+
+**Two defects, and the smaller one is the fixture's.** The scope was wrong to
+permit it. All seven `newest_first` scopes ordered by a non-unique column:
+
+| scope | ties |
+|---|---|
+| `Dispatchable` (Order, Trip), `WalletEntry`, `OtpVerification`, `AuditLog` | `created_at`, rare in production |
+| `Settlement` (`settled_at`), `CourierShift` (`started_at`) | a day or a shift start, plausible |
+| **`MerchantStatement` (`period_start`)** | **every merchant's statement for a week shares it — ties are the NORM** |
+
+And every one of them feeds a **paginated** list. `OFFSET 50` into an order
+that may have changed since the first page means **page 2 can repeat a row page
+1 already showed and silently drop another** — on the console's statement list,
+which is money, at 50 rows a page, with no symptom but a number that does not
+add up.
+
+Fixed by giving each `newest_first` `id: :desc`. Nothing changes except that
+there is now an answer.
+
+### The fixture had also been pinning the wrong thing entirely
+
+The old capture was ASCENDING — oldest order first — which is not what
+`newest_first` means and never what the endpoint promised. **Nobody noticed,
+because the only thing asserting on that order was a file generated from the
+same broken behaviour.** Regenerated: newest first, deterministic, and the row
+order is now a real part of the contract rather than an accident.
+
+### Why the guard asserts SQL and not paging
+
+A "page through and count duplicates" example would be the better test if it
+could fail. It cannot be relied on to — on a small table Postgres will usually
+return the same sequential scan twice, so it would pass with the tiebreaker
+REMOVED. That is the green-result-measuring-nothing trap this file is mostly
+about, so `spec/models/every_newest_first_is_a_total_order_spec.rb` makes the
+weaker claim honestly: the generated SQL must end in a unique column. It lists
+its models explicitly and has an example that fails when a model declares
+`newest_first` and is missing from the list — a reflective sweep would simply
+not have seen it. Planted by removing `MerchantStatement`'s tiebreaker: red.
+
+**And the thing worth keeping.** This is the second defect the `ended_reason`
+fixture found in one night, and neither was about `ended_reason`. A captured
+payload asserts on everything in the response, including the parts nobody
+thought to have an opinion about — which is exactly where a defect no spec was
+written for survives. 2,600 examples could not see it because none of them
+asserted on an order they had not chosen themselves.
