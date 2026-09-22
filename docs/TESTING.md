@@ -1952,7 +1952,7 @@ own: **a spec that has only ever run alone has only been tested alone.**
 
 ---
 
-## A HEALTH CHECK THAT ANSWERS 200 HAS NOT TOLD YOU WHICH APP ANSWERED
+## THE GUARD FOR THIS EXISTED, WAS CORRECT, AND I DID THE CHECK BY HAND
 
 The rig check for the operator/system fix started:
 
@@ -1965,22 +1965,44 @@ curl localhost:3000/admin/orders/2 404  ActionController::RoutingError
 
 Both routes exist in `config/routes.rb` and the container reported **Rails
 8.1.3.1**. The 404s were right: **port 3000 is a different application.** This
-rig publishes **3017**, and `docker-compose.yml` says so.
+rig publishes **3017**.
 
-The 200 was true and meaningless. `/up` proves *something* is listening and
-healthy; it says nothing about which codebase, which database or which commit.
-Had the QA been a read that happened to succeed — a catalog page, a public
-endpoint — it would have "passed" against a stranger's app and been believed.
+The first draft of this entry said that was a discovery. **It was not.** This
+repo had already found it, twice, and had built the guard:
 
-**Tie the port to the repo before you trust anything it says.** The cheap
-version is one line, and it fails loudly rather than silently:
+- **`bin/preflight` line 19**, in its own header: *"A STATUS CODE IS NOT AN
+  IDENTITY. `doctor` once reported a green API against an unrelated Rails app
+  on 3000. So step 4 asserts the payload is KARWAN'S — a 200 from a stranger
+  fails here."* Step 4 fetches `/api/v1/public/merchant_categories` and checks
+  for `"merchant_categories"`, with a separate branch for **nothing answered**
+  versus **something else answered** — a distinction I would have got wrong.
+- **`spec/config/port_spec.rb`**, which pins `DEFAULT_PORT = 3017` in
+  `config/puma.rb` so the server cannot bind 3000 by accident, and says in its
+  own comment that `qa.sh doctor` once reported a green API that was a
+  stranger's.
+- **F-13** in the mobile findings.
 
-```bash
-docker compose ps --format '{{.Service}} {{.Publishers}}'   # where is it really
-docker compose exec -T web bin/rails -v                     # and what is it running
-```
+**So the lesson is not "write the port down".** It is written down in three
+places and one of them is executable. The lesson is harder:
 
-Same family as the whole rest of this file: the instrument was working
-perfectly and was pointed somewhere else. What gave it away was the **version
-string in the 404**, and only because the 404 came first — a green result would
-have ended the check.
+> **An instrument that exists and is correct does not help if you do the check
+> by hand instead.**
+
+I had run `bin/preflight` earlier the same session — it is how I caught an
+un-migrated rig. Then, doing rig QA an hour later, I typed a port into `curl`.
+Everything the guard knows, I re-derived by accident, badly, and only because a
+**404 carried a version string**. A read that happened to succeed would have
+passed against a stranger's app and been believed.
+
+### What that means in practice
+
+**Before hand-rolling a check, ask what already runs it.** `bin/preflight`,
+`bin/gates`, `bin/callers`, `bin/console_doors`, `bin/endpoints`, `bin/ci` each
+exist because somebody was burned by the thing it checks. The cost of skipping
+one is not the minute it takes — it is that the hand-rolled version silently
+drops every branch the real one has.
+
+And it is the repo's own theme one level up. Most entries in this file are *a
+true sentence nothing enforced*. This one is the opposite and it is worse:
+**an enforced check somebody walked around.** A guard only guards the path it
+is on.

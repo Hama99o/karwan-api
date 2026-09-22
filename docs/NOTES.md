@@ -5559,18 +5559,36 @@ console page  shows "Karwan Operations" in the Transitions table
 before the column existed. They stay indistinguishable from a timeout, which is
 what "cannot be backfilled" means in practice rather than in principle.
 
-### A 200 FROM THE WRONG SERVER, which is worth more than the fix
+### I RAN THE RIG QA BY HAND AND WALKED PAST THE GUARD THAT EXISTS
 
-The first rig check ran against `localhost:3000` and got **`/up` 200** — and
-then 404 on every console route, from `actionpack 8.0.1` against a repo on
-Rails 8.1.3.1. **Port 3000 is another app entirely.** The rig is on 3017, which
-`docker-compose.yml` says plainly.
+The first rig check ran against `localhost:3000` and got **`/up` 200** — then
+404 on every console route, from `actionpack 8.0.1` against a repo on Rails
+8.1.3.1. **Port 3000 is another application.** This rig publishes 3017.
 
-A health check answered 200 and confirmed nothing, because nothing tied that
-port to this repo. It is the same shape as everything else in this file: the
-instrument was working perfectly and was pointed somewhere else. **Check that
-the thing that answered is the thing you meant to ask** — the version string in
-the 404 is what gave it away, and only because the 404 came first.
+I first wrote that up as a discovery. **It was already known here, and guarded:**
+
+- `bin/preflight` line 19: *"A STATUS CODE IS NOT AN IDENTITY. `doctor` once
+  reported a green API against an unrelated Rails app on 3000. So step 4
+  asserts the payload is KARWAN'S — a 200 from a stranger fails here."* Step 4
+  fetches `/api/v1/public/merchant_categories` and branches three ways: ours,
+  **nothing answered**, and **something else answered** — a distinction I would
+  have collapsed.
+- `spec/config/port_spec.rb` pins `DEFAULT_PORT = 3017` in `config/puma.rb` so
+  the server cannot bind 3000, and records that `qa.sh doctor` did this once.
+- F-13 in the mobile findings.
+
+So the finding is not about ports. It is: **an instrument that exists and is
+correct does not help if you do the check by hand instead.** I had run
+`bin/preflight` earlier the same session — it is how I caught the un-migrated
+rig — and then typed a port into `curl` an hour later. What saved it was a
+**version string in a 404**; a read that happened to succeed would have passed
+against a stranger's app.
+
+**No new instrument was built for this, deliberately.** `CLAUDE.md` correction
+15 — *before writing any new mechanism, go and look* — and the mechanism is
+`bin/preflight`. A second one would be this session's own mistake repeated:
+re-deriving, badly, something that already runs. `docs/TESTING.md` carries the
+lesson in the form that generalises.
 
 ### What the plants proved
 
