@@ -2006,3 +2006,29 @@ And it is the repo's own theme one level up. Most entries in this file are *a
 true sentence nothing enforced*. This one is the opposite and it is worse:
 **an enforced check somebody walked around.** A guard only guards the path it
 is on.
+
+### Two people walked past the same guard in the same hour, from opposite sides
+
+Worth recording because the two directions look nothing alike from inside:
+
+- **I did the check by hand instead of running it.** Hand-rolled `curl` against
+  a port I typed, and re-derived — badly, by accident — what step 4 already
+  knows.
+- **The supervisor session asked for it to be BUILT instead of reading it**,
+  proposing a preflight that refuses to run against an unidentified server. It
+  already does, with a three-way branch neither of us would have written from
+  scratch.
+
+Neither of us was careless about the problem; both of us skipped the same
+thirty seconds of looking. Correction 15 — *before writing any new mechanism,
+go and look, and say which file you read* — is usually quoted against
+inventing a duplicate. **It applies just as hard to inventing a duplicate of a
+CHECK**, and the tell is identical: you can describe what the thing should do
+in detail, which feels like understanding and is actually just not having read
+it.
+
+**Reported, not verified here:** the supervisor checked the neighbouring
+MultiMagic rig afterwards and says its backend step takes a 200 from `/up` as
+"backend reachable" with nothing asserting which app answered, while its Metro
+step greps the body and is fine. That is their measurement in another repo, not
+one this session made — recorded as attribution rather than as a finding.
