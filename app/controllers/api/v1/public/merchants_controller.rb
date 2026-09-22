@@ -42,8 +42,10 @@ class Api::V1::Public::MerchantsController < Api::V1::PublicController
     merchant = policy_scope(Merchant).find(params[:id])
     authorize merchant, :show?
 
-    categories = merchant.catalog_categories.kept.ordered
-                         .includes(catalog_items: [ :photo_attachment, { options: :values } ])
+    # The scope, not a bare `includes`: `items_for_serialization` is what the
+    # serializer calls, and it only uses a preload it can see. Spelling the
+    # include here by hand is what made the whole catalog load twice.
+    categories = merchant.catalog_categories.kept.ordered.with_items_for_serialization
 
     render_blue_collection(Customers::CatalogSerializer, categories, options: { locale: locale })
   end

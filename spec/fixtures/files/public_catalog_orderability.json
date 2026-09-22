@@ -1,0 +1,84 @@
+{
+  "catalogs": [
+    {
+      "id": 1,
+      "items": [
+        {
+          "id": 1,
+          "name": "Chicken Kabab",
+          "description": "Charcoal grilled, served with naan",
+          "price": "400.0",
+          "currency": "AFN",
+          "is_available": true,
+          "unorderable": null,
+          "prep_time_minutes": 20,
+          "photo_url": null,
+          "options": []
+        },
+        {
+          "id": 2,
+          "name": "Lamb Kabab",
+          "description": "Charcoal grilled, served with naan",
+          "price": "400.0",
+          "currency": "AFN",
+          "is_available": false,
+          "unorderable": "sold_out",
+          "prep_time_minutes": 20,
+          "photo_url": null,
+          "options": []
+        },
+        {
+          "id": 3,
+          "name": "Mixed Grill",
+          "description": "Charcoal grilled, served with naan",
+          "price": "400.0",
+          "currency": "AFN",
+          "is_available": true,
+          "unorderable": "required_option_unavailable",
+          "prep_time_minutes": 20,
+          "photo_url": null,
+          "options": [
+            {
+              "id": 1,
+              "name": "Size",
+              "selection_type": "single",
+              "minimum_required": 1,
+              "maximum_allowed": 1,
+              "values": []
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "name": "Qabuli Palaw",
+          "description": "Charcoal grilled, served with naan",
+          "price": "350.0",
+          "currency": "AFN",
+          "is_available": true,
+          "unorderable": null,
+          "prep_time_minutes": 20,
+          "photo_url": null,
+          "options": [
+            {
+              "id": 1,
+              "name": "Extras",
+              "selection_type": "multiple",
+              "minimum_required": 0,
+              "maximum_allowed": 3,
+              "values": [
+                {
+                  "id": 1,
+                  "name": "Salad",
+                  "price_delta": "50.0",
+                  "currency": "AFN"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "name": "کباب",
+      "position": 0
+    }
+  ]
+}
