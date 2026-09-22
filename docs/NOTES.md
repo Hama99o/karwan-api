@@ -5261,6 +5261,55 @@ give the identical answer. It refuses rather than silently falling back, because
 a screen saying "courier" while the session says "customer" is worse than a
 refusal the app can act on.
 
+### ⚠ THE CLIENT CURRENTLY SWALLOWS IT — mobile finding F-81
+
+Reported by Hamma9901, who read `karwan-mobile` (this session does not enter
+it). `useRoleSwitch.ts:109` sets the local role FIRST, then fires `switchRole`
+unawaited with `.catch(() => {})`. **So the 422 is discarded and the switch
+never persists.**
+
+Their diagnosis of the cause is the valuable half and is worth repeating: the
+swallow was CORRECT when it was written. Its comment says *"there is nothing for
+a user to do about this one"* — true when the only failure was a 403 for a role
+you do not hold, which the picker had already made unreachable. A 422 asking for
+a password is the opposite: there IS something the user can do. **The rationale
+stayed true in prose while the set of errors moved underneath it.**
+
+### The symptom is NOT what it first looks like, and the difference decides the fix
+
+The obvious reading is "every courier call is now made by a customer session and
+gets refused". **Measured on the rig: it is not.** From a session whose
+`active_role` is `customer`, held by a user who also holds courier:
+
+```
+GET /api/v1/me             active_role: "customer"
+GET /api/v1/courier/shift  200
+GET /api/v1/courier/today   200
+GET /api/v1/courier/wallet  200
+GET /api/v1/merchant/today  200
+```
+
+Capability does not come from `active_role`. `Couriers::BaseController` checks
+the profile; `Merchants::BaseController` resolves the shop from `owner_id`; no
+policy reads `active_role`. `ARCHITECTURE.md` requires exactly this: *"Do not
+gate capability on `active_role`... gating on it would break §6: a courier whose
+phone sits in the customer tab must still be able to work the job he is already
+carrying."*
+
+So the real symptom is quieter: **everything works until the app restarts.**
+Then `me` says `customer`, `last_active_role` was never updated so a reinstall
+also opens in customer, and the courier is dropped back to the customer tab with
+no explanation — repeatedly — while the password prompt he needs has never
+appeared.
+
+**Why that distinction matters more than the write-up:** a finding that says
+"courier calls are refused" invites gating the courier namespace on
+`active_role`. That would close F-81 and break §6 — a courier carrying a job
+whose phone is in the customer tab could no longer finish it — and it would look
+like a fix. The correct fix is entirely client-side: await the call, switch the
+local role only on success, and render `reauthentication_required` as a password
+prompt.
+
 ## 2 · NEW FIELDS — all a CODE or null, never a sentence
 
 The server cannot say "they have run out" in Pashto. Every one of these is a key
