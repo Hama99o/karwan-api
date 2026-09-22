@@ -203,6 +203,35 @@ setting added in a later release never appears on the running server**:
 `hatiwal-api` behaves identically. Safe to run every time — the reference half
 is idempotent and never overwrites a tuned value.
 
+### ONE MIGRATION CAN STOP A DEPLOY, AND THAT IS IT WORKING
+
+`RequireASessionExpiry` (22 Sept) makes `user_sessions.expires_at` NOT NULL.
+Before altering the column it **counts null rows and raises** if it finds any:
+
+```
+N sessions have no expires_at — decide what they are before making the column NOT NULL
+```
+
+**A raise there is the migration doing its job, not a broken release.** It
+refuses rather than inventing ninety days for a session nobody can account for,
+because a session with no expiry is a permanent credential on a possibly shared
+handset — `AFGHAN_UX.md` §7 — and silently giving one an expiry hides however it
+got there.
+
+Nothing in this codebase creates such a row: `UserSession.issue!` always sets it,
+and so do the factory and the seeds. Zero on the rig at the time of writing. So
+if it fires on a database neither the repo nor its rig can see, the right
+response is **to look at those rows**, not to relax the migration:
+
+```
+SELECT id, user_id, created_at, last_used_at FROM user_sessions WHERE expires_at IS NULL;
+```
+
+Revoke them (`revoked_at`), or give each an explicit date, and run the deploy
+again. A long-lived session is still allowed — as `expires_at: 10.years.from_now`,
+which an operator can read and shorten, rather than as a NULL that no screen can
+explain.
+
 **A first deploy, in order:**
 
 ```
