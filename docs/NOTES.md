@@ -5240,7 +5240,7 @@ appears in whichever file did NOT change."*
 
 ---
 
-# ⚑ HANDOVER TO THE NEXT KARWAN MOBILE SESSION — everything that moved on 21–22 Sept
+# ⚑ HANDOVER TO THE NEXT KARWAN MOBILE SESSION — everything that moved on 21–23 Sept
 
 Karwan's mobile side was closed throughout this work, so none of it has had the
 mobile check `HOW_WE_WORK.md`'s definition of done requires — *"if it touches a
@@ -5250,6 +5250,39 @@ than the compliance. Each entry above has the full reasoning; this is the list.
 
 `docs/API_SURFACE.txt` (82 endpoints) and `docs/API_VOCABULARY.md` are the two
 files to diff against.
+
+## 0 · THE COUNT, SO IT CANNOT DRIFT AGAIN
+
+It reached 47 commits last time before anybody asked how many client-visible
+changes were waiting. **Every payload change since the mobile side last saw this
+repo is in this one list.** Add to it in the same pass as the change, or this
+section becomes another true sentence nothing enforces.
+
+| # | change | shape |
+|---|---|---|
+| 1 | `POST /me/switch_role` into a money-handling role needs `password` | **breaking** — 422 `reauthentication_required` |
+| 2 | `ended_reason` on customer order detail, list, merchant board | new object, or null |
+| 3 | `unorderable` on customer and merchant catalog | new code, or null |
+| 4 | `blocked_by` on `couriers/shifts#show` | new code, or null |
+| 5 | `photo_url` on the courier blocks of order and track | new, or null |
+| 6 | `bring_change_for` on courier job steps | new, or null |
+| 7 | `GET /merchant/today` | new endpoint |
+| 8 | `GET /courier/today` | new endpoint |
+| 9 | merchant reject sheet offers FOUR reasons, not five | vocabulary narrowed |
+| 10 | eligibility reasons number fifteen; nine arrive as a FIELD on a 200 | vocabulary widened |
+| 11 | **`ended_by` can say `admin`** — a person at Karwan, not a machine | **new value in an existing field** |
+| 12 | **`bring_change_for` and `suggested_notes` are STRINGS** (`"500.0"`) | **type change** — were bare numbers |
+| 13 | **a ride's `complete_and_collect` carries `bring_change_for`** | new field on an existing step |
+
+**11, 12 and 13 are the newest and 12 is the one that breaks silently**: a client
+comparing or formatting those two fields with a numeric helper was already
+treating them differently from every other amount in the API, and now gets a
+string where it got a number. Both come from `Monetary.change_advice`, which
+feeds the courier's job steps, the customer's order and the customer's quote.
+
+**Two captured fixtures are the fastest way to check the whole job screen at
+once:** `spec/fixtures/files/courier_job_delivery.json` (four steps) and
+`courier_job_ride.json` (three). They are real responses, not examples.
 
 ## 1 · ONE BREAKING CHANGE — `switch_role`
 
