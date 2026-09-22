@@ -18,7 +18,22 @@ class UserSession < ApplicationRecord
 
   validates :token_digest, presence: true, uniqueness: true
 
-  scope :live, -> { where(revoked_at: nil).where(expires_at: [ nil, Time.current.. ]) }
+  # ── NO NULL BRANCH, AND THE COLUMN FORBIDS ONE ────────────────────────────
+  #
+  # This read `where(expires_at: [ nil, Time.current.. ])`, so a row with no
+  # expiry was LIVE FOREVER — the one thing `AFGHAN_UX.md` §7 asks of this
+  # table: *"Sessions expire. Do not keep someone logged in forever on a device
+  # that isn't theirs."* On a shared handset that is the whole point.
+  #
+  # `issue!` has always set it and nothing else creates a session, so no such
+  # row existed. What existed was the possibility, uncommented, in a file where
+  # every other decision is argued — and a permissive branch nothing can reach
+  # is the branch an import or a console fix walks into later.
+  #
+  # Now the column is NOT NULL and this asks the plain question. SQL answers
+  # NULL comparisons as unknown, so even without the constraint a null row would
+  # now fall OUT of `live` rather than into it: it fails closed on both sides.
+  scope :live, -> { where(revoked_at: nil).where(expires_at: Time.current..) }
 
   # Returns [record, plaintext_token]. The plaintext is returned exactly once.
   #

@@ -5360,3 +5360,51 @@ running total, not a figure about today**, and the name says so deliberately.
   `cancellation_reason` and never the role, so it is populated for some rows and
   empty for others with no way to tell which. Derive who from the transition
   log, as `Orders::EndedReason` does.
+
+## A SESSION COULD LIVE FOREVER, AND THE BRANCH THAT ALLOWED IT WAS PINNED
+
+`AFGHAN_UX.md` §7: *"Sessions expire. Do not keep someone logged in forever on a
+device that isn't theirs"* — on the premise that *"a phone in a household may be
+used by several people."*
+
+`UserSession.live` read `where(expires_at: [ nil, Time.current.. ])`, so a row
+with no expiry was live forever. `expires_at` was nullable and nothing enforced
+it.
+
+### I assumed it was an oversight. It was a pinned decision.
+
+`spec/models/user_session_spec.rb` had an example named *"accepts a session with
+no expiry at all"*, commented: *"The scope allows nil deliberately (an
+admin-issued long-lived session), so this pins that it is intentional rather
+than an oversight."*
+
+I had checked `issue!`, the factory, the seeds and the model's own comments —
+and not the spec for the model. **The one place that recorded the intent was the
+one place I did not look.** Worth remembering: "read what is already there"
+includes the tests, which are where a deliberate oddity gets pinned precisely
+because the code cannot say it.
+
+### Overturned anyway, on two findings and without foreclosing the use case
+
+1. **The feature it names does not exist.** The only admin touchpoint for
+   sessions is `users#revoke_sessions`, which revokes. Nothing anywhere issues a
+   session without an expiry.
+2. **§7 is binding the other way**, and `CLAUDE.md` correction 16 runs with it —
+   nothing that can credit a wallet or cancel an order belongs on a phone that
+   gets shared or lost.
+
+And the decisive one: **a long-lived session survives as an explicit date.**
+`expires_at: 10.years.from_now` is something an operator can read, audit and
+shorten; a NULL is none of those and no query can tell it from a mistake. The
+pin wanted long-lived sessions to be possible, and they still are — in a
+representation that can be inspected.
+
+`expires_at` is now NOT NULL, and the scope asks the plain question so it fails
+closed on both sides. The migration REFUSES a table with null rows rather than
+inventing ninety days for a session nobody can account for — tested by planting
+one, which reported *"1 sessions have no expires_at — decide what they are
+before making the column NOT NULL"*.
+
+The old pin is not deleted: the example now states what it used to say, why it
+was reversed, and that the use case survives. A reversed decision with its
+reasoning is worth more than a clean file.

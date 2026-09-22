@@ -116,12 +116,34 @@ RSpec.describe UserSession, type: :model do
       expect(described_class.authenticate(token)).to be_nil
     end
 
-    # A session with no expiry is a permanent credential. The scope allows nil
-    # deliberately (an admin-issued long-lived session), so this pins that it is
-    # intentional rather than an oversight.
-    it "accepts a session with no expiry at all" do
+    # ── THIS PIN IS REVERSED, AND THE USE CASE IT NAMED SURVIVES ──────────
+    #
+    # It used to read: *"A session with no expiry is a permanent credential. The
+    # scope allows nil deliberately (an admin-issued long-lived session), so this
+    # pins that it is intentional rather than an oversight."*
+    #
+    # Two things were checked before overturning it. **The feature it names does
+    # not exist** — the only admin touchpoint for sessions is
+    # `users#revoke_sessions`, which revokes; nothing anywhere issues a session
+    # without an expiry, not `issue!`, not the factory, not the seeds. And
+    # `AFGHAN_UX.md` §7 is binding the other way: *"Sessions expire. Do not keep
+    # someone logged in forever on a device that isn't theirs"*, on the premise
+    # that *"a phone in a household may be used by several people."*
+    #
+    # **The long-lived session is not foreclosed, only re-represented.** It
+    # becomes `expires_at: 10.years.from_now` — a date an operator can read,
+    # audit and shorten — instead of a NULL that no screen can explain and no
+    # query can distinguish from a mistake. That is strictly more of what the
+    # original pin wanted.
+    it "refuses a session with no expiry, because the column forbids one" do
+      record, = described_class.issue!(user)
+
+      expect { record.update!(expires_at: nil) }.to raise_error(ActiveRecord::NotNullViolation)
+    end
+
+    it "still accepts a deliberately long-lived one, as an explicit date" do
       record, token = described_class.issue!(user)
-      record.update!(expires_at: nil)
+      record.update!(expires_at: 10.years.from_now)
 
       expect(described_class.authenticate(token)).to eq(record)
     end
