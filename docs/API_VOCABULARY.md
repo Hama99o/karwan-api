@@ -153,6 +153,7 @@ producing it, and the failure names the fixture to regenerate:
 | `customers/orders#index` — every `ended_reason` state at once | `spec/fixtures/files/customer_orders_ended_reason.json` |
 | `couriers/jobs#show` — a delivery, four steps | `spec/fixtures/files/courier_job_delivery.json` |
 | `couriers/jobs#show` — a ride, three steps | `spec/fixtures/files/courier_job_ride.json` |
+| `public/merchants#catalog` — every orderability state | `spec/fixtures/files/public_catalog_orderability.json` |
 
 `from`/`to` in both `today` payloads are **Kabul** boundaries (`+04:30`). A
 client comparing them against a UTC day is off by four and a half hours and

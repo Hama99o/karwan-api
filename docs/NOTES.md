@@ -5794,3 +5794,80 @@ written for:
 **The method is not "assert the field you are thinking about".** It is: put the
 whole response in a file, and the parts nobody had an opinion about start
 asserting themselves.
+
+
+---
+
+## THE FIFTH CAPTURE FOUND NOTHING IN THE PAYLOAD, AND TWO N+1s UNDER IT
+
+**23 Sept 2026.** `public_catalog_orderability.json` — the public catalog, with
+every orderability state in one response:
+
+```
+Chicken Kabab   available true   unorderable null                          orderable
+Lamb Kabab      available false  unorderable "sold_out"                    the merchant's toggle
+Mixed Grill     available TRUE   unorderable "required_option_unavailable"  ← the trap
+Qabuli Palaw    available true   unorderable null, one value filtered out  orderable, thinner
+```
+
+**The payload was correct.** Money was already strings, the four states
+serialise exactly as designed, `is_available: true` beside
+`unorderable: "required_option_unavailable"` is the intended disagreement
+(the merchant's toggle versus whether a valid line can be built). Five captures,
+and this is the first whose *shape* had nothing wrong with it. Worth saying
+plainly rather than finding something to report.
+
+### What it did find was in the query log, and only a count could see it
+
+The endpoint was **linear in the size of the catalogue**:
+
+| categories | items | before | after |
+|---|---|---|---|
+| 3 | 6 | 30 | 8 |
+| 6 | 12 | 54 | 8 |
+| 12 | 24 | **102** | **8** |
+
+Twelve categories is a small menu, and this is the public, unauthenticated,
+most-hit endpoint in the API — the first screen a user talked into installing
+the app ever sees.
+
+**Two separate N+1s, and the second was hiding behind the first.**
+
+1. **Per category.** `CatalogCategory#items_for_serialization` issued its own
+   `catalog_items.kept…` query per category, while the controller ALSO declared
+   an `includes` — which was thrown away, because calling `catalog_items.…` on
+   the association builds a fresh relation and ignores what was loaded. The
+   method's comment said it existed to prevent an N+1, and it did: **the inner
+   one.** True about the part somebody looked at.
+
+2. **Per ITEM, and larger.** With the first fixed, the log showed eight
+   `merchants` and eight `merchant_kinds` queries for eight dishes. The
+   serializer asks each item for `effective_prep_time_minutes`, which is
+   `prep_time_minutes || merchant.effective_prep_time_minutes`, which reads
+   `merchant_kind&.prepares_food?`. **Every dish re-loaded the shop it belongs
+   to and that shop's kind** — for a catalog with exactly one merchant, already
+   in memory.
+
+Fixed by making the preload a scope beside the method that consumes it
+(`with_items_for_serialization`), having `items_for_serialization` filter and
+sort IN MEMORY when the association is already loaded, and preloading
+`merchant: :merchant_kind` with the items.
+
+### The part worth keeping
+
+**A captured fixture could never have found this.** The response is
+byte-identical before and after — same fields, same values, same order. The
+cost of this screen is not in its bytes, so the guard is a **query count that
+must not grow with the catalogue**, not a threshold:
+
+```ruby
+expect(large).to eq(small),
+  "the catalog costs #{large} queries at nine categories and #{small} at three"
+```
+
+Planted by reverting both preloads: red, at 41 versus 17.
+
+So the tally for the method is honest rather than flattering: **five captures,
+four payload defects, and a fifth route where capturing the payload proved it
+right and the instrument that mattered was a different one.** A fixture asserts
+everything in the response. It asserts nothing about what the response cost.
