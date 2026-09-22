@@ -5345,6 +5345,16 @@ running total, not a figure about today**, and the name says so deliberately.
   `Order.rejection_reasons` has `out_of_stock too_busy closing other no_answer`;
   `Order::MERCHANT_REJECTION_REASONS` has the first four. `no_answer` is the
   system's, and the board answers **422** to it. Build the picker from the four.
+- **`bring_change_for` and `suggested_notes` are STRINGS now, not numbers.**
+  `"500.0"`, like every other amount. They were Integers — one helper,
+  `Monetary.change_advice`, feeding the courier's job steps, the customer's
+  order and the customer's quote. A client comparing or formatting them with
+  its money helper was handling three fields differently from every other
+  amount in the API.
+- **A ride's `complete_and_collect` step now carries `bring_change_for`.** It
+  carried none at all, so a driver taking an odd fare was never told to bring a
+  float while the rider on the same screen was. Same field, same meaning, same
+  nil-on-a-round-hundred rule.
 - **`ended_by` can now say `admin`, and it is not a machine.** The fourth
   speaker beside `customer`, `courier` and `merchant_owner`: a person at Karwan
   ended it from the ops console. It used to come out as `system`, so the client
@@ -5663,3 +5673,91 @@ payload asserts on everything in the response, including the parts nobody
 thought to have an opinion about — which is exactly where a defect no spec was
 written for survives. 2,600 examples could not see it because none of them
 asserted on an order they had not chosen themselves.
+
+
+---
+
+## THE COURIER'S JOB, CAPTURED IN BOTH SHAPES — AND TWO MORE DEFECTS
+
+**23 Sept 2026.** Third and fourth captures: `courier_job_delivery.json` (four
+steps) and `courier_job_ride.json` (three). Chosen as the payload with the most
+shape to get wrong — one screen used one-handed in sunlight, money moving in two
+directions, and the seam correction 7 says a third demand type arrives through.
+
+### 1 · A DRIVER WAS NEVER TOLD TO BRING CHANGE
+
+The delivery's cash step carried `bring_change_for`. The ride's collect step
+carried **no such key at all**. Measured, not read: `Monetary.change_advice(160)`
+is `500`, so there was advice to give.
+
+`CLAUDE.md` correction 8 puts rides under the same model — *"the courier
+collects the fare in cash"* — and its policy list says *"no change → riders
+carry a change float"*. `AFGHAN_UX.md` §6 asks the question **of the courier**,
+not of the demand type. One screen, two demand types, disagreeing about what
+that screen is told, which is the exact failure correction 7 exists to prevent.
+
+#### It was PINNED, and the pin's own reason is what overturned it
+
+`spec/services/orders/the_door_is_not_a_surprise_spec.rb` asserted that no ride
+step carries the field: *"A ride collects a fare and advances nothing; the step
+list is different and must not grow a delivery's field by accident."*
+
+The guard was against **copy-paste drift**, and that half is right and is kept.
+The conclusion does not follow from it. *"A ride advances nothing"* is the
+argument for having no PAY step, and it is correct for that; it says nothing
+about the COLLECT step, because change is about the cash taken **at the door**,
+not the cash put up **at the shop**. And the file's own heading is AFGHAN_UX §6.
+
+Reversed with the old pin kept in place, the way the session-expiry reversal
+was, and the drift guard rewritten as what it actually meant: a ride must not
+grow `amount_direction: "pay"`, `has_voice_note`, `voice_note_url` or
+`place_name`.
+
+**Second pinned decision met in one night.** The lesson from the first still
+holds and is now tested twice: **read the spec before overturning the code**,
+because a deliberate oddity gets pinned exactly where the code cannot say it.
+The new half is that **a pin can be right about its danger and wrong about its
+conclusion** — this one was guarding against drift and forbade a deliberate
+addition.
+
+### 2 · CHANGE ADVICE WAS A BARE NUMBER AMONG STRINGS
+
+`docs/API_VOCABULARY.md`: *"every amount is a JSON string ("500.0"), never a
+number."* `Monetary.change_advice` returned an **Integer** — `.ceil` on a
+BigDecimal returns Integer, and Integer × Integer is Integer — so:
+
+```
+"amount" => "445.0",  "bring_change_for" => 500      ← same object
+```
+
+Three payloads: the courier's step, the customer's order, the customer's quote.
+Fixed at the helper with `.to_d`, so the rule lives where the number is made.
+
+**Invisible until now because every committed example had a round hundred** and
+got `nil`. It took a 160 AFN fare in a captured file to show it, and the
+cross-payload example that pins it (courier AND customer, one helper) fails on
+both sides when the `.to_d` is removed — checked by removing it.
+
+### 3 · AND THE TRAP I HAD WRITTEN UP TWO HOURS EARLIER
+
+The new fixture pinned a **factory-sequenced phone number** — the same class as
+the `merchant_id` sequence, in a lesson already written into `docs/TESTING.md`
+in the meantime. Fixed the same way: assert each phone belongs to the right
+party, then normalise. **Knowing a rule and applying it are different acts**, and
+the gap between them is about two hours.
+
+### What the captures have produced
+
+Four routes captured, four defects, none of them about the field the capture was
+written for:
+
+| capture | what it found |
+|---|---|
+| `courier_today` | two shapes for per-currency money in one payload |
+| `customer_orders_ended_reason` | `newest_first` was not a total order |
+| `courier_job_ride` | a driver never told to bring change |
+| `courier_job_ride` | change advice served as a number among strings |
+
+**The method is not "assert the field you are thinking about".** It is: put the
+whole response in a file, and the parts nobody had an opinion about start
+asserting themselves.

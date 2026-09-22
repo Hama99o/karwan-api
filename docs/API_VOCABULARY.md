@@ -124,7 +124,13 @@ order has not ended badly. A client testing only `ended_reason?.ended_by`
 cannot tell a delivered order from an unattributed rejection.
 
 **Money shapes:** every amount is a JSON **string** (`"500.0"`, `"-50.0"`),
-never a number, and each is paired with a `currency`. A client comparing them
+never a number, and each is paired with a `currency`. **That includes advice
+ABOUT an amount:** `bring_change_for` on a courier step and `suggested_notes` on
+the customer's order and quote are amounts and are strings. They came from
+`Monetary.change_advice`, which returned an **Integer** — `.ceil` on a BigDecimal
+does — so all three served a bare `500` beside an `amount` of `"445.0"` until the
+courier-job fixture was captured with a 160 AFN fare. Every earlier example had
+a round hundred and got `nil`. A client comparing them
 numerically without parsing gets the wrong answer for negatives — which is the
 short-settlement case exactly. See `spec/fixtures/files/courier_wallet_settlements.json`
 for a captured example.
@@ -145,6 +151,8 @@ producing it, and the failure names the fixture to regenerate:
 | `merchants/today#show` | `spec/fixtures/files/merchant_today.json` |
 | `couriers/today#show` | `spec/fixtures/files/courier_today.json` |
 | `customers/orders#index` — every `ended_reason` state at once | `spec/fixtures/files/customer_orders_ended_reason.json` |
+| `couriers/jobs#show` — a delivery, four steps | `spec/fixtures/files/courier_job_delivery.json` |
+| `couriers/jobs#show` — a ride, three steps | `spec/fixtures/files/courier_job_ride.json` |
 
 `from`/`to` in both `today` payloads are **Kabul** boundaries (`+04:30`). A
 client comparing them against a UTC day is off by four and a half hours and
