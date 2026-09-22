@@ -1,0 +1,15 @@
+{
+  "from": "2026-09-22T00:00:00.000+04:30",
+  "to": "2026-09-22T23:59:59.999+04:30",
+  "by_currency": [
+    {
+      "currency": "AFN",
+      "orders": 2,
+      "items_sold": 3,
+      "items_total": "700.0",
+      "commission": "90.0",
+      "net_received": "610.0"
+    }
+  ],
+  "in_the_kitchen": 1
+}

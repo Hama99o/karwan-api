@@ -65,6 +65,8 @@ RSpec.describe "Api::V1::Couriers::Today", type: :request do
     get "/api/v1/courier/today", headers: auth
 
     expect(json).to have_key("cash_in_hand_now")
+    # The SAME shape as `earnings`, so one payload needs one parser.
+    expect(json["cash_in_hand_now"]).to be_an(Array)
     expect(json).not_to have_key("cash_in_hand"),
                         "an unqualified name here reads as money collected today"
     expect(json).to have_key("cash_allowance_remaining")
@@ -81,8 +83,10 @@ RSpec.describe "Api::V1::Couriers::Today", type: :request do
     get "/api/v1/courier/shift", headers: auth
     from_shift = json["cash_in_hand"]
 
-    expect(from_today[Monetary::DEFAULT_CURRENCY].to_f).to eq(from_shift.to_f),
-                                                          "two screens disagree about the cash in his pocket"
+    held = from_today.find { |row| row["currency"] == Monetary::DEFAULT_CURRENCY }
+
+    expect(held["amount"].to_f).to eq(from_shift.to_f),
+                                  "two screens disagree about the cash in his pocket"
   end
 
   it "leaves yesterday's work out" do

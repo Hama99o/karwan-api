@@ -39,8 +39,27 @@ module Couriers
         deliveries: deliveries.count,
         rides: rides.count,
         earnings: earnings_by_currency,
-        # NOT a figure about today. Named for what it is.
-        cash_in_hand_now: cash.by_currency,
+        # ── ONE SHAPE FOR MONEY THAT CAN BE MULTI-CURRENCY ────────────────
+        #
+        # An ARRAY of `{currency, amount}`, exactly as `earnings` above. The
+        # first version served `CashPosition#by_currency` straight through —
+        # a MAP keyed by currency — so one payload carried two different shapes
+        # for the same idea and a client needed two parsers. Caught by capturing
+        # the response as a fixture rather than describing it, which is the
+        # whole argument for doing that.
+        #
+        # NOT a figure about today: it is what he is carrying right now, which
+        # may include yesterday's uncollected money. The name says so.
+        cash_in_hand_now: cash.by_currency.map { |currency, amount| { currency: currency, amount: amount } },
+        # ── AND THE ONE DOCUMENTED EXCEPTION, WHICH IS A SCALAR ───────────
+        #
+        # The allowance is AFN-only BY DESIGN, not by omission:
+        # `cash_in_hand_limit` is a `Setting` denominated in AFN and
+        # `CashPosition#remaining_allowance` says so — *"the comparison is made
+        # in AFN only. A second currency will need its own limit rather than a
+        # conversion."* A figure that is definitionally single-currency is
+        # honest as a scalar; wrapping it in a per-currency array would imply a
+        # per-currency limit that does not exist.
         cash_allowance_remaining: cash.remaining_allowance
       }
     end

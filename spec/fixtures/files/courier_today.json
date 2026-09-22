@@ -1,0 +1,21 @@
+{
+  "from": "2026-09-22T00:00:00.000+04:30",
+  "to": "2026-09-22T23:59:59.999+04:30",
+  "deliveries": 2,
+  "rides": 1,
+  "earnings": [
+    {
+      "currency": "AFN",
+      "deliveries": "200.0",
+      "rides": "150.0",
+      "total": "350.0"
+    }
+  ],
+  "cash_in_hand_now": [
+    {
+      "currency": "AFN",
+      "amount": "120.0"
+    }
+  ],
+  "cash_allowance_remaining": "2880.0"
+}

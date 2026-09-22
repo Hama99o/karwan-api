@@ -112,6 +112,26 @@ numerically without parsing gets the wrong answer for negatives — which is the
 short-settlement case exactly. See `spec/fixtures/files/courier_wallet_settlements.json`
 for a captured example.
 
+**Per-currency figures are an ARRAY of objects carrying their own `currency`**,
+never a map keyed by currency. One payload, one parser. The single exception is
+`cash_allowance_remaining`, a scalar because `cash_in_hand_limit` is an
+AFN-denominated `Setting` and the comparison is AFN-only by design — an array
+there would imply a per-currency limit that does not exist.
+
+**CAPTURED PAYLOADS, committed so a client can build against a fact rather than
+a description.** Each has a contract spec that fails the moment the API stops
+producing it, and the failure names the fixture to regenerate:
+
+| endpoint | fixture |
+|---|---|
+| `couriers/wallet#settlements` | `spec/fixtures/files/courier_wallet_settlements.json` |
+| `merchants/today#show` | `spec/fixtures/files/merchant_today.json` |
+| `couriers/today#show` | `spec/fixtures/files/courier_today.json` |
+
+`from`/`to` in both `today` payloads are **Kabul** boundaries (`+04:30`). A
+client comparing them against a UTC day is off by four and a half hours and
+attributes the dinner rush to the wrong date.
+
 ## C · NEVER MET — the F-74 shape waiting to happen
 
 **This is the valuable half of the list.** These exist on the server and have
