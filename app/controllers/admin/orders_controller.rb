@@ -59,7 +59,11 @@ module Admin
 
     def cancel
       order = requested_resource
-      moved = order.transition_to!(:cancelled, actor: nil, actor_role: :admin,
+      # `actor` stays nil — it references `users` and this is an `AdminUser`.
+      # `admin_user` is what stops this being recorded as a timeout, and what
+      # tells the customer a person decided it rather than a machine.
+      moved = order.transition_to!(:cancelled, actor: nil, admin_user: current_admin_user,
+                                               actor_role: :admin,
                                                reason: params[:reason].presence || "cancelled by operator")
 
       if moved
@@ -85,7 +89,8 @@ module Admin
                              alert: "Pick a reason: #{Order.failure_reasons.keys.join(', ')}."
       end
 
-      moved = order.transition_to!(:failed, actor: nil, actor_role: :admin, reason: reason)
+      moved = order.transition_to!(:failed, actor: nil, admin_user: current_admin_user,
+                                            actor_role: :admin, reason: reason)
       if moved
         order.update!(failure_reason: reason)
         log_intervention("order.failed", target: order, after: { status: "failed", failure_reason: reason })

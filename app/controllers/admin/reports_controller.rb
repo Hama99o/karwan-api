@@ -200,14 +200,25 @@ module Admin
 
       {
         by_merchant: counts.sort_by { |_reason, n| -n },
-        never_answered: rejected.where(id: transitions.where(actor_id: nil).select(:subject_id)).count,
+        # BOTH ACTOR COLUMNS, which is what `StatusTransition#system?` now means:
+        # no human of either kind. An operator in the console is an `admin_user`
+        # with no `actor_id`, and counting them here would report a decision
+        # somebody at Karwan made as a shop that never picked up the phone —
+        # on the page whose whole job is deciding which shops to ring.
+        #
+        # Zero of them exist today: the console can cancel and fail an order and
+        # has no way to reject one. If that route is ever added, such an order
+        # falls into no bucket and only into `total` — it is neither the shop's
+        # answer nor its silence — and this is the line to give a fourth.
+        never_answered: rejected.where(id: transitions.where(actor_id: nil, admin_user_id: nil)
+                                                      .select(:subject_id)).count,
         unrecorded: rejected.where.not(id: transitions.select(:subject_id)).count,
         total: rejected.count
       }
     end
 
     # The transitions into `rejected` for these orders. `StatusTransition#system?`
-    # is a nil actor, and says so in as many words.
+    # is BOTH actor columns empty, and says so in as many words.
     #
     # A RELATION, not a list of ids. Plucking would pull every rejected order's
     # id into Ruby to hand straight back to Postgres, which is the shape that

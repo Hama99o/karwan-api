@@ -290,6 +290,31 @@ RSpec.describe "Admin reports", type: :request do
       expect(rejection_count("All rejected orders")).to eq(4)
     end
 
+    # ── AN OPERATOR IS NOT A SHOP THAT NEVER PICKED UP ──────────────────────
+    #
+    # The split is by ACTOR, and a console operator has no `actor_id` — they are
+    # an `AdminUser`. Until `StatusTransition#system?` counted both columns, a
+    # rejection somebody at Karwan made looked exactly like a shop that never
+    # answered, on the page whose job is deciding which shops to ring.
+    #
+    # Nothing in the console can reject an order today, so this builds the row
+    # the way the model permits rather than through a route. It is here because
+    # the day that route is added, this is the line that decides whether the
+    # page blames a restaurant for it.
+    it "does not count an operator's rejection as a shop that never answered" do
+      3.times { nobody_answers }
+      order = create(:order, :with_items)
+      order.transition_to!(:rejected, actor: nil, admin_user: admin, actor_role: :admin,
+                                      reason: "cancelled by operator")
+      order.update!(rejection_reason: :other)
+
+      get "/admin/reports"
+
+      expect(rejection_count("Nobody answered")).to eq(3),
+                                                    "a decision somebody at Karwan made is being blamed on a restaurant"
+      expect(rejection_count("All rejected orders")).to eq(4)
+    end
+
     it "says in words how much of the refusal rate is nobody looking" do
       merchant_rejects(:too_busy)
       3.times { nobody_answers }

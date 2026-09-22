@@ -13,13 +13,23 @@ class StatusTransitionDashboard < Administrate::BaseDashboard
     from_status: Field::String,
     to_status: Field::String,
     actor: Field::BelongsTo.with_options(class_name: "User"),
+    # The ops console's operator, who is an `AdminUser` and can never be
+    # `actor`. Before this column existed the console had nowhere to record
+    # itself, so an operator's cancellation was stored — and shown here — as an
+    # empty actor, which is what the system's own transitions look like.
+    admin_user: Field::BelongsTo.with_options(class_name: "AdminUser"),
     actor_role: Field::String,
+    # One column that answers "who", for the list rendered inside an order.
+    # Same method and same order as `AuditLog#author`, so an intervention reads
+    # identically in the audit log and in the job's own history.
+    author: Field::String,
     reason: Field::Text,
     created_at: Field::DateTime
   }.freeze
 
-  COLLECTION_ATTRIBUTES = %i[from_status to_status actor_role created_at].freeze
-  SHOW_PAGE_ATTRIBUTES = %i[subject from_status to_status actor actor_role reason created_at].freeze
+  COLLECTION_ATTRIBUTES = %i[from_status to_status author actor_role created_at].freeze
+  SHOW_PAGE_ATTRIBUTES = %i[subject from_status to_status actor admin_user actor_role
+                            reason created_at].freeze
   # An editable history is not a history.
   FORM_ATTRIBUTES = [].freeze
 

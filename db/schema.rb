@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_22_204714) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_23_002000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -519,6 +519,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_22_204714) do
   create_table "status_transitions", force: :cascade do |t|
     t.bigint "actor_id"
     t.integer "actor_role"
+    t.bigint "admin_user_id"
     t.datetime "created_at", null: false
     t.string "from_status"
     t.text "reason"
@@ -526,6 +527,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_22_204714) do
     t.string "subject_type", null: false
     t.string "to_status", null: false
     t.index ["actor_id"], name: "index_status_transitions_on_actor_id"
+    t.index ["admin_user_id"], name: "index_status_transitions_on_admin_user_id"
     t.index ["subject_type", "subject_id", "created_at"], name: "index_status_transitions_on_subject_and_time"
     t.index ["subject_type", "subject_id"], name: "index_status_transitions_on_subject"
   end

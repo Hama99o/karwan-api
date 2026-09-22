@@ -158,7 +158,10 @@ module Dispatchable
 
   # Records the move AND who made it. Returns false rather than raising on an
   # illegal transition, so a stale client cannot 500 the endpoint.
-  def transition_to!(to_status, actor:, actor_role:, reason: nil)
+  # `admin_user` is the ops console's operator, who is an `AdminUser` and can
+  # never be `actor`. Defaulted rather than required because every in-app path
+  # has a real `actor` and none of them has one.
+  def transition_to!(to_status, actor:, actor_role:, reason: nil, admin_user: nil)
     return false unless can_transition_to?(to_status, actor_role: actor_role)
 
     from = status
@@ -166,7 +169,7 @@ module Dispatchable
       update!(status: to_status, "#{to_status}_at": Time.current)
       transitions.create!(
         from_status: from, to_status: to_status.to_s,
-        actor: actor, actor_role: actor_role, reason: reason
+        actor: actor, admin_user: admin_user, actor_role: actor_role, reason: reason
       )
     end
     true

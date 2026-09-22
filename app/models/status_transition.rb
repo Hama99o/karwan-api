@@ -10,22 +10,41 @@
 # what becomes unreadable a year later, when the question being asked is "what
 # happened to this order in March".
 #
-# A nil actor means the system did it — i.e. a timeout fired. That distinction
-# is the difference between "the merchant rejected it" and "the merchant
-# never answered", and support needs to know which.
+# TWO KINDS OF ACTOR, the shape `audit_logs` already uses and for its reason:
+# there are two answers to "who did this" — an app user (a courier failing a
+# job, a customer cancelling) or a staff member in the ops console, who is an
+# `AdminUser` and not a `User`.
+#
+# Both nil means the SYSTEM did it — a timeout fired. That distinction is the
+# difference between "the merchant rejected it" and "the merchant never
+# answered", and support needs to know which.
+#
+# It used to be `actor_id.nil?` alone, and the console could not satisfy it:
+# `Admin::OrdersController` passed `actor: nil` because it had nowhere to put
+# its operator, so a human cancelling an order was recorded as a machine and
+# the customer was told so. One nil carried two opposite meanings.
 class StatusTransition < ApplicationRecord
   enum :actor_role, Roles::ALL, prefix: :by
 
   belongs_to :subject, polymorphic: true
   belongs_to :actor, class_name: User.name, optional: true
+  belongs_to :admin_user, optional: true
 
   validates :to_status, presence: true
   validate  :statuses_belong_to_the_subject
 
   scope :chronological, -> { order(:created_at) }
 
+  # NO HUMAN AT ALL — neither an app user nor an operator. Both columns, not
+  # one: a console intervention has no `actor_id` and is not the system.
   def system?
-    actor_id.nil?
+    actor_id.nil? && admin_user_id.nil?
+  end
+
+  # Who it was, however it is spelled. Same method and same order as
+  # `AuditLog#author`, so the two logs answer the question identically.
+  def author
+    admin_user&.to_s || actor&.display_name || "system"
   end
 
   private

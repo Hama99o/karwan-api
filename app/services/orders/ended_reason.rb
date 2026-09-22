@@ -56,8 +56,17 @@ module Orders
     private
 
     # WHO, from the transition log rather than from `cancelled_by_role` — which
-    # exists only for cancellations, and which nothing writes when the system
-    # acts. A nil actor is the system; `StatusTransition#system?` says so.
+    # exists only for cancellations, is written by two paths and by neither the
+    # timeout job nor anything else, and is read by nothing at all. The log is
+    # the one-way door; a column beside it is a second answer that can disagree.
+    #
+    # `StatusTransition#system?` is BOTH actor columns empty. That matters here
+    # more than anywhere: an operator cancelling from the console has no
+    # `actor_id` — they are an `AdminUser` — and used to come out as `system`,
+    # so a person's decision was reported to the customer as a machine's. The
+    # two send them to different places. "Nobody at the shop answered" means try
+    # another shop; **`admin` means somebody at Karwan decided it, and there is
+    # a number in the app to ring.**
     #
     # Nil when there is no transition row at all. That is a real state — the
     # stress seed produces it in bulk — and answering "system" there would be
