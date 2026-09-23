@@ -2071,3 +2071,40 @@ is 147 MB of real seeded images. Cleanup code that resolves "the service" at
 runtime deletes the wrong one the first time somebody runs it in the wrong
 environment, so it takes the path it is given and **refuses anything outside
 `tmp/`** — asserted in its own spec, alongside `nil` and `/`.
+
+
+---
+
+## WHEN A REPORT GIVES TWO NUMBERS THAT IMPLY A THIRD, COMPUTE THE THIRD
+
+The `tmp/storage` leak arrived as a correct finding carrying a wrong figure:
+
+> *"71,088 files … the files are 76 bytes each."*
+
+**71,088 × 76 = 5.4 MB.** If that had been true, the directory would have been
+worth nobody's attention, and an emergency-shaped message would have been about
+a triviality. The real distribution is 46,651 files under 1 KB and **3,794 over
+1 MB**, which is where the 6.46 GB actually is. The 76 came from sampling the
+newest few files and was passed on as a property of all of them.
+
+The check costs one multiplication and it belongs to whoever *receives* the
+report, because the person who wrote it has already been convinced:
+
+- a total and a per-item imply a **count**
+- a count and a per-item imply a **total**
+- a recovery and a floor imply a **remainder** — "7 GB back puts you above your
+  20 GB floor" was the second wrong number in the same message, and 11 + 7 = 18
+
+None of this required looking at the directory. It is arithmetic on the report
+itself, before any verification that costs a command.
+
+**It generalises past reports from people.** Any two numbers you are about to
+act on that imply a third: multiply them and see whether the answer is the size
+of the thing you think you are dealing with. It is the cheapest form of the
+discipline the rest of this file is about — measure rather than believe — and
+the only one that needs no access to the system at all.
+
+The finding itself was right, and was the largest single thing wrong with this
+checkout. **Correcting two numbers inside a true report is not the same as
+doubting the report**, and saying which you are doing matters when the report is
+on its way to somebody who will act on it.
