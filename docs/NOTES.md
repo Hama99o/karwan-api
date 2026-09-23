@@ -5871,3 +5871,67 @@ So the tally for the method is honest rather than flattering: **five captures,
 four payload defects, and a fifth route where capturing the payload proved it
 right and the instrument that mattered was a different one.** A fixture asserts
 everything in the response. It asserts nothing about what the response cost.
+
+
+---
+
+## THE SUITE KEPT EVERY FILE IT EVER ATTACHED — 71,088 OF THEM, 6.46 GB
+
+**23 Sept 2026, 02:20.** Raised by Hamma9901 from a disk graph, then measured
+here:
+
+```
+tmp/storage   71,088 files   6.46 GB apparent   oldest 15 Sept
+              46,651 under 1 KB    metadata and tiny fixtures
+               3,794 over 1 MB     ← the volume: originals and their variants
+```
+
+On a box with **11 GB free**. `config/storage.yml` points the **test** Disk
+service at `tmp/storage`, and nothing ever emptied it: every `attach` in every
+example, and every variant processed from one, writes a blob that outlives the
+run. **Transactional examples roll the ROWS back; the files were never in the
+transaction.**
+
+### Why neither of the two places a person would notice said anything
+
+- **`bin/rails tmp:clear` does not clear Active Storage's disk root.** It does
+  cache, sockets and screenshots. The one command whose name promises to empty
+  `tmp` did not empty the largest thing in it.
+- **`.gitignore:27` hides the directory**, correctly, so it never appeared in a
+  `git status` either.
+
+Both were doing their own job properly. It is not a missing check; it is the
+gap between two checks, which is a shape worth keeping separate from *"a true
+sentence nothing enforced"*.
+
+### Fixed in two places, and verified in both directions
+
+`spec/support/test_storage.rb` empties the service's root `after(:suite)` —
+reading the root FROM THE SERVICE so moving it in `storage.yml` moves the
+cleanup, and refusing any path outside `tmp/` so the day somebody points the
+test service at `storage/` (147 MB of real seeded images) this does not delete
+them. And `lib/tasks/tmp_storage.rake` hangs the same sweep off `tmp:clear`,
+where a human would look for it — targeting the literal `tmp/storage` rather
+than the current environment's service, because in development that service is
+`local` and its root is the real one.
+
+**Measured, not assumed:** the same spec file, which attaches avatars, leaves
+**1 file** (`.keep`) with the hook and **4** without it. The run genuinely
+writes blobs and the hook genuinely removes them.
+
+Clearing the backlog took the machine from **11 GB free to 18 GB**.
+
+### Two corrections to the report that raised it, both of which change something
+
+1. **"The files are 76 bytes each" is wrong**, and it is the difference between
+   a nuisance and a real problem. Two-thirds of them are under 1 KB, but
+   **3,794 files are over 1 MB** and they are where the 6.46 GB is. Had it
+   really been 71,088 × 76 bytes, the whole directory would have been 5 MB and
+   worth nobody's attention.
+2. **18 GB does not clear the emulator floor.** `CLAUDE.md` aborts an emulator
+   boot under **20 GB** free. Recovering 7 GB is real and welcome and does not
+   change what can be run tonight.
+
+Neither correction makes the finding less right. The symptom was real, found by
+somebody watching a graph this session was not watching, and it was the largest
+single thing wrong with this checkout.

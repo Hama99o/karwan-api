@@ -2032,3 +2032,42 @@ MultiMagic rig afterwards and says its backend step takes a 200 from `/up` as
 "backend reachable" with nothing asserting which app answered, while its Metro
 step greps the body and is fine. That is their measurement in another repo, not
 one this session made — recorded as attribution rather than as a finding.
+
+
+---
+
+## A TEST THAT CREATES A FILE IS NOT IN THE TRANSACTION
+
+`tmp/storage` reached **71,088 files and 6.46 GB** before anybody looked, on a
+machine with 11 GB free. Every `attach` in every example, and every variant
+processed from one, wrote a blob that outlived the run since 15 September.
+
+**Transactional examples roll back ROWS.** They do not roll back anything
+outside the database: files on disk, entries in an external cache, a directory
+somebody wrote. If an example creates one, the example has to remove it — and
+the cheap place is `after(:suite)`, not `after(:each)`, because per-example
+sweeping costs a directory walk 2,700 times and fights parallel runs.
+
+### The shape worth separating from the rest of this file
+
+Most entries here are *a true sentence nothing enforced*. This one is different
+and is worth its own name: **the gap between two checks that each did their own
+job.**
+
+- `bin/rails tmp:clear` clears cache, sockets and screenshots — and not Active
+  Storage's disk root. **The one command whose name promises to empty `tmp` did
+  not empty the largest thing in it.**
+- `.gitignore` hides the directory, correctly, so it never showed in
+  `git status` either.
+
+Neither is wrong. Nobody has to have made a mistake for 6.46 GB to accumulate
+between them. When you are looking for what went unnoticed, ask which checks
+*border* the thing rather than which check covers it.
+
+### And when you write the cleanup, make it refuse
+
+The test service's root is disposable. The `local` service's root, `storage/`,
+is 147 MB of real seeded images. Cleanup code that resolves "the service" at
+runtime deletes the wrong one the first time somebody runs it in the wrong
+environment, so it takes the path it is given and **refuses anything outside
+`tmp/`** — asserted in its own spec, alongside `nil` and `/`.
