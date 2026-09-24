@@ -6917,6 +6917,28 @@ construction, and whether that blind spot hid anything.
 - `served_images_are_resized`: it read serializers only, and its receiver regex could not start with `@`. It now reads all of `app/`, including `@` receivers. The one new site is audio.
 - `config_reachability`: sound. It seeds and checks a row for every definition. `TODAYS_KNOBS` is a redundant dated list, not the load-bearing check.
 
+**The first catch of work that did not exist when the gate was written (25 Sept
+2026, `526825e`).** The route-derived policy sweep was rebuilt at about 21:00
+on 24 Sept precisely because the old one enumerated POLICIES and could not see
+an action that had none. Four hours later the ride override added four new
+console routes. The sweep failed on its count (110 → 114) and then required a
+policy for each, and nobody had pointed it at them. The audit gate did the same
+from the other side, refusing all four until each had a driven case. That is
+the property the rebuilt instruments were for: **catching what they were not
+aimed at.** A gate that only catches what its author was thinking about is a
+checklist.
+
+**A fixture hiding a production default (F-92, found 25 Sept 2026).**
+`courier_profiles.vehicle_type` is `NOT NULL DEFAULT 0`, and 0 is `motorbike`.
+The app never sends the field, so every courier registered from the app is a
+motorbike. The console only sets it if somebody opens the generic edit form.
+**Every seed (e2e, sample, stress) sets the column directly**, so no QA run has
+ever seen the default. Meanwhile car rides and family rides refused every car
+driver (`wrong_vehicle_class`, `too_many_passengers`), and a bicycle courier
+got motorbike capacity. **A seed that sets a column the app never sets is a
+seed testing a state that cannot occur.** Same family as the board order that
+was born dead: the fixture's shape, not the product's.
+
 ## THE RIDE DOOR — build it from this list (24 Sept 2026)
 
 Rides have no front door. Nothing in `app/` creates a `Trip`, and every
@@ -7098,3 +7120,53 @@ and 41.
 succeeds measures the failure path.** The first capture ran on the dev DB,
 where every courier stopped at an early check, so it showed only the first
 N+1. The rest appeared only once the couriers were made to pass.
+
+## SIGN-IN IS THROTTLED PER IDENTIFIER, NOT PER ADDRESS — 25 Sept 2026
+
+**The defect, reproduced.** Sign-in was limited to 120 attempts an hour per IP.
+A mobile carrier here puts a whole district behind one address (carrier-grade
+NAT), so `sign_in_throttle_spec`'s first example sent 130 real people from one
+address, each with one typo and then the right password: **person 61 was
+refused** (request 121), for other people's typos. Registration was worse, at
+30 an hour. Hamma9901's decision: per identifier, a much higher IP backstop, a
+refusal that says how long, and no difference between real and missing
+accounts. It was treated as a launch blocker.
+
+**What it is now:**
+- **Per identifier:** 10 FAILED attempts per 15 minutes. The counter is keyed on
+  the identifier as typed, normalised the way the lookup normalises it
+  (`0700…`, `+93 700 …` and `+93700…` are one counter; email is case-folded),
+  and digested. It never consults the account. It is checked before the lookup
+  and before bcrypt. While it stands, even the right password is refused.
+  Successes are not counted.
+- **Per IP, the backstop:** 1,200 an hour on sign-in and 600 on registration.
+  Registration has no better key, because every attempt is a new phone.
+- **Every 429 from `RateLimitable` now carries `retry_after_seconds` and a
+  `Retry-After` header.** The code is still `rate_limited`, so the app's
+  existing "wait a few minutes" still renders. That's an additive wire change.
+  The concern had to stop using Rails' `rate_limit` to do this, because Rails'
+  limiter doesn't know when its window ends. Its windows are fixed and anchored
+  to the UTC clock (an hour window ends at half past, Kabul time), and a burst
+  of up to 2× can pass across a boundary. It still fails open.
+- **Refused identically** for a real and a missing account: same status, same
+  body, same header (compared byte for byte in the spec).
+
+**Plants, each red:** counting only real accounts turned the two oracle
+examples red; no refusal before sign-in turned 6 red; no normalisation turned
+2 red; leaving the backstop at 120 turned the district example red; no
+`retry_after_seconds` turned 3 red.
+
+**The cost, named rather than argued away:** anyone who knows your number can
+spend your ten tries and keep you out for up to 15 minutes at a time, again
+and again. The refusal says how long, and a password reset still works. The
+standard mitigations are an escalating CAPTCHA or a device-bound allowance.
+Neither is v0; a CAPTCHA is a third party (correction 14). Watch for it in
+support calls.
+
+**Left open, and Hamma9901's call because it spends SMS:** password reset is
+still **20 an hour per IP**, which has the same NAT problem: the 21st person on
+one carrier to forget their password in an hour is refused. The per-phone OTP
+counter (3 per 15 minutes, 10 a day) already caps what one NUMBER can cost. The
+IP limit is the only cap on one address spending SMS across MANY numbers, so
+raising it raises the worst-case bill per address per hour by the same factor.
+The retained OTP endpoint (60 an hour per IP) is switched off and left as it is.

@@ -11,9 +11,16 @@
 # §1 with what it costs.
 class Api::V1::Auth::RegistrationsController < ApplicationController
   # Public by necessity, and throttled by address because an account is a row
-  # and a wallet. Generous, because a whole Kabul neighbourhood can share one
-  # IP — the same reasoning as the sign-in throttle.
-  throttle to: 30, within: 1.hour, by: :ip, only: :create
+  # and a wallet — and there is no better key: every attempt is a NEW phone,
+  # so a per-identifier counter would count to one.
+  #
+  # It was 30 an hour, which called itself generous. Behind carrier-grade NAT
+  # a whole district shares one address, so the evening a campaign video goes
+  # out, the 31st person on that network to register was refused. Raised with
+  # the sign-in backstop on 25 Sept 2026: a registration spends no SMS (there
+  # is no verification step), so the cost of a script getting 600 rows an hour
+  # from one address is rows, and the cost of 30 was real people.
+  throttle to: 600, within: 1.hour, by: :ip, only: :create
 
   def create
     user, token, session = Users::RegistrationService.new(

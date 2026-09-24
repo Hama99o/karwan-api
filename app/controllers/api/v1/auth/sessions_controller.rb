@@ -14,9 +14,44 @@ class Api::V1::Auth::SessionsController < ApplicationController
     "merchant_owner" => "/api/v1/merchant_application"
   }.freeze
 
-  # Code guesses are already capped per code by OtpVerification::MAX_ATTEMPTS.
-  # This bounds a script working through many phone numbers from one address.
-  throttle to: 120, within: 1.hour, by: :ip, only: :create
+  # ── THE LIMIT IS PER ACCOUNT NAME, NOT PER ADDRESS ────────────────────────
+  #
+  # It was 120 an hour per IP, and that is the wrong axis in this market: a
+  # mobile carrier puts a whole district behind one address (carrier-grade
+  # NAT), so a campaign evening's worth of real people signing in on one
+  # network used the same 120, and the 121st got refused for a stranger's
+  # typos. Hamma9901's decision, 25 Sept 2026: throttle per IDENTIFIER, and
+  # keep the IP limit as a backstop, set much higher.
+  #
+  # What is being guessed is ONE account's password, so that is what is
+  # counted: FAILED attempts against one identifier, normalised the same way
+  # the lookup normalises it (`0700…` and `+93700…` are one counter), keyed
+  # whether or not an account exists. Successes are not counted — a courier
+  # signing in on a second phone spends nothing.
+  #
+  # ── IT MUST NOT BE AN EXISTENCE ORACLE ────────────────────────────────────
+  #
+  # A counter that only ran for real accounts would answer "does this number
+  # use Karwan?" on the eleventh try. So the counter is keyed on what was
+  # TYPED and never consults the account; the refusal is checked BEFORE the
+  # lookup, before bcrypt, and is word-for-word the backstop's refusal; and
+  # while it stands, even the right password is refused — otherwise the
+  # throttle would stop nobody who guesses well.
+  #
+  # The cost, named: anybody who knows your number can spend your ten tries
+  # and keep you out for up to fifteen minutes at a time. Refusing tells the
+  # person how long; a password reset still works. That is recorded in
+  # docs/NOTES.md rather than argued away.
+  SIGN_IN_FAILURES_PER_IDENTIFIER = 10
+  SIGN_IN_FAILURE_WINDOW = 15.minutes
+
+  # The backstop: one address working through MANY identifiers, which the
+  # per-identifier counter cannot see. Set where a whole district behind one
+  # carrier address signing in within the hour still fits — sessions last, so
+  # a person signs in rarely — and a spraying script does not.
+  throttle to: 1_200, within: 1.hour, by: :ip, only: :create
+
+  before_action :refuse_a_throttled_identifier, only: :create
 
   # THE ROLE IS CHOSEN AT THE DOOR, and `role` is optional because customer is
   # the default and is never asked — asking "what are you?" of somebody who
@@ -80,6 +115,7 @@ class Api::V1::Auth::SessionsController < ApplicationController
   # Karwan — and in one neighbourhood where everyone knows everyone that is a
   # real privacy leak.
   rescue Users::PasswordSignInService::InvalidCredentials => e
+    count_a_failed_sign_in
     render_unprocessable_entity(e.message, code: "invalid_credentials")
   # SUSPENSION IS TOLD APART, because the password was right and "try again"
   # would be a lie: that person needs to ring support.
@@ -94,6 +130,7 @@ class Api::V1::Auth::SessionsController < ApplicationController
     # code" here rather than "check the digits and try again".
     render_unprocessable_entity(e.message, code: "otp_expired")
   rescue Users::SignInService::InvalidCode => e
+    count_a_failed_sign_in
     render_unprocessable_entity(e.message, code: "otp_invalid")
   rescue Users::SignInService::Error => e
     render json: { error: e.message, code: "account_unavailable" }, status: :forbidden
@@ -106,5 +143,27 @@ class Api::V1::Auth::SessionsController < ApplicationController
 
     current_session.revoke!
     head :no_content
+  end
+
+  private
+
+  def refuse_a_throttled_identifier
+    window = sign_in_failure_window
+    count = rate_limit_safely { window.count }
+    render_too_many_requests(window.retry_after_seconds) if count && count >= SIGN_IN_FAILURES_PER_IDENTIFIER
+  end
+
+  def count_a_failed_sign_in
+    window = sign_in_failure_window
+    rate_limit_safely { window.hit! }
+  end
+
+  # WHAT WAS TYPED, normalised the way the lookup normalises it, and never
+  # the account: a real number and an unused one count identically. Digested,
+  # so the cache does not become a list of every phone number anyone tried.
+  def sign_in_failure_window
+    raw = params[:identifier].presence || params[:phone] || params[:email]
+    typed = Users::Identifier.resolve(raw)&.value || raw.to_s.strip.downcase
+    rate_limit_window("sign-in-failures:#{OpenSSL::Digest::SHA256.hexdigest(typed)}", SIGN_IN_FAILURE_WINDOW)
   end
 end

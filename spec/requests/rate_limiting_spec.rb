@@ -26,12 +26,11 @@ RSpec.describe "Rate limiting", type: :request do
   # unthrottled endpoint here is somebody working through a list of numbers on
   # the owner's infrastructure, and on `password_reset` it is his SMS bill.
   describe "the endpoints that hand out a session" do
-    it "eventually limits SIGN-IN attempts from one address" do
-      121.times { post "/api/v1/auth/session", params: { identifier: "+93700001234", password: "wrong" } }
-
-      expect(response).to have_http_status(:too_many_requests)
-      expect(json["code"]).to eq("rate_limited")
-    end
+    # SIGN-IN'S LIMITS HAVE THEIR OWN FILE: per identifier, with a per-IP
+    # backstop at 1,200 an hour (`spec/requests/api/v1/auth/sign_in_throttle_spec.rb`).
+    # This example used to send 121 wrong passwords for ONE number from one
+    # address, which since 25 Sept 2026 the per-identifier limit stops at the
+    # eleventh — it would have stayed green while testing a different limit.
 
     it "does not limit a normal number of sign-in attempts" do
       create(:user, phone: "+93700001234", password: "a-long-enough-password")
@@ -41,15 +40,19 @@ RSpec.describe "Rate limiting", type: :request do
       expect(response).to have_http_status(:created)
     end
 
-    # Tighter than sign-in, because an account is a row AND a wallet.
+    # Tighter than the sign-in backstop, because an account is a row AND a
+    # wallet; far above 30, because a district shares one carrier address.
     it "eventually limits REGISTRATIONS from one address" do
-      31.times do |i|
+      601.times do |i|
         post "/api/v1/auth/registration",
              params: { phone: "+9370001#{i.to_s.rjust(4, '0')}", password: "a-long-enough-password" }
       end
 
       expect(response).to have_http_status(:too_many_requests)
       expect(json["code"]).to eq("rate_limited")
+      # Every refusal from the concern says how long, in the body and the header.
+      expect(json["retry_after_seconds"]).to be_between(1, 1.hour.to_i)
+      expect(response.headers["Retry-After"]).to eq(json["retry_after_seconds"].to_s)
     end
 
     # THE TIGHTEST OF THE THREE, and the only one that spends money: every
