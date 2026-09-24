@@ -165,6 +165,11 @@ Not a payout, not a transfer — **they deposit into our account at a bank near 
   knows where to go before they ever owe anything.
 - **Each deposit is matched by the 4-digit reference code** already on `courier_wallets`. Names
   transliterate badly (Muhammad / Mohammad / Mohammed) and a code survives a bank statement.
+- **A deposit settles the work it covered, not the work since** (24 Sept 2026). The operator
+  records a deposit after it was made, and the courier keeps working in between; recording it
+  used to settle everything collected up to the click, so an honest courier read as short by
+  whatever he earned after depositing. The settle action now takes the deposit's time from the
+  statement (Kabul time, blank = now) and writes it as the settlement's `period_end`.
 
 ### Non-payment: warn, grace, then stop
 

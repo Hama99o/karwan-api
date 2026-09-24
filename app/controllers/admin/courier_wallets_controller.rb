@@ -83,19 +83,34 @@ module Admin
 
       return reject_amount(wallet, "Who counted it? A name is required.") if counter.blank?
 
-      position = Couriers::CashPosition.new(wallet.user)
-      expected = position.held
+      # ── WHAT THIS DEPOSIT COVERED ────────────────────────────────────────
+      #
+      # §4: they settle by BANK DEPOSIT, matched afterwards from the statement,
+      # and keep working in between. Settling everything collected up to the
+      # moment this is pressed recorded an honest courier as short by whatever
+      # he earned after depositing, and forgot that he still held it. So the
+      # operator gives the deposit's time; blank means now, as before.
+      cutoff = deposit_cutoff
+      return reject_amount(wallet, "That deposit time is in the future — check the statement.") if cutoff.nil?
+
+      # The SAME set is summed and then marked, chosen once, so a delivery
+      # completing while this runs cannot be marked settled without having
+      # been expected.
+      jobs = [ Order, Trip ].to_h { |klass| [ klass, covered_ids(klass, wallet.user, cutoff) ] }
+      expected = jobs.sum(BigDecimal("0")) do |klass, ids|
+        klass.where(id: ids, currency: wallet.currency).sum(:commission)
+      end
 
       settlement = nil
       ApplicationRecord.transaction do
         settlement = Settlement.create!(
           courier: wallet.user, expected_amount: expected, counted_amount: counted,
           currency: wallet.currency, counted_by_name: counter,
-          settled_at: Time.current, note: params[:note]
+          settled_at: Time.current, period_end: cutoff, note: params[:note]
         )
         # Marking the jobs settled is what clears the cash-in-hand gate and
         # lets dispatch offer them work again.
-        mark_settled(wallet.user)
+        mark_settled(jobs)
       end
 
       log_intervention("courier.settled", target: settlement,
@@ -108,12 +123,31 @@ module Admin
 
     private
 
-    def mark_settled(courier)
+    def mark_settled(jobs)
       now = Time.current
-      [ Order, Trip ].each do |klass|
-        klass.for_courier(courier).where(payment_status: :collected)
+      jobs.each do |klass, ids|
+        klass.where(id: ids, payment_status: :collected)
              .update_all(payment_status: klass.payment_statuses[:settled], settled_at: now)
       end
+    end
+
+    # When the cash changed hands: delivery for an order, completion for a
+    # ride — the moment `payment_status` became `collected`.
+    COLLECTED_AT = { Order => :delivered_at, Trip => :completed_at }.freeze
+
+    def covered_ids(klass, courier, cutoff)
+      klass.for_courier(courier).where(payment_status: :collected)
+           .where(COLLECTED_AT.fetch(klass) => ..cutoff).pluck(:id)
+    end
+
+    # Read in `Time.zone` (Kabul): the statement's time is local. Nil for a
+    # time in the future, which is a typo rather than a deposit.
+    def deposit_cutoff
+      raw = params[:deposited_at].presence
+      return Time.current if raw.nil?
+
+      at = Time.zone.parse(raw)
+      at && at <= Time.current ? at : nil
     end
 
     def reject_amount(wallet, message)

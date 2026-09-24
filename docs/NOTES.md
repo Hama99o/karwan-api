@@ -6376,3 +6376,40 @@ made the gates engage (declared but never sent; undocumented; count wrong) —
 so it is now sent as a literal, documented, and `reachable_in_normal_use` is
 54. The weaker spot remains: **an accounted-for expression's values are not
 checked**, only its name. Recorded rather than rebuilt here.
+
+
+---
+
+## A DEPOSIT RECORDED ON SUNDAY SETTLED SATURDAY'S WORK TOO
+
+**24 Sept 2026.** `MONEY_AND_SETTLEMENT.md` §4: couriers settle **by bank
+deposit**, matched later from the statement by their 4-digit code — *"deposited
+at the end of the week."* `Admin::CourierWalletsController#settle` computed
+`expected` and marked settled everything collected up to the moment the
+operator pressed it. Reproduced before any change:
+
+```
+250 deposited Friday 18:00 · 150 more collected Saturday · recorded Sunday
+settlement: expected 400.0 counted 250.0 variance -150.0
+platform thinks he holds: 0.0   (he actually holds 150 from Saturday)
+```
+
+An honest courier recorded **150 short** — and *"unexplained mismatches are
+theft"* — while the 150 he still holds is forgotten and his cash-in-hand gate
+reset, so dispatch offers him more cash work on top of it.
+
+Now `deposited_at` (from the statement, read as Kabul time, blank = now as
+before, future refused) bounds the jobs: an order by `delivered_at`, a ride by
+`completed_at` — when `payment_status` became `collected`. The set is chosen
+**once** and both summed and marked, which also closes a smaller race: a
+delivery completing between the sum and the mark used to be marked settled
+without having been expected. Written as `settlements.period_end`, a column
+that existed and that nothing wrote.
+
+Spec red on the unfixed code (4 of 5; the unchanged-default control green).
+Six plants landed, all red. One fixture needed fixing first — a trip whose
+fare did not equal earnings plus commission failed validation, and all five
+examples "failed" for that reason instead of the bug; the control going red
+too is what showed it.
+
+**The operator cannot actually press this yet** — see the next entry.
