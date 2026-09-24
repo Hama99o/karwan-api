@@ -55,6 +55,7 @@ module Admin
     # shift, and the same day.
     def reimburse
       wallet = requested_resource
+      authorize wallet, :reimburse?
       amount = params[:amount].to_d
 
       return reject_amount(wallet, "A reimbursement must be a positive amount.") unless amount.positive?

@@ -10,6 +10,10 @@ class CourierWalletPolicy < ApplicationPolicy
   def top_up?  = admin?
   def adjust?  = admin?
   def settle?  = admin?
+  # Missed by the 2026-09-18 caller sweep because it had no method to find: the
+  # sweep looked for policy methods nobody called, and the fourth money action
+  # had no policy method at all. Found on the money-path audit, 2026-09-24.
+  def reimburse? = admin?
 
   private
 

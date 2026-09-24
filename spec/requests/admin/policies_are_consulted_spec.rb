@@ -79,6 +79,20 @@ RSpec.describe "the admin policies are consulted", type: :request do
              params: { counted_amount: "50", counted_by_name: "Najibullah" }
       }.not_to change(Settlement, :count)
     end
+
+    # The fourth money action, and the one the 2026-09-18 sweep could not find:
+    # it had no policy method, so there was no uncalled method to report.
+    it "is consulted for a reimbursement: refusing it moves no money" do
+      expect {
+        post "/admin/courier_wallets/#{wallet.id}/reimburse", params: { amount: "80", note: "customer refused" }
+      }.to change { wallet.reload.balance }.by(80)
+
+      refuse!(CourierWalletPolicy, :reimburse?)
+
+      expect {
+        post "/admin/courier_wallets/#{wallet.id}/reimburse", params: { amount: "80", note: "customer refused" }
+      }.not_to change { wallet.reload.balance }
+    end
   end
 
   describe "CourierProfilePolicy" do
