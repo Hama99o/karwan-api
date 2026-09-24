@@ -32,3 +32,16 @@
 .karwan-actions input, .karwan-actions select { width: auto; margin: 0; }
 .karwan-actions input[type=text] { flex: 1 1 16rem; }
 .karwan-actions select { flex: 0 1 22rem; }
+/* The reports page and the dashboard's notes. These classes were in the HTML
+   with no rule anywhere — found by the gate in
+   spec/config/every_console_class_has_a_rule_spec.rb. The --warn note carries
+   sentences like "do not use this alone to decide whether to recruit", which
+   rendered as ordinary text. */
+.karwan-report { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
+.karwan-report th, .karwan-report td { text-align: left; padding: .45rem .6rem;
+                                       border-bottom: 1px solid #e5e7eb; font-size: .9rem; }
+.karwan-report__headline { font-size: 1.05rem; margin: .25rem 0 .75rem; }
+.karwan-report__note, .karwan-note { font-size: .85rem; color: #4b5563; margin: 0 0 1.5rem; }
+.karwan-report__note--warn { background: #fff6e5; color: #7a4a00; border-left: 4px solid #d97706;
+                             padding: .6rem .8rem; border-radius: 4px; }
+.karwan-tile--wide { flex-basis: 100%; }
