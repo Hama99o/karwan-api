@@ -534,3 +534,23 @@ requirement, and OTP was one reading of it.
 was: an Afghan phone used to need an SMS to **log in at all**, and now needs
 one only to **recover** an account. Email reset works the day SMTP has its four
 environment variables.
+
+### R-2026-09-24 — Report a courier's position while he is on shift
+
+Asked in session, as a choice, because `CLAUDE.md`'s OUT list reads *"Foreground
+tracking only, while an order is active"* and this goes beyond "while an order
+is active". The question, verbatim:
+
+> "A courier waiting on shift never sends his position, so dispatch (which
+> needs a fix under 5 min old to pick the nearest rider) never offers him a
+> job. May the app report his position while he is ON SHIFT and the app is
+> open (foreground only, stops when he goes offline or closes the app)?"
+
+**His answer: "Yes, while on shift."** (Chosen over: one position only when he
+goes online; or relaxing the server's five-minute rule for idle couriers.)
+
+What it means for the code: karwan-mobile `72c295e` — `useReportWhileOnShift`,
+foreground only, while he has made himself available, stopping when he goes
+offline or leaves the screen. **Background location is still out of v0**; this
+answers "while an order is active" for the case the brief's own dispatch rule
+("offer to the nearest available rider") needed and nobody had built.

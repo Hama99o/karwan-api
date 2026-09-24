@@ -5261,19 +5261,19 @@ section becomes another true sentence nothing enforces.
 | # | change | shape |
 |---|---|---|
 | 1 | `POST /me/switch_role` into a money-handling role needs `password` | **breaking** — 422 `reauthentication_required` · client side fixed in karwan-mobile `2d9f31d` (F-81), 24 Sept |
-| 2 | `ended_reason` on customer order detail, list, merchant board | new object, or null |
+| 2 | `ended_reason` on customer order detail, list, merchant board | new object, or null · **consumed in app `fd5058d`** (customer; merchant board not yet) |
 | 3 | `unorderable` on customer and merchant catalog | new code, or null |
-| 4 | `blocked_by` on `couriers/shifts#show` | new code, or null |
+| 4 | `blocked_by` on `couriers/shifts#show` | new code, or null · **consumed in app `72c295e`** |
 | 5 | `photo_url` on the courier blocks of order and track | new, or null |
-| 6 | `bring_change_for` on courier job steps | new, or null |
+| 6 | `bring_change_for` on courier job steps | new, or null · **consumed in app `b80de5d`** |
 | 7 | `GET /merchant/today` | new endpoint |
 | 8 | `GET /courier/today` | new endpoint |
 | 9 | merchant reject sheet offers FOUR reasons, not five | vocabulary narrowed |
 | 10 | eligibility reasons number fifteen; nine arrive as a FIELD on a 200 | vocabulary widened |
-| 11 | **`ended_by` can say `admin`** — a person at Karwan, not a machine | **new value in an existing field** |
-| 12 | **`bring_change_for` and `suggested_notes` are STRINGS** (`"500.0"`) | **type change** — were bare numbers |
-| 13 | **a ride's `complete_and_collect` carries `bring_change_for`** | new field on an existing step |
-| 14 | **`POST /courier/offers/:id/accept` can answer 422 `job_taken`** — the job was given to someone else by hand while the offer was live | new error code; same sentence as `offer_expired` |
+| 11 | **`ended_by` can say `admin`** — a person at Karwan, not a machine | **new value in an existing field** · **consumed in app `fd5058d`** |
+| 12 | **`bring_change_for` and `suggested_notes` are STRINGS** (`"500.0"`) | **type change** — were bare numbers · **checked 24 Sept: the app parses both with `optMoney`, which takes either shape — no break** |
+| 13 | **a ride's `complete_and_collect` carries `bring_change_for`** | new field on an existing step · **consumed in app `b80de5d`** |
+| 14 | **`POST /courier/offers/:id/accept` can answer 422 `job_taken`** — the job was given to someone else by hand while the offer was live | new error code; same sentence as `offer_expired` · **consumed in app `7bfdcff`** |
 | 15 | **problem reason `fake_note`** on deliveries and rides — held back from `problem_reasons` until the `fake_note_reason_offered` Setting is on | new value in an existing list, **dormant until the app switches it on** |
 | 16 | **push `courier.check_in.*`** to a courier whose job goes overdue in his hands — sent only when the `courier_check_in_enabled` Setting is on | **new notification type, dormant until the app switches it on** |
 | 17 | **`cash_held_since`** on `GET /courier/wallet` — when the oldest cash of ours he holds was collected | new field, a timestamp or null |
@@ -6658,3 +6658,26 @@ work away on a schedule, and §4 says the cycle, the grace (*"two or three
 days, up to a week"*) and the contract that states them come first. Those are
 Hamma9900's numbers. With `held_since` in place the rule, once set, is one
 comparison.
+
+
+---
+
+## A COURIER WAITING ON SHIFT WAS NEVER DISPATCHED
+
+**24 Sept 2026 — the most consequential finding of the day, and recorded
+nowhere before it.** Dispatch offers a job to the *nearest available rider*
+and `Dispatch::Eligibility` refuses a fix older than five minutes
+(`:stale_location`). karwan-mobile reported position **only from the map
+screen, during a job**, and `PATCH /courier/shift` carries none. So a courier
+who went online and waited on the home screen was stale within five minutes
+and **never offered work** — while `blocked_by` said `stale_location` on a
+field no screen read. The rig courier earlier in this file (*"is_available true,
+location_fresh false"*) was that exact state, read as one courier's condition
+rather than as the app never reporting.
+
+Found by reading `blocked_by`'s vocabulary against where the app calls
+`POST /courier/shift/location`. Hamma9900 decided the remedy in session
+(`REQUIREMENTS.md`, R-2026-09-24): report while he is on shift and the app is
+open. Built in karwan-mobile `72c295e`, with the idle screen now saying why his
+phone is quiet when something about him is the reason. **Not verified on a
+device** — the emulator floor is 20 GB free disk and the box has ~8.
