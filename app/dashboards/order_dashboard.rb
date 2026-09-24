@@ -30,6 +30,12 @@ class OrderDashboard < Administrate::BaseDashboard
     ready_at: Field::DateTime,
     picked_up_at: Field::DateTime,
     delivered_at: Field::DateTime,
+    # Where the courier was when he said "I am at the gate", and when that fix
+    # was taken — the evidence for "he said he was here and he wasn't".
+    courier_arrived_at: Field::DateTime,
+    courier_arrived_latitude: Field::Number.with_options(decimals: 6),
+    courier_arrived_longitude: Field::Number.with_options(decimals: 6),
+    courier_arrived_located_at: Field::DateTime,
     created_at: Field::DateTime
   }.freeze
 
@@ -43,7 +49,9 @@ class OrderDashboard < Administrate::BaseDashboard
     items_total delivery_fee commission courier_fee merchant_payout customer_total currency
     customer_phone delivery_landmark_note notes distance_km distance_source
     order_items transitions offers
-    placed_at accepted_at ready_at picked_up_at delivered_at created_at
+    placed_at accepted_at ready_at picked_up_at
+    courier_arrived_at courier_arrived_latitude courier_arrived_longitude courier_arrived_located_at
+    delivered_at created_at
   ].freeze
 
   # An operator does not hand-edit an order — every change goes through a named

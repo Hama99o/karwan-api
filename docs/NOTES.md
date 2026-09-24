@@ -6804,3 +6804,26 @@ until it is removed from the list.
 form carries `data: { turbo: false }`, and Administrate 1.0's bundle has no
 rails-ujs, so `data-disable-with` has no reader. A double click on
 "Top up" sends two POSTs. One click away, not hard to hit.
+
+## "I AM AT THE GATE" FROM THE SHOP — AN IDEA RECORDED, NOT BUILT
+
+**24 Sept 2026.** On a device run a mis-tap sent a delivery's `arrived` from
+the restaurant and it was accepted. The rule is "the food has been collected",
+and it had been. The phone's half is fixed. What the server now does is
+**record where the courier was** on a delivery arrival
+(`orders.courier_arrived_latitude/longitude/located_at`). That's the same
+evidence a ride's arrival already had through its transition row.
+
+**Refusing an arrival on position is NOT built, and must not be until it is
+measured.**
+- Refusing on distance from the customer's pin would stop real arrivals.
+  Pins are landmark-grade by design (AFGHAN_UX), and a "fresh" fix can be five
+  minutes old.
+- The narrower version would refuse only a very recent fix still at the SHOP,
+  when the drop-off is far from the shop. It needs three numbers nobody has:
+  - how old a fix typically is at the tap;
+  - how far a real arrival's fix sits from the pin;
+  - how close to the shop a real departure's fix still is.
+
+The arrival columns now collect the first two on every delivery. Once there
+is a month of them, this is a measurement away rather than a guess.

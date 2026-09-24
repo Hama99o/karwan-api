@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_24_190000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_24_200000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -396,6 +396,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_24_190000) do
     t.decimal "commission", precision: 12, scale: 2, default: "0.0", null: false
     t.decimal "commission_topup", precision: 12, scale: 2, default: "0.0", null: false
     t.datetime "courier_arrived_at"
+    t.decimal "courier_arrived_latitude", precision: 10, scale: 6
+    t.datetime "courier_arrived_located_at"
+    t.decimal "courier_arrived_longitude", precision: 10, scale: 6
     t.decimal "courier_fee", precision: 12, scale: 2, default: "0.0", null: false
     t.bigint "courier_id"
     t.integer "courier_vehicle_type"

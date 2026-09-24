@@ -46,6 +46,14 @@ module Couriers
       @job.is_a?(Trip) ? @job.arrived_at.present? : @job.courier_arrived_at.present?
     end
 
+    def where_the_courier_is
+      profile = @courier.courier_profile
+      return {} unless profile&.coordinates
+
+      { courier_arrived_latitude: profile.last_latitude, courier_arrived_longitude: profile.last_longitude,
+        courier_arrived_located_at: profile.location_updated_at }
+    end
+
     def under_way?
       # No enum prefix on either job's status, so these read as the states
       # themselves — which is how the rest of the codebase asks.
@@ -60,7 +68,10 @@ module Couriers
           # the trip's history with a gap exactly where somebody would look.
           @job.transition_to!(:arrived, actor: @courier, actor_role: :courier)
         else
-          @job.update!(courier_arrived_at: Time.current)
+          # WHERE, as well as when — the evidence a ride's transition row
+          # already carries. The fix's own time comes with it, so an old fix is
+          # read as old rather than as a position at the moment of the tap.
+          @job.update!(courier_arrived_at: Time.current, **where_the_courier_is)
         end
 
         # Enqueued inside the transaction so it cannot fire for an arrival that

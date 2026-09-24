@@ -40,6 +40,46 @@ RSpec.describe "Api::V1::Couriers arrival", type: :request do
       expect(order.reload.courier_arrived_at).to be_present
     end
 
+    # WHERE, as well as when. A ride's arrival goes through the state machine
+    # and its transition row carries the courier's position; a delivery's did
+    # not, so "he said he was at my gate and he wasn't" had no evidence on one
+    # demand type and did on the other.
+    it "records where the courier was, and when that fix was taken" do
+      fixed_at = 40.seconds.ago.change(usec: 0)
+      courier.courier_profile.update!(last_latitude: 34.5401, last_longitude: 69.1752, location_updated_at: fixed_at)
+      order = delivery
+
+      post "/api/v1/courier/jobs/delivery/#{order.id}/arrived", headers: auth
+
+      expect(order.reload).to have_attributes(
+        courier_arrived_latitude: 34.5401.to_d, courier_arrived_longitude: 69.1752.to_d,
+        courier_arrived_located_at: fixed_at
+      )
+    end
+
+    it "still records an arrival from a courier with no fix yet, and claims no position" do
+      courier.courier_profile.update!(last_latitude: nil, last_longitude: nil, location_updated_at: nil)
+      order = delivery
+
+      post "/api/v1/courier/jobs/delivery/#{order.id}/arrived", headers: auth
+
+      expect(response).to have_http_status(:ok)
+      expect(order.reload.courier_arrived_at).to be_present
+      expect(order.courier_arrived_latitude).to be_nil
+    end
+
+    # The first tap is the claim. A retry from somewhere else must not
+    # rewrite where he said he was.
+    it "keeps the first arrival's position when the tap is repeated" do
+      order = delivery
+      post "/api/v1/courier/jobs/delivery/#{order.id}/arrived", headers: auth
+      courier.courier_profile.update!(last_latitude: 34.6, last_longitude: 69.3, location_updated_at: Time.current)
+
+      post "/api/v1/courier/jobs/delivery/#{order.id}/arrived", headers: auth
+
+      expect(order.reload.courier_arrived_latitude).to eq(34.5553.to_d)
+    end
+
     # IT MOVES NOTHING. The order is `picked_up` before and after — what
     # changes is that somebody was told.
     it "does not move the order's status" do
