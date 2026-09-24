@@ -6472,3 +6472,30 @@ made against).
 **A route with a green request spec is not a feature a person can use.** The
 test for an ops console action is the rendered page, and the existing specs
 never looked at one. Where a new console action is added, add it to this file.
+
+### And its stylesheet had never loaded, so the board was never red
+
+Verified in a real browser afterwards (headless Chromium against a dev server
+on its own port, signing in, choosing a courier, clicking Reassign — it worked,
+and redirected with *"Reassigned to …"*). The screenshot showed the panel
+unstyled, which led here: **`karwan_admin.css` was never registered with
+Administrate.** Measured on the dev board: **50 `karwan-row--alert` rows,
+computed background `rgba(0, 0, 0, 0)`** — the staleness colour *"visible from
+across a room"*, on the screen *"someone watches all evening"*, had never
+reached a browser. The dashboard tiles likewise. `console_spec` asserts the
+class NAME is in the HTML, which is true either way.
+
+Registered in `config/initializers/administrate.rb` (the same mechanism
+hatiwal-api's console relies on); the same 50 rows then computed
+`rgb(253, 236, 234)`. `the_console_stylesheet_is_served_spec` follows the
+page's own `<link rel=stylesheet>` tags and reads the CSS they serve — red with
+the initializer moved aside (*"linked: only administrate/application.css"*),
+green with it.
+
+Two instrument errors of my own on the way, both caught before they misled:
+a `grep -c 'action$=…'` that counted 0 because `$` is a regex anchor (the
+`sed` it was checking HAD landed — `grep -F` is the check for a literal), and
+a `git stash` of an untracked file that stashed nothing and said so.
+
+The browser run reassigned two dev orders (22018, 3) — dev QA data, each with
+an audit row naming the operator.
