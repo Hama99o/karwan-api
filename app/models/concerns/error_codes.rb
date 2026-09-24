@@ -47,8 +47,12 @@ module ErrorCodes
   # A courier and the job in front of them. `offer_expired` is the one an
   # ordinary courier meets by tapping Accept a second late: the honest sentence
   # is that the job went to somebody else and another will come.
+  #
+  # `job_taken`: an offer that was still live when an operator gave the job to
+  # somebody else by hand. Same honest sentence as `offer_expired` — the job
+  # went to somebody else — and it reaches the same ordinary courier.
   DISPATCH = %w[
-    offer_expired not_your_job cannot_advance wrong_step too_early_to_arrive
+    offer_expired not_your_job cannot_advance wrong_step too_early_to_arrive job_taken
   ].freeze
 
   # ── THE THREE VOCABULARIES A GREP FOR `code: "…"` CANNOT SEE ──────────────

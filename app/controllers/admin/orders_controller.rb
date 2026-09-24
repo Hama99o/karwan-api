@@ -124,6 +124,12 @@ module Admin
     # Re-runs dispatch by hand for an order nobody took.
     def redispatch
       order = requested_resource
+      if order.courier_id.present?
+        return redirect_back fallback_location: admin_order_path(order),
+                             alert: "This order is already with #{order.courier.display_name}. " \
+                                    "To move it, use reassign."
+      end
+
       offer = Dispatch::OfferService.new(order).call
 
       log_intervention("order.redispatched", target: order,

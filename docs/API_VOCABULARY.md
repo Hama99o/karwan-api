@@ -212,7 +212,7 @@ may be undeclared, nothing declared may be unemitted.
 | **otp** — unreachable, correction 2 | `otp_disabled` `otp_expired` `otp_invalid` `otp_not_issued` `otp_throttled` |
 | **reset** | `reset_code_invalid` `reset_invalid` `reset_throttled` |
 | **ordering** | `no_merchant` `merchant_is_a_lead` `tier_unavailable` `not_cancellable` `invalid_transition` `reason_required` |
-| **dispatch** | `offer_expired` `not_your_job` `cannot_advance` `wrong_step` `too_early_to_arrive` `wallet_blocked` |
+| **dispatch** | `offer_expired` `not_your_job` `cannot_advance` `wrong_step` `too_early_to_arrive` `wallet_blocked` `job_taken` |
 | **merchant self-service** | `invalid_opening_hours` |
 | **geography** | `outside_service_area` `unroutable` |
 | **infrastructure** | `bad_request` `not_found` `bad_platform` `rate_limited` `pending_migration` |
@@ -252,7 +252,7 @@ after the countdown — the job went to somebody else and another will come),
 `not_cancellable` (a customer cancels as the merchant accepts — the restaurant
 has started cooking), and `outside_service_area`.
 
-`ErrorCodes.reachable_in_normal_use` returns the **53** that are not OTP,
+`ErrorCodes.reachable_in_normal_use` returns the **54** that are not OTP,
 malformed requests or server state. The ten it excludes are `otp_*` (switched
 off), `bad_request`, `bad_platform`, `not_found`, `registration_invalid` and
 `pending_migration`.

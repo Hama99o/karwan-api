@@ -61,8 +61,15 @@ class Api::V1::Couriers::OffersController < Api::V1::Couriers::BaseController
     # is a fact about the courier. Two couriers accepting two different jobs
     # must not block each other.
     conflict = nil
+    taken = false
     ApplicationRecord.transaction do
       current_user.lock!
+      # Taken since the offer went out — an operator reassigned it by hand
+      # while this was live. Read from the database, not from `job` as loaded
+      # before the lock, or the second of two racing taps sees a stale nil.
+      taken = job.class.where(id: job.id).where.not(courier_id: [ nil, current_user.id ]).exists?
+      raise ActiveRecord::Rollback if taken
+
       conflict = Dispatch::Eligibility.new(courier: current_user, job: job).reason
       raise ActiveRecord::Rollback if conflict
 
@@ -84,6 +91,8 @@ class Api::V1::Couriers::OffersController < Api::V1::Couriers::BaseController
       # expiry sweep would re-offer work that is already taken.
       job.offers.status_offered.where.not(id: @offer.id).update_all(status: :superseded)
     end
+
+    return render_unprocessable_entity("this job has already been given to another courier", code: "job_taken") if taken
 
     if conflict
       return render_unprocessable_entity(

@@ -5273,6 +5273,7 @@ section becomes another true sentence nothing enforces.
 | 11 | **`ended_by` can say `admin`** — a person at Karwan, not a machine | **new value in an existing field** |
 | 12 | **`bring_change_for` and `suggested_notes` are STRINGS** (`"500.0"`) | **type change** — were bare numbers |
 | 13 | **a ride's `complete_and_collect` carries `bring_change_for`** | new field on an existing step |
+| 14 | **`POST /courier/offers/:id/accept` can answer 422 `job_taken`** — the job was given to someone else by hand while the offer was live | new error code; same sentence as `offer_expired` |
 
 **11, 12 and 13 are the newest and 12 is the one that breaks silently**: a client
 comparing or formatting those two fields with a numeric helper was already
@@ -6324,3 +6325,54 @@ is not a plant that discriminates; re-run with the real predicate, it failed
 one, the right one.
 
 No mobile payload changed; the console alone.
+
+
+---
+
+## THE SAME CORRUPTION THROUGH A SECOND DOOR: REDISPATCH
+
+**24 Sept 2026, an hour after the reassign guard.** That guard closed
+`#reassign`. Reading the console's other interventions for the same blindness
+found `#redispatch`, whose own comment says *"for an order nobody took"* — and
+nothing enforced it. `Dispatch::OfferService` and `Dispatch::Eligibility` ask
+eleven questions about the CANDIDATE and none about whether the job already
+has a courier.
+
+Reproduced over HTTP before any change. Courier A has paid the shop and holds
+the food; his phone dies and his fix goes stale — which is precisely the order
+an operator presses redispatch on:
+
+```
+redispatch → "Offered to Courier C."
+C accepts  → 200 … order courier now: Courier C
+```
+
+The reassign corruption exactly, around the guard. With A's fix fresh it
+offered **A the job he already had**.
+
+**Fixed at three layers, each with its own red:**
+
+- `OfferService#call` returns nil for a job with a courier (`blocked_reason`
+  `:already_taken`) — so the expiry sweep, a decline's re-offer and the
+  merchant's accept get the rule too, not only the console.
+- The console refuses redispatch on such an order with *"already with A — to
+  move it, use reassign"*, so the operator is told rather than shown "No
+  eligible courier".
+- `offers#accept` re-checks inside the courier lock and answers **422
+  `job_taken`** for an offer that was live when the job was given away by hand.
+  Mobile manifest item 14.
+
+**The console guard hid the service rule from its own examples**: it refuses
+before the service is reached, so deleting the service rule stayed green on
+every request example. A service-level example speaks for the other callers;
+each of four plants now fails exactly one example.
+
+### And the vocabulary gate was a label, not a check
+
+`job_taken` first went out as `code: conflict.to_s`, an expression the error
+code gate accounts for BY NAME as "Eligibility::REASONS". A new value through
+that expression passed every gate. Registering it in `ErrorCodes::DISPATCH`
+made the gates engage (declared but never sent; undocumented; count wrong) —
+so it is now sent as a literal, documented, and `reachable_in_normal_use` is
+54. The weaker spot remains: **an accounted-for expression's values are not
+checked**, only its name. Recorded rather than rebuilt here.

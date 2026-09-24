@@ -19,6 +19,17 @@ module Dispatch
 
     def call
       return nil if @job.terminal?
+      # ── A JOB THAT HAS A COURIER IS NOT DISPATCHED AGAIN ────────────────
+      #
+      # Every other check here and in `Eligibility` is about the CANDIDATE.
+      # Nothing asked about the job, so the console's redispatch — *"for an
+      # order nobody took"* — offered a carried, PAID order to another courier,
+      # who accepted and became its courier: told he had paid the shop, while
+      # the one holding the food lost the job. With the holder's fix fresh it
+      # offered him the job he already had. Moving a job that has a courier is
+      # `Admin::OrdersController#reassign`, which says who and is guarded on
+      # `merchant_paid_at`; this is not a second way to do it.
+      return nil if taken?
       return nil if exhausted?
       return nil if pending_offer?
 
@@ -39,6 +50,7 @@ module Dispatch
     # between waiting and phoning someone.
     def blocked_reason
       return :terminal if @job.terminal?
+      return :already_taken if taken?
       return :offers_exhausted if exhausted?
       return :awaiting_response if pending_offer?
       return :no_eligible_courier if next_courier.nil?
@@ -47,6 +59,10 @@ module Dispatch
     end
 
     private
+
+    def taken?
+      @job.courier_id.present?
+    end
 
     def exhausted?
       @job.offers.count >= Setting.fetch("dispatch_max_offers")
