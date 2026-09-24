@@ -6983,6 +6983,14 @@ None of them broke another spec under a random order. That is one seed, not a
 proof for every order. It is still the first whole-suite fact since the
 targeted runs began.
 
+**And the dated example of why the whole run matters.** `17626bc` removed
+`support_phone` from the courier check-in push. Its targeted runs covered
+`spec/services/notifications` and `spec/config`, but not `spec/jobs`, where
+`the_courier_is_asked_first_spec` still expected the number. It stayed broken
+from `17626bc` until a wider run caught it, several commits later (fixed in
+`b9db4ad`). A targeted run can only see the directories you think to name; the
+one you didn't name is where the break lives.
+
 ## THE OPEN-PROBLEMS LIST, RE-READ AGAINST THE CODE — 24 Sept 2026
 
 The rule the list itself states: *re-read the code, not the list.* Every entry
