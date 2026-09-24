@@ -411,3 +411,21 @@ sends a real `notification` block, which the OS draws with no handler.
 - **Channels:** `karwan_orders` (the alarm) and `karwan_updates` (everything
   else) must be created by the app. On Android 8+ a channel that doesn't exist
   falls back to the system's default.
+
+**WHAT EACH PUSH CARRIES OUT OF THE COUNTRY.** Every push transits Google's
+Firebase servers (and Apple's for iOS). Recorded so that nobody adds a fifth
+notifier without seeing what the first four already send. It's ordinary
+practice; nothing here is a finding, and nothing has been removed.
+
+| push | leaves in the clear |
+|---|---|
+| shop: new order | the shop's device token; `order_id`, `order_code`, `item_count`, **`merchant_payout`**, `currency`; the title and body **as rendered text** in the owner's language (the order code and item count, by our decision, so a closed app can draw it) |
+| customer: courier at the gate | `kind`, `job_id`, `code`, **`courier_phone`** (a courier's personal number) |
+| courier: are you all right? | `kind`, `job_id`, `code`, `status`, `support_phone` |
+| applicant: review outcome | `status`; `missing` (which documents are still needed); **`note`**, which is an operator's free-text review note or rejection reason |
+
+The ones worth a second look if this is ever decided properly:
+- **`courier_phone`**: the customer can already reach him from the app;
+- **`note`**: free text an operator typed, which could say anything;
+- **the shop's payout**.
+No customer name, address, pin or phone number is in any push.
