@@ -6857,3 +6857,11 @@ country is enforced. A pin 171 km from a Kabul shop (Kunar) still quotes and
 places, at 3,470 AFN. The 8 km offer radius bounds the courier's ride to the
 PICKUP and says nothing about the drop. The system bounds one leg and not the
 other.
+
+**Decline vs timeout counts are approximate at the margin (24 Sept 2026).**
+When a courier declines in the same second the sweep expires his offer, the
+offer's final status is whichever write landed last. So `Couriers::Reliability`,
+and the console's "couriers to ring", can file a rare event as a decline he
+never made, or the reverse. Dispatch is unaffected: one live offer either way
+(`spec/services/dispatch/decline_while_the_sweep_expires_spec.rb`). Not worth a
+lock. Read a single disputed decline with that in mind.
