@@ -6944,3 +6944,26 @@ by `spec/integration/a_ride_through_the_shared_machinery_spec.rb`:
 5. **Words for the ride pushes.** The server already sends
    `customer.arrival.ride.title/.body` and `karwan://open/arrival/ride/:id`;
    the app writes the strings (§F).
+
+## THE WHOLE SUITE, ONCE, AFTER THE NIGHT'S ~45 COMMITS (24 Sept 2026, 22:24)
+
+**204 spec files, 3,061 examples, 0 failures, 3 pending; exit 0; no errors
+outside examples.** It ran at `4864764`, seed 47846, on `TEST_DB_SUFFIX=_s3`,
+and took 14 minutes (load 6.5 at start). The memory-stall guard never tripped:
+its highest `full avg10` was 0.18.
+
+The three pending are deliberate and pre-existing:
+- `design_specs_get_their_fields_spec`: an empty design SPEC it refuses to
+  assert against;
+- two in `money_conservation_spec`, which are the owner's open decisions: the
+  premium uplift charged and never collected, and §2's merchant-collects channel.
+
+**Why it was run:** every commit that night had only targeted runs. Several new
+specs share process-wide state that only a whole run exercises together:
+- four threaded specs that truncate on cleanup;
+- modules prepended onto `Order`, `Dispatch::OfferService`, `Orders::PlaceService` and `Couriers::JobSteps`;
+- top-level constants.
+
+None of them broke another spec under a random order. That is one seed, not a
+proof for every order. It is still the first whole-suite fact since the
+targeted runs began.
