@@ -6182,3 +6182,44 @@ targeted run before that commit covered the courier and admin folders and not
 `spec/models`, which is **where this repo keeps its schema gates**. A migration
 needs `spec/models` in its targeted run, not only the folder the feature lives
 in.
+
+
+---
+
+## WHAT A COURIER DID WITH THE WORK HE WAS SENT — §5-A AND §5-E, READ
+
+**24 Sept 2026.** Two sentences in `TRUST_AND_REPUTATION.md` §5 named data
+already collected that nothing read per courier:
+
+- §5-A: *"a rider who cancels half his offers is gaming the queue... that is a
+  reason code, not a strike."*
+- §5-E: *"Detection — an unusually high cancellation rate for one driver, or
+  the same driver-passenger pair cancelling repeatedly, both visible in data
+  already collected."*
+
+`Couriers::Reliability` reads both, and `CourierProfile#reliability_summary`
+puts one line on the courier's console page:
+
+```
+6 offers answered: 3 taken, 2 declined, 1 let run out · 3 rides ended mid-way — same passenger more than once: <name> ×2
+```
+
+**§5-A as written cannot happen here**, and that is worth knowing: there is no
+route for a courier to cancel a job after accepting it. What can happen is
+declining and letting an offer time out, kept apart because they are different
+conversations — one looked and chose, the other is not looking and cost a
+customer a minute each time. Superseded offers are out of the denominator too:
+somebody else took the job, which is nothing this courier did.
+
+**A courier who wants out after accepting still has only one exit**, the
+problem button, whose reasons all blame the customer — the same hole the
+"restaurant not ready" entry above records. Not changed here; it is the same
+open decision.
+
+"Ended mid-way" is `in_progress_at` present and `failed`: `Trip::TRANSITIONS`
+allows no other exit from `in_progress`. A no-show at the kerb never started
+and is not counted — the spec builds one so the filter is exercised.
+
+No limit, no ranking, no penalty. §5 is the open conversation. Eight plants,
+each asserted to have landed, all red, including removing the line from the
+page and dropping the recurring passenger's name.

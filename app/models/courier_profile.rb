@@ -190,6 +190,34 @@ class CourierProfile < ApplicationRecord
     [ last_latitude, last_longitude ]
   end
 
+  # For the console, in the shape `Merchant#reliability_summary` set: one
+  # readable line, every figure with its denominator, nothing to click through.
+  # Counts only — `TRUST_AND_REPUTATION.md` §5-A says a limit is needed and §5
+  # has not said what it is. See `Couriers::Reliability`.
+  def reliability_summary
+    figures = Couriers::Reliability.for(user)
+    parts = []
+    if figures[:offers].zero?
+      parts << "no offers answered in the last 30 days"
+    else
+      parts << "#{figures[:offers]} offers answered: #{figures[:accepted]} taken, " \
+               "#{figures[:declined]} declined, #{figures[:timed_out]} let run out"
+    end
+
+    ended = figures[:rides_ended_mid_way]
+    if ended.positive?
+      line = "#{ended} #{'ride'.pluralize(ended)} ended mid-way"
+      repeated = figures[:repeated_passengers]
+      if repeated.any?
+        names = User.where(id: repeated.keys).index_by(&:id)
+        line += " — same passenger more than once: " +
+                repeated.sort_by { |_id, n| -n }.map { |id, n| "#{names[id]&.display_name || "user ##{id}"} ×#{n}" }.join(", ")
+      end
+      parts << line
+    end
+    parts.join(" · ")
+  end
+
   def record_location!(latitude:, longitude:)
     update!(last_latitude: latitude, last_longitude: longitude, location_updated_at: Time.current)
   end

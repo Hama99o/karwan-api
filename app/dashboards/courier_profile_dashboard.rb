@@ -32,6 +32,11 @@ class CourierProfileDashboard < Administrate::BaseDashboard
     # pointed at `users` and the console operator is an `AdminUser`.
     verified_by_admin_user: Field::BelongsTo.with_options(class_name: "AdminUser"),
     rejection_reason: Field::Text,
+    # `TRUST_AND_REPUTATION.md` §5-A and §5-E: offers declined or let run out,
+    # and rides ended mid-way with any passenger who recurs. A computed method,
+    # so `searchable: false` — Administrate would put it in a SQL LIKE and
+    # searching couriers would die (the comment on `UserDashboard` is that bug).
+    reliability_summary: Field::String.with_options(searchable: false),
     created_at: Field::DateTime
   }.freeze
 
@@ -41,7 +46,8 @@ class CourierProfileDashboard < Administrate::BaseDashboard
     user full_name father_name national_id_number verification_status vehicle_type
     plate_number accepted_job_kinds is_available guarantor_name guarantor_phone
     guarantor_relation work_area last_latitude last_longitude location_updated_at
-    verified_at rejection_reason created_at id_document selfie vehicle_photo verified_by_admin_user
+    verified_at rejection_reason reliability_summary created_at id_document selfie vehicle_photo
+    verified_by_admin_user
   ].freeze
   # Approval is a named action, not a dropdown — it must carry the approver's
   # identity, and a form edit would not.
