@@ -6,13 +6,15 @@ module Routing
   # down.** A quote degrades to a straight line and says so, rather than
   # refusing a customer at the confirm button.
   #
-  # WHETHER OSRM DISTANCE IS USED FOR MONEY IS A SETTING, defaulting to OFF.
-  # The measurement is unambiguous — over eight real Kabul routes the
-  # road/straight ratio runs 1.14 to 2.82, median 1.35, so a straight line
-  # genuinely under-measures and no single average speed can absorb that
-  # spread. But adopting it raises fares about 29%, which is Hamma9900's
-  # decision and not the code's. A Setting means he says yes once and nothing
-  # is deployed.
+  # WHETHER OSRM DISTANCE IS USED FOR MONEY IS A SETTING — and Hamma9900 said
+  # yes: `748c135` turned it on, so `routing_distance_source` defaults to
+  # `osrm`. Over eight real Kabul routes the road/straight ratio runs 1.14 to
+  # 2.82, median 1.35, so a straight line genuinely under-measures. That ratio
+  # is the DISTANCE; the FEE moved +15% to +20% on four measured pairs and 0% on
+  # a short hop, where the minimum absorbs it (docs/NOTES.md — this comment
+  # once said "fares about 29%" and "defaulting to OFF", both wrong, and it is
+  # the first thing anyone reads before flipping the setting). Typing
+  # `straight_line` in the console turns it off with no deploy.
   #
   # Duration stays on `eta_average_speed_kmh` either way. OSRM's own durations
   # imply 49-69 km/h across Kabul because `car.lua` is free-flow and Afghan
