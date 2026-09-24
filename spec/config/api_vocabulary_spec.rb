@@ -34,7 +34,49 @@ RSpec.describe "docs/API_VOCABULARY.md" do
     "WalletEntry.kinds" => %w[commission top_up reimbursement adjustment commission_topup],
     "Order.payment_statuses" => %w[pending collected settled],
     "User::LOCALES" => %w[ps fa en],
-    "User::THEMES" => %w[system light dark]
+    "User::THEMES" => %w[system light dark],
+    # Found unpinned by the enum sweep below, 24 Sept 2026 — each read by the
+    # app, so a rename was a silent client break with every spec green.
+    "CourierProfile.verification_statuses" => %w[pending approved rejected suspended needs_more],
+    "CatalogItemOption.selection_types" => %w[single multiple],
+    "Merchant.statuses" => %w[pending active suspended rejected lead],
+    "DeviceToken.platforms" => %w[android ios],
+    "Trip.failure_reasons" => %w[passenger_no_show passenger_unreachable passenger_refused unsafe other fake_note],
+    "Trip.cancellation_reasons" => %w[passenger_changed_mind courier_unavailable no_courier_available duplicate other]
+  }.freeze
+
+  # ── EVERY ENUM IS EITHER A WIRE VOCABULARY OR SAYS WHY NOT ──────────────
+  #
+  # The list above was typed, so it could only pin what somebody thought of.
+  # On 2026-09-24 the sweep below found `verification_status` (the app
+  # branches on `needs_more`) and `selection_type` (it decides how a menu's
+  # choices render) on the wire, read by karwan-mobile, in neither the list
+  # nor the document. Every enum any model defines is enumerated here; each
+  # is pinned above, or named below with why it never reaches a client, or
+  # which pinned list it shares its values with.
+  ENUMS_NOT_PINNED_HERE = {
+    "AuditLog.actor_roles" => "the same four values as Roles::ALL, pinned above",
+    "StatusTransition.actor_roles" => "the same four values as Roles::ALL, pinned above",
+    "UserRole.roles" => "the same four values as Roles::ALL, pinned above",
+    "UserSession.active_roles" => "the same four values as Roles::ALL, pinned above",
+    "User.last_active_roles" => "the same four values as Roles::ALL, pinned above",
+    "Order.cancelled_by_roles" => "the same four values as Roles::ALL; served as ended_reason.ended_by",
+    "Trip.cancelled_by_roles" => "the same four values as Roles::ALL; served as ended_reason.ended_by",
+    "CourierProfile.vehicle_types" => "the same values as VehicleTypes::ALL, pinned above",
+    "PricingRate.vehicle_types" => "the same values as VehicleTypes::ALL, pinned above",
+    "Trip.vehicle_types" => "the same values as VehicleTypes::ALL, pinned above",
+    "Order.courier_vehicle_types" => "the same values as VehicleTypes::ALL, pinned above",
+    "Order.service_tiers" => "the same values as ServiceTiers::ALL, pinned above",
+    "Trip.service_tiers" => "the same values as ServiceTiers::ALL, pinned above",
+    "Trip.payment_statuses" => "the same values as Order.payment_statuses, pinned above",
+    "Order.payment_methods" => "cash only in v0, and in no mobile payload",
+    "Trip.payment_methods" => "cash only in v0, and in no mobile payload",
+    "Offer.statuses" => "internal to dispatch; no serializer sends an offer's status (docs §C)",
+    "User.statuses" => "a suspended account is refused at authentication; no payload branches on it",
+    "CatalogItem.size_classes" => "set in the console only; drives dispatch, never sent to the app",
+    "Order.required_size_classes" => "the same values as CatalogItem.size_classes; dispatch-internal",
+    "PricingRate.audiences" => "console only",
+    "Setting.value_types" => "console only; /public/app_config sends typed values, not the type"
   }.freeze
 
   def actual(name)
@@ -53,7 +95,26 @@ RSpec.describe "docs/API_VOCABULARY.md" do
     when "Order.payment_statuses" then Order.payment_statuses.keys
     when "User::LOCALES" then User::LOCALES
     when "User::THEMES" then User::THEMES
+    else
+      model, plural = name.split(".")
+      model.constantize.defined_enums.fetch(plural.singularize).keys
     end.map(&:to_s)
+  end
+
+  it "accounts for every enum any model defines" do
+    Rails.application.eager_load!
+    defined = ApplicationRecord.descendants.reject(&:abstract_class?).flat_map do |model|
+      model.defined_enums.keys.map { |attr| "#{model.name}.#{attr.pluralize}" }
+    end.uniq
+    enum_keys = VOCABULARIES.keys.grep(/\A[A-Z]\w*\.[a-z_]+\z/)
+
+    unaccounted = defined - enum_keys - ENUMS_NOT_PINNED_HERE.keys
+    stale = (ENUMS_NOT_PINNED_HERE.keys + enum_keys) - defined
+
+    expect(unaccounted).to be_empty,
+                           "these enums are neither pinned as a wire vocabulary nor said to stay off the wire: " \
+                           "#{unaccounted.join(', ')}"
+    expect(stale).to be_empty, "these name enums that no longer exist: #{stale.join(', ')}"
   end
 
   VOCABULARIES.each do |name, expected|

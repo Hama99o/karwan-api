@@ -81,6 +81,9 @@ a place a re-declaration can silently disagree.
 | **theme** | `system` `light` `dark` | `shared/user_serializer.rb` (`preferred_theme`), and ACCEPTED by `me#update`. Both directions |
 | **courier job kinds** | `delivery` `ride` | `couriers/registration_serializer.rb` and `couriers/shifts#show` as `accepted_job_kinds`; `couriers/job_serializer.rb` and `wallet_entry_serializer.rb` as `job_kind`. Also a route segment, which is what hid it |
 | **merchant status** | `pending` `active` `suspended` `rejected` `lead` | `merchants/profile_serializer.rb` and `shared/merchant_application_serializer.rb`. A CUSTOMER never sees it — they get `accepting_orders` — but the shop sees its own, and an applicant sees `lead` |
+| **courier application status** | `pending` `approved` `rejected` `suspended` `needs_more` | `couriers/registration_serializer.rb` (`verification_status`). The applicant's screen branches on it: `needs_more` means "we asked you for something" and is the one a courier can act on. Pinned 24 Sept 2026, found read by the app and in neither this document nor the gate |
+| **menu option kind** | `single` `multiple` | `customers/catalog_serializer.rb` and `merchants/catalog_serializer.rb` (`selection_type`). Decides whether a menu's choices render as one-of or any-of, so a new value is a menu that cannot be ordered from. Pinned 24 Sept 2026, same finding |
+| **device platform, as an INPUT** | `android` `ios` | accepted by `me#device_token` and the sign-in and registration calls (`platform`; blank means `android`). Stored on `device_tokens` to route a push |
 | **why a courier's phone is quiet** | nine of the fifteen eligibility reasons, or **null** | `couriers/shifts#show` (`blocked_by`) |
 
 **`blocked_by` REUSES THE ELIGIBILITY VOCABULARY IN A SECOND CONTEXT, and that
