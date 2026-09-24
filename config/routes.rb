@@ -27,7 +27,18 @@ Rails.application.routes.draw do
       end
     end
 
-    resources :trips, only: %i[index show]
+    # The manual override for a RIDE — the first slice of the ride door, built
+    # before any way to request one exists, because the brief says the
+    # override comes first: an operator who cannot unstick a ride leaves a
+    # passenger standing in the street.
+    resources :trips, only: %i[index show] do
+      member do
+        patch :reassign
+        patch :cancel
+        patch :fail
+        patch :redispatch
+      end
+    end
 
     # `only:` spelled out because this is an `api_only` app, where a bare
     # `resources` SILENTLY OMITS `new` and `edit` — there are no forms in an

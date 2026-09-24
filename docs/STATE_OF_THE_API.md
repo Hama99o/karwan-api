@@ -182,8 +182,8 @@ pooling; re-measure after it. The box was at load 9–19 throughout.
 2. **The quiet-box dispatch re-measure** (§4). If the unexplained remainder
    survives the pooling, it's the most important thing on the dispatch path,
    because it sits inside a row lock.
-3. **The ride door**, when the owner says go: NOTES "THE RIDE DOOR — build it
-   from this list". The console override comes first.
+3. **The rest of the ride door**, when the owner says go: NOTES "THE RIDE DOOR —
+   build it from this list". Its first step, the console override, is built.
 4. **`bin/restore-check`**, when the owner says go. The two-part check
    (restored == source; balances == entries) is designed in RUNBOOK §9.1.
 

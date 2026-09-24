@@ -12,7 +12,11 @@ require "rails_helper"
 # signed-in admin, and Pundit is asked afterwards whether the action consulted
 # a policy (`pundit_policy_authorized?`).
 #
-# ── THE ANSWER ON 2026-09-24: 6 OF 108, then 6 OF 110 ───────────────────────
+# ── THE ANSWER ON 2026-09-24: 6 OF 108, then 6 OF 110, then 10 OF 114 ──────
+#
+# (The last four are the rides override — reassign, cancel, fail and
+# redispatch on admin/trips — which consult TripPolicy, so they joined the
+# protected side, not the list below.)
 #
 # (The two added are catalog restore, the undo for a Delete that now
 # discards. They joined the list below in the same commit, which is the
@@ -153,7 +157,7 @@ RSpec.describe "every console action consults a policy", type: :request do
   it "found the whole console" do
     # A table-driven spec over an empty table is the vacuously-green suite this
     # project has been bitten by before.
-    expect(CONSOLE_ACTIONS.size).to eq(110)
+    expect(CONSOLE_ACTIONS.size).to eq(114)
   end
 
   it "lists nothing that is not a route" do

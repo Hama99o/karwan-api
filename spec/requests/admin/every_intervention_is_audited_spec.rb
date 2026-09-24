@@ -69,6 +69,14 @@ RSpec.describe "every admin intervention is audited", type: :request do
       patch "/admin/orders/#{failable.id}/fail", params: { reason: Order.failure_reasons.keys.first }
     when "admin/orders#redispatch"
       patch "/admin/orders/#{order.id}/redispatch"
+    when "admin/trips#reassign"
+      patch "/admin/trips/#{create(:trip).id}/reassign", params: { courier_id: courier.id }
+    when "admin/trips#cancel"
+      patch "/admin/trips/#{create(:trip).id}/cancel", params: { reason: "passenger rang" }
+    when "admin/trips#fail"
+      patch "/admin/trips/#{create(:trip, :in_progress, courier: courier).id}/fail", params: { reason: "unsafe" }
+    when "admin/trips#redispatch"
+      patch "/admin/trips/#{create(:trip).id}/redispatch"
     when "admin/merchants#open_merchant"
       patch "/admin/merchants/#{merchant.id}/open_merchant"
     when "admin/merchants#close_merchant"
@@ -139,6 +147,7 @@ RSpec.describe "every admin intervention is audited", type: :request do
   # reason the denominator is not a hand-written list.
   COVERED = %w[
     admin/orders#reassign admin/orders#cancel admin/orders#fail admin/orders#redispatch
+    admin/trips#reassign admin/trips#cancel admin/trips#fail admin/trips#redispatch
     admin/merchants#open_merchant admin/merchants#close_merchant
     admin/merchants#approve admin/merchants#suspend
     admin/courier_profiles#approve admin/courier_profiles#ask_for_more

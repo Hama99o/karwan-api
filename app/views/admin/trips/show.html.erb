@@ -1,0 +1,58 @@
+<%#
+  THE RIDE'S INTERVENTIONS, ABOVE THE DEFAULT PAGE — the manual override,
+  built before any way to request a ride exists (see Admin::TripsController).
+
+  Each action is offered only when the state machine allows it for an operator
+  (`can_transition_to?(…, actor_role: :admin)`), the same test the controller
+  applies, so the page and the controller cannot disagree. Mirrors
+  admin/orders/show.html.erb.
+%>
+<% trip = page.resource %>
+<section class="karwan-actions">
+  <h2>Interventions — every one is logged with your name</h2>
+
+  <% if trip.terminal? %>
+    <p class="karwan-actions__why">This ride is <%= trip.status.humanize.downcase %>. Nothing more can be done to it here.</p>
+  <% else %>
+    <% if trip.in_progress? %>
+      <p class="karwan-actions__why">
+        The passenger is aboard with <%= trip.courier&.display_name || "the courier" %>, so this ride cannot be
+        handed to another courier. Ring them, or mark it failed.
+      </p>
+    <% else %>
+      <%= form_with url: reassign_admin_trip_path(trip), method: :patch, data: { turbo: false } do |f| %>
+        <%= f.select :courier_id,
+                     options_from_collection_for_select(
+                       User.joins(:courier_profile).merge(CourierProfile.verification_approved)
+                           .where.not(id: trip.courier_id).order(:name),
+                       :id, ->(u) { "#{u.display_name} — #{u.phone}" }),
+                     { prompt: "Choose a courier" }, required: true %>
+        <%= f.submit trip.courier ? "Reassign" : "Assign", class: "button" %>
+      <% end %>
+    <% end %>
+
+    <% if trip.courier_id.nil? %>
+      <%= button_to "Redispatch — offer it to the next courier", redispatch_admin_trip_path(trip),
+                    method: :patch, form: { data: { turbo: false } }, class: "button button--alt" %>
+    <% end %>
+
+    <% if trip.can_transition_to?(:cancelled, actor_role: :admin) %>
+      <%= form_with url: cancel_admin_trip_path(trip), method: :patch, data: { turbo: false } do |f| %>
+        <%= f.text_field :reason, placeholder: "Why (the passenger is told a person decided)" %>
+        <%= f.submit "Cancel ride", class: "button button--danger",
+                     data: { confirm: "Cancel #{trip.code}?" } %>
+      <% end %>
+    <% end %>
+
+    <% if trip.can_transition_to?(:failed, actor_role: :admin) %>
+      <%= form_with url: fail_admin_trip_path(trip), method: :patch, data: { turbo: false } do |f| %>
+        <%= f.select :reason, Trip.failure_reasons.keys.map { |r| [ r.humanize, r ] },
+                     { prompt: "What went wrong" }, required: true %>
+        <%= f.submit "Mark failed", class: "button button--danger",
+                     data: { confirm: "Mark #{trip.code} failed? This is a money decision." } %>
+      <% end %>
+    <% end %>
+  <% end %>
+</section>
+
+<%= render template: "administrate/application/show", locals: { page: page } %>

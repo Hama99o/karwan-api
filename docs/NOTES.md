@@ -6934,7 +6934,7 @@ by `spec/integration/a_ride_through_the_shared_machinery_spec.rb`:
 
 **Build these with the door, in this order:**
 
-1. **The console's manual override, FIRST: cancel, fail, reassign and
+1. **DONE (25 Sept 2026, see its commit).** **The console's manual override, FIRST: cancel, fail, reassign and
    redispatch for trips.** `admin/trips` is index and show only. The brief says
    build the override before the automation. An operator who can't unstick a
    ride leaves a person standing in the street. Copy

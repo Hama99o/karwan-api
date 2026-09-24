@@ -21,6 +21,15 @@ class TripPolicy < ApplicationPolicy
   # Narrower than a delivery's, because there is no merchant who also needs to
   # see it — only the passenger and the driver on this ride, and only while it
   # is live.
+  # The console's override. Admin only; the state machine still decides what
+  # is possible, and the controller asks it again.
+  def reassign? = admin?
+  def redispatch? = admin?
+
+  def fail?
+    admin? && record.can_transition_to?(:failed, actor_role: :admin)
+  end
+
   def track?
     return false if record.terminal?
 
