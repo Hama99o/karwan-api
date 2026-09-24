@@ -37,7 +37,13 @@ module Notifications
 
     # Returns a Result rather than raising per token: one dead phone must not
     # stop the alert reaching the tablet beside it.
-    def send_to(tokens, title_key:, body_key:, data: {})
+    # `alarm:` is for the ONE notification that must sound like a kitchen
+    # alarm — a new order on a tablet on a counter. Everything else (the
+    # customer's "he is at your gate", a courier's review result, a check-in)
+    # was being sent on that same loud channel with the same repeating
+    # vibration, found on 24 Sept 2026: a courier's approval would have
+    # sounded like an order he had to run for.
+    def send_to(tokens, title_key:, body_key:, data: {}, alarm: false)
       tokens = Array(tokens).uniq.compact
       return Result.new(delivered: 0, failed: 0, status: :no_tokens) if tokens.empty?
 
@@ -50,7 +56,7 @@ module Notifications
       failed = 0
 
       tokens.each do |token|
-        deliver_one(token, title_key: title_key, body_key: body_key, data: data) ? delivered += 1 : failed += 1
+        deliver_one(token, title_key: title_key, body_key: body_key, data: data, alarm: alarm) ? delivered += 1 : failed += 1
       end
 
       Result.new(delivered: delivered, failed: failed, status: failed.zero? ? :ok : :partial)
@@ -58,12 +64,12 @@ module Notifications
 
     private
 
-    def deliver_one(token, title_key:, body_key:, data:)
+    def deliver_one(token, title_key:, body_key:, data:, alarm: false)
       uri = URI("https://fcm.googleapis.com/v1/projects/#{@project_id}/messages:send")
       request = Net::HTTP::Post.new(uri)
       request["Authorization"] = "Bearer #{@access_token}"
       request["Content-Type"] = "application/json"
-      request.body = payload(token, title_key: title_key, body_key: body_key, data: data).to_json
+      request.body = payload(token, title_key: title_key, body_key: body_key, data: data, alarm: alarm).to_json
 
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = true
@@ -82,7 +88,18 @@ module Notifications
       false
     end
 
-    def payload(token, title_key:, body_key:, data:)
+    # Loud and repeating until acknowledged — PRODUCT.md assumes a tablet on a
+    # counter in a noisy kitchen.
+    ALARM_ANDROID = {
+      channel_id: "karwan_orders", sound: "alert",
+      default_vibrate_timings: false, vibrate_timings: [ "0s", "0.5s", "0.5s", "0.5s" ]
+    }.freeze
+    ALARM_APS = { sound: "alert.caf", "interruption-level" => "time-sensitive" }.freeze
+    # Everything else: heard, not an alarm.
+    UPDATE_ANDROID = { channel_id: "karwan_updates", sound: "default" }.freeze
+    UPDATE_APS = { sound: "default", "interruption-level" => "active" }.freeze
+
+    def payload(token, title_key:, body_key:, data:, alarm: false)
       {
         message: {
           token: token,
@@ -92,20 +109,15 @@ module Notifications
           data: data.merge(title_key: title_key, body_key: body_key).transform_values(&:to_s),
           android: {
             # Cheap Android with aggressive OEM power management will drop a
-            # normal-priority push. A new order is not an announcement.
+            # normal-priority push — for EVERY notification here, each of which
+            # is about something happening now. Priority is delivery, not
+            # loudness; loudness is the channel below.
             priority: "high",
-            notification: {
-              channel_id: "karwan_orders",
-              # Loud and repeating until acknowledged — PRODUCT.md assumes a
-              # tablet on a counter in a noisy kitchen.
-              sound: "alert",
-              default_vibrate_timings: false,
-              vibrate_timings: [ "0s", "0.5s", "0.5s", "0.5s" ]
-            }
+            notification: alarm ? ALARM_ANDROID : UPDATE_ANDROID
           },
           apns: {
             headers: { "apns-priority" => "10" },
-            payload: { aps: { sound: "alert.caf", "interruption-level" => "time-sensitive" } }
+            payload: { aps: alarm ? ALARM_APS : UPDATE_APS }
           }
         }
       }

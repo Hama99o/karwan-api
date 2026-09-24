@@ -25,6 +25,7 @@ module Notifications
 
       result = @client.send_to(
         tokens,
+        alarm: true,
         title_key: "merchant.alert.new_order.title",
         body_key: "merchant.alert.new_order.body",
         data: {

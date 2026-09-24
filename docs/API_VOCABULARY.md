@@ -337,3 +337,36 @@ repeat: 201 with the same order, or 409 if its body differed.
 
 **Error codes** `idempotency_key_reused` and `invalid_idempotency_key` are in
 `ErrorCodes::ORDERING`.
+
+## F · PUSH NOTIFICATIONS — what the server sends, and what a phone would show
+
+**24 Sept 2026.** The server sends KEYS, not words (`Notifications::FcmClient`):
+the title and body arrive as `data.title_key` / `data.body_key`, and the app is
+meant to localise them. Nothing on the phone handles a push yet, and there are no
+Firebase credentials. Both of those are the owner's. This table is the server's
+half, derived from the send sites and held to the code by
+`spec/config/push_keys_are_published_spec.rb`.
+
+| notification | fires when | `title_key` / `body_key` | data | deep link | alarm? |
+|---|---|---|---|---|---|
+| shop: new order | an order is placed (`Orders::PlaceService`) | `merchant.alert.new_order.title` `merchant.alert.new_order.body` | `order_id` `order_code` `item_count` `merchant_payout` `currency` | `karwan://merchant/orders/:id` | **yes**, the only one |
+| customer: courier at the gate | the courier taps "I am here" (`Couriers::AnnounceArrivalService`) | `customer.arrival.title` `customer.arrival.body` | `kind` `job_id` `code` `courier_phone` | `karwan://orders` | no |
+| courier: are you all right? | a job sits past its timeout (`Dispatch::JobTimeoutsJob`), once per stuck state | `courier.check_in.title` `courier.check_in.body` | `kind` `job_id` `code` `status` `support_phone` | `karwan://courier/job` | no |
+| applicant: review outcome | an operator approves, rejects or asks for more (`CourierProfile`) | `courier.review.approved.title` `courier.review.approved.body` `courier.review.needs_more.title` `courier.review.needs_more.body` `courier.review.rejected.title` `courier.review.rejected.body` | `status` `missing` (JSON) `note` | `karwan://apply-rider` | no |
+
+**What a phone would show today, if Firebase were switched on:**
+- **None of the 12 keys has a string in `karwan-mobile/src/i18n/locales/{en,ps,fa}.ts`.** Every notification would be wordless, in every language.
+- **The OS draws nothing from these keys.** The only display block sent is
+  `android.notification`, with a channel and a sound but no title, body or
+  `*_loc_key`. So a closed app gets an empty banner, unless a handler builds the
+  notification from `data`, or Android string resources exist under matching
+  `*_loc_key` names. Which of those to build is the app's decision and the
+  owner's (Firebase).
+- **Two deep links match no route:** `karwan://merchant/orders/:id` (the app
+  has no `merchant/orders/[id]`, only `merchant/[id]`, which is a customer's
+  restaurant page) and `karwan://courier/job` (the courier's job is the
+  `(courier)` group's index). `karwan://orders` and `karwan://apply-rider`
+  resolve. `karwan://orders` opens the list, not the order that arrived.
+- **Channels:** `karwan_orders` (the alarm) and `karwan_updates` (everything
+  else) must be created by the app. On Android 8+ a channel that doesn't exist
+  falls back to the system's default.
