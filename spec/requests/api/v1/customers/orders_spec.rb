@@ -668,6 +668,39 @@ RSpec.describe "Api::V1::Customers::Orders", type: :request do
         expect(json.dig("track", "courier", "located_at")).to be_present
       end
 
+      # HOW OLD, BY THE SERVER'S CLOCK. The app will not subtract `located_at`
+      # from the phone's clock — a drifting handset would say "seen an hour
+      # ago" of a courier seen a minute ago — so without this it could say
+      # nothing at all.
+      it "says how many seconds ago the courier was seen, by the server's clock" do
+        travel_to Time.zone.parse("2026-09-24 20:00:00") do
+          courier_profile.update!(last_latitude: 34.548, last_longitude: 69.19, location_updated_at: 125.seconds.ago)
+
+          get "/api/v1/customer/orders/#{order.id}/track", headers: auth
+
+          expect(json.dig("track", "courier", "located_seconds_ago")).to eq(125)
+        end
+      end
+
+      it "still says it when the position itself is withheld as stale" do
+        courier_profile.update!(last_latitude: 34.548, last_longitude: 69.19, location_updated_at: 20.minutes.ago)
+
+        get "/api/v1/customer/orders/#{order.id}/track", headers: auth
+
+        expect(json.dig("track", "courier", "location")).to be_nil
+        expect(json.dig("track", "courier", "located_seconds_ago")).to be_within(5).of(1200)
+      end
+
+      # "We have never seen him" is not "we saw him an hour ago".
+      it "is null, not a large number, when the courier has never reported" do
+        courier_profile.update!(last_latitude: nil, last_longitude: nil, location_updated_at: nil)
+
+        get "/api/v1/customer/orders/#{order.id}/track", headers: auth
+
+        expect(json.dig("track", "courier")).to have_key("located_seconds_ago")
+        expect(json.dig("track", "courier", "located_seconds_ago")).to be_nil
+      end
+
       it "withholds a fresh timestamp that carries no coordinates" do
         courier_profile.update!(last_latitude: nil, last_longitude: nil,
                                 location_updated_at: Time.current)

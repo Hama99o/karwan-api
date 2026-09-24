@@ -24,7 +24,7 @@ class Api::V1::Couriers::OffersController < Api::V1::Couriers::BaseController
         sequence: offer.sequence,
         job: Couriers::JobSerializer.render_as_hash(
           offer.offerable, view: :offer,
-          offer: offer, from: courier_profile.coordinates
+          offer: offer, from: courier_profile.coordinates, located_at: courier_profile.location_updated_at
         )
       }
     }

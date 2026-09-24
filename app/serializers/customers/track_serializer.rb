@@ -81,7 +81,10 @@ module Customers
         photo_url: Attachments::PublicUrl.for(order.courier.avatar, variant: :thumb),
         location: fresh ? { latitude: coordinates[0], longitude: coordinates[1] } : nil,
         location_fresh: fresh,
-        located_at: profile&.location_updated_at
+        located_at: profile&.location_updated_at,
+        # Sent even when the position itself is withheld as stale: "last seen
+        # 20 minutes ago" is true and useful where a pin would be a lie.
+        located_seconds_ago: CourierProfile.seconds_since_fix(profile&.location_updated_at)
       }
     end
   end

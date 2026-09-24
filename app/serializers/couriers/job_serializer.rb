@@ -122,6 +122,12 @@ module Couriers
         Routing::Route::STRAIGHT_LINE
       end
 
+      # How old the fix `distance_km` was measured from, by the server's clock
+      # — the same field and meaning as on the customer's tracking payload.
+      field :located_seconds_ago do |_job, options|
+        CourierProfile.seconds_since_fix(options[:located_at])
+      end
+
       field :onward_distance_source do |job|
         job.distance_source
       end

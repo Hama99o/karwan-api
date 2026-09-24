@@ -292,6 +292,19 @@ RSpec.describe "Api::V1::Couriers::Offers", type: :request do
       expect(job["onward_distance_source"]).to eq("osrm")
     end
 
+    # The distance to the shop is measured from his last fix; how old that fix
+    # was is the same field, and the same clock, the customer's map reads.
+    it "says how old the fix behind the distance to the shop is" do
+      travel_to Time.zone.parse("2026-09-24 20:00:00") do
+        courier.courier_profile.update!(location_updated_at: 40.seconds.ago)
+        create(:offer, courier: courier, offerable: delivery)
+
+        get "/api/v1/courier/offer", headers: auth
+
+        expect(json.dig("offer", "job", "located_seconds_ago")).to eq(40)
+      end
+    end
+
     it "says so when the onward leg itself fell back to a straight line" do
       order = delivery
       order.update!(distance_km: 3.2, distance_source: "straight_line")

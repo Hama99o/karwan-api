@@ -239,6 +239,18 @@ class CourierProfile < ApplicationRecord
   # offered work from there is dispatch's question, not this method's.
   InvalidLocation = Class.new(ArgumentError)
 
+  # HOW OLD A FIX IS, BY THE SERVER'S CLOCK — the one that also decides
+  # `STALE_AFTER`, so what a customer reads and what dispatch believes cannot
+  # disagree. A phone subtracting `located_at` from its own clock would tell a
+  # customer, on a drifting handset, that his courier was seen an hour ago or
+  # in the future. Nil when there has never been a fix: "we have never seen
+  # him" and "we saw him an hour ago" are different sentences.
+  def self.seconds_since_fix(located_at, now: Time.current)
+    return nil if located_at.nil?
+
+    [ (now - located_at).floor, 0 ].max
+  end
+
   def record_location!(latitude:, longitude:)
     lat = Float(latitude.to_s.strip, exception: false)
     lng = Float(longitude.to_s.strip, exception: false)
