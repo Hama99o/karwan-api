@@ -63,6 +63,30 @@ RSpec.describe "currency on every amount" do
                            "was in. If it is not money, name it in NOT_MONEY with the reason."
   end
 
+  # ── MONEY THAT IS NOT A DECIMAL ───────────────────────────────────────
+  #
+  # Audited 2026-09-24: this gate reads DECIMAL columns only, so money stored
+  # any other way — `fee_cents` as an integer, a float `amount`, a price inside
+  # a jsonb blob — is invisible to it, currency or not. None exists today.
+  # A float is never acceptable for money; an integer of minor units would
+  # need its own currency rule. Either should stop here until someone decides.
+  MONEY_WORDS = /amount|price|fee|total|fare|cost|commission|payout|balance|earning|credit|cash|cents|topup|advance|payment/
+
+  it "stores no money as an integer or a float, where the check above cannot see it" do
+    conn = ActiveRecord::Base.connection
+    suspects = conn.tables.reject { |t| t.start_with?("ar_internal", "schema_") }.flat_map do |table|
+      conn.columns(table).select { |c| %i[integer float bigint].include?(c.type) && c.name.match?(MONEY_WORDS) }
+                         # An id, a count, or an enum's state (payment_status, payment_method) is not an amount.
+                         .reject { |c| c.name.end_with?("_id", "_count", "_status", "_method", "_kind") }
+                         .map { |c| "#{table}.#{c.name} (#{c.type})" }
+    end
+
+    expect(suspects).to be_empty,
+                        "these look like money stored outside a decimal: #{suspects.join(', ')}. " \
+                        "Money is a decimal with a currency beside it; if this is not money, rename it " \
+                        "or exclude it here with the reason."
+  end
+
   # Guards the guard. If the introspection ever returned nothing — a renamed
   # type, a connection quirk — the example above would pass while checking
   # nothing at all.
