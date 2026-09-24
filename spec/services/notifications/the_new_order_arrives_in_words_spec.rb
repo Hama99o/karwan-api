@@ -28,7 +28,7 @@ RSpec.describe "the new-order push arrives in words" do
     items = order.order_items.sum(&:quantity)
     expect(sent.last["notification"]).to eq(
       "title" => "سفارش تازه #{order.code}",
-      "body" => "#{items} قلم — برای پذیرفتن یا رد کردن باز کنید"
+      "body" => "اقلام: #{items}"
     )
   end
 

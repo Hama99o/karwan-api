@@ -15,10 +15,10 @@
 # they differ. Change the words in the app first, then here.
 en:
   title: New order {{order_code}}
-  body: '{{item_count}} items — open to accept or reject'
+  body: 'Items: {{item_count}}'
 ps:
   title: نوی فرمایش {{order_code}}
-  body: '{{item_count}} توکي — د منلو یا ردولو لپاره یې خلاص کړئ'
+  body: 'توکي: {{item_count}}'
 fa:
   title: سفارش تازه {{order_code}}
-  body: '{{item_count}} قلم — برای پذیرفتن یا رد کردن باز کنید'
+  body: 'اقلام: {{item_count}}'
