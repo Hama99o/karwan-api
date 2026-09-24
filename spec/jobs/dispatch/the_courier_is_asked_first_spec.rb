@@ -57,7 +57,10 @@ RSpec.describe Dispatch::JobTimeoutsJob do
     expect(sent.size).to eq(1)
     expect(sent.first).to include(tokens: [ "courier-phone" ], title_key: "courier.check_in.title",
                                   body_key: "courier.check_in.body")
-    expect(sent.first[:data]).to include(code: order.code, status: "picked_up", support_phone: "+93700999000")
+    expect(sent.first[:data]).to include(code: order.code, status: "picked_up")
+    # A push carries identifiers, not content (a_push_carries_identifiers_not_content_spec):
+    # the support number reaches the app through /public/app_config, not a push.
+    expect(sent.first[:data]).not_to have_key(:support_phone)
     expect(AuditLog.where(action: "courier.checked_in", target: order)).to exist
   end
 
