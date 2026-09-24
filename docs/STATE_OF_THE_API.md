@@ -6,14 +6,47 @@ whom. Commit hashes point at the evidence. Deeper records:
 `docs/NOTES.md` (findings and lessons), `docs/RUNBOOK.md` §9.1 (backups),
 `docs/API_VOCABULARY.md` §B, §E, §E2 and §F (wire contracts).
 
-**The whole suite, once, after the evening's work: 204 files, 3,061
-examples, 0 failures, 3 pending** (`4864764`, seed 47846). The 3 pending are
-deliberate: the owner's two open money decisions, and one empty design spec.
-Commits since then have had targeted runs only. **Run the whole suite before
-trusting any single green again** (NOTES has the dated example of a targeted
-run missing a break). Nothing is pushed: `main` is **152 commits ahead of `origin/main`** at the time of writing, and pushing is the owner's call.
+**The whole suite, twice, on two seeds:**
+- `4864764`, seed 47846: 204 files, 3,061 examples, 0 failures, 3 pending.
+- `e1bbdae`, seed 41528: **209 files, 3,082 examples, 0 failures, 3
+  pending**, exit 0, no errors outside examples, 14m47s, memory stall zero
+  throughout.
+
+The 3 pending are deliberate: the owner's two open money decisions, and one
+empty design spec. After any commit since `e1bbdae`, run it again before
+trusting a single targeted green (NOTES has the dated example of a targeted run
+missing a break).
+
+**When to start a whole run** (restated 25 Sept by Hamma9901; supersedes "load
+under 8"): **start when memory pressure is at zero and available RAM is
+comfortable, with the stall guard armed. Load is context, not a gate.** The
+guard reads `full avg10` from `/proc/pressure/memory` every 10 s and stops the
+run's process tree, by its recorded PID, above 0.5. Use
+`TEST_DB_SUFFIX=<yours>` so no one else's test database is touched. Nothing is pushed: `main` is **152 commits ahead of `origin/main`** at the time of writing, and pushing is the owner's call.
 
 ---
+
+## 0 · Which documents you can trust as STATUS
+
+There are two kinds of document here, and only one of them goes stale.
+- **Briefs state intent**, and are read with `CLAUDE.md`'s numbered
+  corrections: `CLAUDE.md`, `PRODUCT.md`, `ARCHITECTURE.md`, `DESIGN.md`,
+  `MOBILE.md`, `AFGHAN_UX.md`, `IDENTITY_AND_ROLES.md`. They're old (15–16
+  Sept) and that's fine: they say what the product is for, not what the code
+  does today.
+- **Status documents claim what is true now**, and these are the ones to
+  check:
+  - `NOTES.md` (its open list was re-read against the code on 24 Sept, and
+    stale entries marked in place);
+  - `RUNBOOK.md`, `API_VOCABULARY.md`, and this file;
+  - **`MAP_AND_ROUTING.md` (19 Sept) held one stale status claim**, that
+    pricing used straight-line distance. It's annotated in place.
+- **Documents that cannot go stale unnoticed**, because a spec fails when they
+  do: `API_SURFACE.txt` (`api_surface_spec`), and `API_VOCABULARY.md`'s
+  counts and values (`api_vocabulary_spec`, `push_keys_are_published_spec`).
+
+If a status claim here disagrees with the code, the code wins. Fix the line
+and say so.
 
 ## 1 · Finished, and what "finished" means
 
@@ -145,8 +178,7 @@ pooling; re-measure after it. The box was at load 9–19 throughout.
 - The push handler; words for the ride keys; the `open/…` routes.
 
 ## 6 · What I would do next
-1. **The whole suite**, before anything else. Many commits since the last full
-   run.
+1. **The whole suite** after any new commit (the last clean run was at `e1bbdae`).
 2. **The quiet-box dispatch re-measure** (§4). If the unexplained remainder
    survives the pooling, it's the most important thing on the dispatch path,
    because it sits inside a row lock.

@@ -60,7 +60,12 @@ given up.
 
 **Why it is not optional:** a ride fare is `base + (per_km × distance) +
 (per_minute × duration)`. Today `Geo::Distance` uses straight-line distance
-divided by an average-speed setting. **Straight-line distance under-measures real
+divided by an average-speed setting. *(STALE, noted 25 Sept 2026: not true
+since `748c135`. Fares and delivery fees are priced on the OSRM ROAD distance
+through `Routing::DistanceResolver`, with straight line only as the fallback.
+`Geo::Distance` remains the straight-line helper for dispatch's nearest-courier
+search and the other estimates listed in its header. The argument below is why
+that change was made.)* **Straight-line distance under-measures real
 road distance, and in a river-split, one-way-street city like Kabul the gap is
 large and not constant.** That is not an ETA being slightly off — it is money,
 undercharged on every single ride, on the demand type whose whole purpose is to
