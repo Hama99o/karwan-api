@@ -12,7 +12,11 @@ require "rails_helper"
 # signed-in admin, and Pundit is asked afterwards whether the action consulted
 # a policy (`pundit_policy_authorized?`).
 #
-# ── THE ANSWER ON 2026-09-24: 6 OF 108 ──────────────────────────────────────
+# ── THE ANSWER ON 2026-09-24: 6 OF 108, then 6 OF 110 ───────────────────────
+#
+# (The two added are catalog restore, the undo for a Delete that now
+# discards. They joined the list below in the same commit, which is the
+# list working as intended: nothing joins it silently.)
 #
 # Every other action is gated by `authenticate_admin_user!` and nothing else.
 # Administrate's CRUD calls `authorize_resource`, which is a no-op returning
@@ -22,7 +26,7 @@ require "rails_helper"
 # Every console account is an admin with every power, so a missing policy and
 # a policy that says `admin?` behave identically. That stops being true the
 # first time somebody is given limited access — a cashier who records
-# deposits, a support agent who reads orders — and on that day these 102
+# deposits, a support agent who reads orders — and on that day these 104
 # actions all say yes to them.
 #
 # ── WHAT THE LIST BELOW IS ──────────────────────────────────────────────────
@@ -87,7 +91,11 @@ RSpec.describe "every console action consults a policy", type: :request do
     "admin/orders" => %w[reassign cancel fail redispatch],
     "admin/merchants" => %w[open_merchant close_merchant approve suspend restore],
     "admin/courier_profiles" => %w[ask_for_more take_off_shift],
-    "admin/users" => %w[suspend reinstate restore revoke_sessions]
+    "admin/users" => %w[suspend reinstate restore revoke_sessions],
+    # The undo for Delete (which discards), added 24 Sept 2026 in the same
+    # shape as merchants#restore — and, like it, gated by the session alone.
+    "admin/catalog_items" => %w[restore],
+    "admin/catalog_categories" => %w[restore]
   }.freeze
 
   WITHOUT_POLICY = [ CRUD_WITHOUT_POLICY, INTERVENTIONS_WITHOUT_POLICY ]
@@ -145,7 +153,7 @@ RSpec.describe "every console action consults a policy", type: :request do
   it "found the whole console" do
     # A table-driven spec over an empty table is the vacuously-green suite this
     # project has been bitten by before.
-    expect(CONSOLE_ACTIONS.size).to eq(108)
+    expect(CONSOLE_ACTIONS.size).to eq(110)
   end
 
   it "lists nothing that is not a route" do
@@ -154,8 +162,8 @@ RSpec.describe "every console action consults a policy", type: :request do
     expect(WITHOUT_POLICY - routed).to be_empty
   end
 
-  it "records 102 actions without a policy — the gap, counted" do
-    expect(WITHOUT_POLICY.size).to eq(102)
+  it "records 104 actions without a policy — the gap, counted" do
+    expect(WITHOUT_POLICY.size).to eq(104)
   end
 
   CONSOLE_ACTIONS.each do |route|

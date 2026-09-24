@@ -80,8 +80,15 @@ Rails.application.routes.draw do
     # it, and nothing could assign a merchant to one.
     resources :merchant_categories, only: %i[index show new create edit update destroy]
 
-    resources :catalog_categories, only: %i[index show new create edit update destroy]
-    resources :catalog_items, only: %i[index show new create edit update destroy]
+    # Delete discards these (one-way door 6); restore is the undo, so a
+    # mistaken delete is recovered by the operator who made it, not by a
+    # developer with a Rails console.
+    resources :catalog_categories, only: %i[index show new create edit update destroy] do
+      member { patch :restore }
+    end
+    resources :catalog_items, only: %i[index show new create edit update destroy] do
+      member { patch :restore }
+    end
 
     # "Size", "Extras", and the values inside them. CLAUDE.md's data model says
     # of these "do not skip it" — and nothing anywhere could create one, so a

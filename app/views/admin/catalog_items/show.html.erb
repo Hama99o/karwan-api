@@ -1,0 +1,17 @@
+<%#
+  DELETED, AND RESTORABLE BY WHOEVER DELETED IT. The console's Delete discards
+  this (one-way door 6) rather than destroying it; without this button the
+  undo needed a developer and a Rails console, and a delete that feels safe
+  gets clicked more readily than one that is final.
+%>
+<% record = page.resource %>
+<% if record.discarded? %>
+  <section class="karwan-actions">
+    <h2>Deleted <%= l(record.deleted_at, format: :short) %></h2>
+    <p class="karwan-actions__why">Hidden from the shop's menu and from customers. Past orders still point here.</p>
+    <%= button_to "Restore", restore_admin_catalog_item_path(record), method: :patch,
+                  form: { data: { turbo: false } }, class: "button" %>
+  </section>
+<% end %>
+
+<%= render template: "administrate/application/show", locals: { page: page } %>

@@ -133,6 +133,105 @@ RSpec.describe "Delete in the console means discard", type: :request do
       expect(WalletEntry.where(courier_wallet_id: wallet.id).count).to eq(1)
     end
 
+    # ── FROM THE ROUTES, NOT FROM A LIST ───────────────────────────────────
+    #
+    # The list below this block asserts that six named resources have no
+    # destroy route. A list cannot see a resource nobody typed, and on
+    # 24 Sept 2026 that is exactly where the bug was: driving EVERY destroy
+    # route the console has found catalog items and catalog categories — both
+    # built to be discarded, both "menu items" in door 6's own words —
+    # hard-deleted by the generic action, an ordered item's line left pointing
+    # at nothing. So every routed destroy is driven here, and must either
+    # discard, or be a hard delete whose protection is named below.
+    #
+    # EACH PROTECTION IS A FACT ABOUT THE SCHEMA, CHECKED, not a sentence. "It
+    # has no history" is a claim a migration can falsify without anyone
+    # reading this file; the foreign keys that point at the table are what
+    # actually decide whether a hard delete leaves a hole.
+    references_to = lambda do |table|
+      ActiveRecord::Base.connection.tables.flat_map do |from|
+        ActiveRecord::Base.connection.foreign_keys(from).select { |fk| fk.to_table == table }
+                          .map { |fk| [ from, fk.on_delete ] }
+      end.sort_by(&:first)
+    end
+
+    HARD_DELETE_IS_SAFE = {
+      # An ordered option is COPIED onto the order (option_name, value_name,
+      # price_delta), and the order's pointer to the live value is nullified,
+      # not left dangling and not blocking.
+      "catalog_item_option_values" => lambda {
+        expect(references_to.call("catalog_item_option_values")).to eq([ [ "order_item_options", :nullify ] ])
+        expect(OrderItemOption.column_names).to include("option_name", "value_name", "price_delta")
+      },
+      # Referenced only by its own values. No order or money table points here.
+      "catalog_item_options" => lambda {
+        expect(references_to.call("catalog_item_options")).to eq([ [ "catalog_item_option_values", nil ] ])
+      },
+      # The cuisine taxonomy, referenced only by the shop-to-cuisine links.
+      "merchant_categories" => lambda {
+        expect(references_to.call("merchant_categories")).to eq([ [ "merchant_category_assignments", nil ] ])
+      },
+      # Nothing points at an opening-hours row.
+      "merchant_opening_hours" => lambda {
+        expect(references_to.call("merchant_opening_hours")).to be_empty
+      }
+    }.freeze
+
+    routed_destroys = Rails.application.routes.routes.filter_map { |route|
+      controller = route.defaults[:controller].to_s
+      next unless controller.start_with?("admin/") && route.defaults[:action] == "destroy"
+      next if controller == "admin/sessions"
+
+      controller.delete_prefix("admin/")
+    }.uniq
+
+    it "found the console's destroy routes, so an empty table cannot pass" do
+      expect(routed_destroys.size).to be >= 7
+    end
+
+    it "names a protection only for a destroy that is routed and really hard-deletes" do
+      expect(HARD_DELETE_IS_SAFE.keys - routed_destroys).to be_empty
+    end
+
+    routed_destroys.each do |resource|
+      it "admin/#{resource}#destroy keeps history: it discards, or its protection holds" do
+        model = Administrate::ResourceResolver.new("admin/#{resource}").resource_class
+        record = create(model.model_name.singular.to_sym)
+
+        delete "/admin/#{resource}/#{record.id}"
+        row = model.unscoped.find_by(id: record.id)
+
+        if model.method_defined?(:discard!)
+          expect(row).to be_present, "#{resource} can be discarded and was HARD-deleted"
+          expect(row.deleted_at).to be_present
+          expect(HARD_DELETE_IS_SAFE).not_to have_key(resource.to_s),
+                                         "#{resource} discards now — take it off HARD_DELETE_IS_SAFE"
+        else
+          protection = HARD_DELETE_IS_SAFE[resource.to_s]
+          expect(protection).to be_present,
+                                "#{resource} is hard-deleted from the console and nothing says why that is safe"
+          instance_exec(&protection)
+        end
+      end
+    end
+
+    # THE UNDO. A delete that is recoverable only by a developer is not
+    # recoverable by the person who made the mistake — and one that feels safe
+    # gets clicked more readily than one that is final.
+    %w[catalog_items catalog_categories].each do |resource|
+      it "restores a deleted #{resource.singularize.humanize.downcase} from its page" do
+        model = Administrate::ResourceResolver.new("admin/#{resource}").resource_class
+        record = create(model.model_name.singular.to_sym)
+        delete "/admin/#{resource}/#{record.id}"
+
+        get "/admin/#{resource}/#{record.id}"
+        expect(response.body).to include("/admin/#{resource}/#{record.id}/restore")
+
+        expect { patch "/admin/#{resource}/#{record.id}/restore" }
+          .to change { model.unscoped.find(record.id).deleted_at }.to(nil)
+      end
+    end
+
     %w[users courier_wallets orders wallet_entries settlements audit_logs].each do |resource|
       it "has no destroy route for #{resource}" do
         routed = Rails.application.routes.routes.any? do |route|

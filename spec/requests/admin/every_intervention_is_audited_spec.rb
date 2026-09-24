@@ -113,6 +113,14 @@ RSpec.describe "every admin intervention is audited", type: :request do
     when "admin/users#restore"
       courier.discard!
       patch "/admin/users/#{courier.id}/restore"
+    when "admin/catalog_items#restore"
+      item = create(:catalog_item)
+      item.discard!
+      patch "/admin/catalog_items/#{item.id}/restore"
+    when "admin/catalog_categories#restore"
+      category = create(:catalog_category)
+      category.discard!
+      patch "/admin/catalog_categories/#{category.id}/restore"
     # Revoking writes no row when there is nothing live to revoke — correctly,
     # and this block's own warning about actions that bail out early.
     when "admin/users#revoke_sessions"
@@ -139,6 +147,7 @@ RSpec.describe "every admin intervention is audited", type: :request do
     admin/courier_wallets#reimburse admin/courier_wallets#settle
     admin/users#suspend admin/users#reinstate
     admin/merchants#restore admin/users#restore admin/users#revoke_sessions
+    admin/catalog_items#restore admin/catalog_categories#restore
   ].freeze
 
   it "drives every custom admin action the routes define" do

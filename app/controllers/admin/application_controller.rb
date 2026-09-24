@@ -70,12 +70,30 @@ module Admin
       log_console_edit(requested_resource, "edited", before: before, after: after)
     end
 
+    # ── DELETE MEANS DISCARD, FOR EVERY MODEL BUILT TO BE DISCARDED ─────────
+    #
+    # One-way door 6. `merchants#destroy` was fixed on its own and the rest
+    # were not: on 24 Sept 2026, driving every destroy route the console has
+    # found catalog items and catalog categories — both `SoftDeletable`, both
+    # named by the door ("menu items") — HARD-deleted by the generic action.
+    # An item a customer had ordered vanished, its order line's
+    # `catalog_item_id` went to nil, and "order again" could no longer find it.
+    # The shop's own app already discarded; only the console bypassed it.
+    #
+    # Decided HERE, by what the model can do, rather than per controller — a
+    # per-controller override is one somebody forgets, which is how the
+    # catalog was missed while merchants was fixed. Models with no
+    # `discard!` still destroy: `spec/requests/admin/delete_is_discard_spec.rb`
+    # names each of those and why a hard delete is safe for it.
     def destroy
-      snapshot = audit_values(requested_resource.attributes)
-      super
-      return unless requested_resource.destroyed?
+      resource = requested_resource
+      snapshot = audit_values(resource.attributes)
+      return discard(resource, snapshot) if resource.respond_to?(:discard!)
 
-      log_console_edit(requested_resource, "deleted", before: snapshot)
+      super
+      return unless resource.destroyed?
+
+      log_console_edit(resource, "deleted", before: snapshot)
     end
 
     private
@@ -83,6 +101,13 @@ module Admin
     # Noise, and in one case worse than noise: `search_text` is a derived blob
     # that would dominate every audit row it appeared in.
     AUDIT_SKIP = %w[created_at updated_at search_text].freeze
+
+    def discard(resource, snapshot)
+      resource.discard!
+      log_console_edit(resource, "discarded", before: snapshot, after: { deleted_at: resource.deleted_at.to_s })
+      redirect_to after_resource_destroyed_path(resource), status: :see_other,
+                                                            notice: "Removed. Its history is kept."
+    end
 
     def log_console_edit(resource, verb, before: nil, after: nil)
       log_intervention(

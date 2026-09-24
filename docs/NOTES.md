@@ -6768,6 +6768,10 @@ exact shape), `role_refusal` gaining an undeclared word, and this morning's
 
 ## THE CONSOLE'S POLICIES, COUNTED FROM THE ROUTES — 6 OF 108
 
+*(Later the same day: 6 of 110, after catalog restore was added. The live
+count is whatever `every_action_consults_a_policy_spec.rb` asserts; this
+section is the record of the first measurement.)*
+
 **24 Sept 2026.** The 18 Sept sweep enumerated POLICIES and asked which were
 called. `reimburse` credited a courier's wallet with no policy method at all, so
 it was invisible to that sweep. An instrument that starts from what is declared
