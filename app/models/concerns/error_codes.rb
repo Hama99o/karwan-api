@@ -54,6 +54,7 @@ module ErrorCodes
   # went to somebody else — and it reaches the same ordinary courier.
   DISPATCH = %w[
     offer_expired not_your_job cannot_advance wrong_step too_early_to_arrive job_taken
+    invalid_location
   ].freeze
 
   # ── THE THREE VOCABULARIES A GREP FOR `code: "…"` CANNOT SEE ──────────────
@@ -116,6 +117,6 @@ module ErrorCodes
   # need a sentence in every locale.
   def self.reachable_in_normal_use
     ALL - OTP - %w[bad_request bad_platform not_found pending_migration registration_invalid
-                   invalid_idempotency_key]
+                   invalid_idempotency_key invalid_location]
   end
 end

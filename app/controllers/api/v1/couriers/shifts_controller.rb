@@ -66,6 +66,10 @@ class Api::V1::Couriers::ShiftsController < Api::V1::Couriers::BaseController
     courier_profile.record_location!(latitude: latitude, longitude: longitude)
 
     render_ok({ recorded_at: courier_profile.location_updated_at })
+  rescue CourierProfile::InvalidLocation => e
+    # The app sends these fire-and-forget and ignores a refusal, which is
+    # right: the next real fix follows within seconds.
+    render_unprocessable_entity(e.message, code: "invalid_location")
   end
 
   private

@@ -261,11 +261,14 @@ after the countdown — the job went to somebody else and another will come),
 has started cooking), and `outside_service_area`.
 
 `ErrorCodes.reachable_in_normal_use` returns the **56** that are not OTP,
-malformed requests or server state. The eleven it excludes are `otp_*` (switched
+malformed requests or server state. The twelve it excludes are `otp_*` (switched
 off), `bad_request`, `bad_platform`, `not_found`, `registration_invalid`,
-`pending_migration` and `invalid_idempotency_key` (a client bug, like
+`pending_migration`, `invalid_idempotency_key` (a client bug, like
 `bad_request`; its sibling `idempotency_key_reused` is a customer's real
-situation and is counted).
+situation and is counted), and `invalid_location`: a device fix that cannot be
+a place, refused by `POST /courier/shift/location` and never shown to anybody,
+because the app reports positions fire-and-forget and the next real fix
+follows within seconds.
 
 > **This number said 25 for an hour**, written when the vocabulary was 35 and
 > not revisited when twenty-five dynamic codes were folded in. It is the count

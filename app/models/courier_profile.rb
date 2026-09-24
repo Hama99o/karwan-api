@@ -218,8 +218,40 @@ class CourierProfile < ApplicationRecord
     parts.join(" · ")
   end
 
+  # ── A FIX THAT CANNOT BE A PLACE IS NOT RECORDED ────────────────────────
+  #
+  # Found 2026-09-24: this took anything. `"abc"` was cast to 0 and stored,
+  # (999, 999) was stored, and each was stamped FRESH — overwriting the last
+  # real position with one nobody could be at. Dispatch survived it only
+  # because the offer radius excludes a courier 7,000 km away; what did not
+  # survive was everything else that reads this row: the customer's tracking
+  # map, and the transition log's "where the courier was", which is the
+  # evidence a dispute about a delivery is settled from.
+  #
+  # So a fix is parsed strictly (not cast), must be on the planet, and must
+  # not be (0, 0) — "null island", the value a device reports when it has no
+  # fix at all, and a point in the Gulf of Guinea no courier stands on. The
+  # previous position and its time are left alone, so staleness keeps telling
+  # the truth about the last real fix.
+  #
+  # Only the impossible is refused. A courier outside the service area — on
+  # his way home, across the city line — is somewhere real, and whether he is
+  # offered work from there is dispatch's question, not this method's.
+  InvalidLocation = Class.new(ArgumentError)
+
   def record_location!(latitude:, longitude:)
-    update!(last_latitude: latitude, last_longitude: longitude, location_updated_at: Time.current)
+    lat = Float(latitude.to_s.strip, exception: false)
+    lng = Float(longitude.to_s.strip, exception: false)
+    raise InvalidLocation, "not a place: #{latitude.inspect}, #{longitude.inspect}" unless self.class.plausible_fix?(lat, lng)
+
+    update!(last_latitude: lat, last_longitude: lng, location_updated_at: Time.current)
+  end
+
+  def self.plausible_fix?(lat, lng)
+    return false unless lat.is_a?(Float) && lng.is_a?(Float) && lat.finite? && lng.finite?
+    return false unless lat.between?(-90, 90) && lng.between?(-180, 180)
+
+    !(lat.zero? && lng.zero?)
   end
 
   # Approval is a human decision and must carry a name. A nil approver on an
