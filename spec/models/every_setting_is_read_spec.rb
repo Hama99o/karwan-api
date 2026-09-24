@@ -105,6 +105,22 @@ RSpec.describe "every Setting row is read by something" do
     end
   end
 
+  # ── AND THE OTHER DIRECTION: A KEY READ THAT NOTHING DEFINES ──────────
+  #
+  # Audited 2026-09-24. The examples above walk from DEFINITIONS to their
+  # readers, so they cannot see a `Setting.fetch("typo")` for a key nobody
+  # registered — which raises KeyError only when that line runs, and on a path
+  # no spec drives, that is production. Every literal read must name a defined
+  # key. (Dynamically built keys are vouched for by `built_dynamically`.)
+  it "reads no key that nothing defines" do
+    reads = app_source.scan(/Setting\.fetch\(\s*["']([a-z0-9_]+)["']/).flatten.uniq
+
+    expect(reads.size).to be > 20
+    expect(reads - Setting::DEFINITIONS.keys).to be_empty,
+                                               "read but never defined, so it raises when reached: " \
+                                               "#{(reads - Setting::DEFINITIONS.keys).join(', ')}"
+  end
+
   # So the lists cannot rot into a place keys go to be forgotten.
   it "keeps no stale excuse for a key that is now read outright" do
     stale = declared.select { |key| app_source.include?(%("#{key}")) }
