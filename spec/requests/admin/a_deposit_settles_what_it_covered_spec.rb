@@ -87,4 +87,27 @@ RSpec.describe "a deposit settles what it covered", type: :request do
     expect(Settlement.count).to eq(0)
     expect(Couriers::CashPosition.new(courier).held).to eq(460)
   end
+
+  # ── THE BUTTON PRESSED TWICE ────────────────────────────────────────────
+  #
+  # Reproduced 2026-09-24: the second press wrote expected 0, counted 280,
+  # variance +280, so a courier short on the first row read as square — or
+  # in surplus — in any sum of the two.
+  describe "pressed twice for one deposit" do
+    before { 2.times { settle(deposited_at: "2026-09-18T18:00") } }
+
+    it "records one settlement" do
+      expect(Settlement.count).to eq(1)
+    end
+
+    it "tells the operator where the first one is" do
+      follow_redirect!
+
+      expect(response.body).to include("already under Settlements")
+    end
+
+    it "leaves the work since the deposit as cash he still holds" do
+      expect(Couriers::CashPosition.new(courier).held).to eq(180)
+    end
+  end
 end

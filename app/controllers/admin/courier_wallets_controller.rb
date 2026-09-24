@@ -94,16 +94,32 @@ module Admin
       cutoff = deposit_cutoff
       return reject_amount(wallet, "That deposit time is in the future — check the statement.") if cutoff.nil?
 
-      # The SAME set is summed and then marked, chosen once, so a delivery
-      # completing while this runs cannot be marked settled without having
-      # been expected.
-      jobs = [ Order, Trip ].to_h { |klass| [ klass, covered_ids(klass, wallet.user, cutoff) ] }
-      expected = jobs.sum(BigDecimal("0")) do |klass, ids|
-        klass.where(id: ids, currency: wallet.currency).sum(:commission)
-      end
-
       settlement = nil
+      expected = nil
       ApplicationRecord.transaction do
+        # ── ONE DEPOSIT, ONE SETTLEMENT ─────────────────────────────────────
+        #
+        # A second press of this button (a slow page, a double click, Back and
+        # submit again) used to write a second Settlement over nothing:
+        # expected 0, counted the same figure again, a variance of +counted.
+        # Reproduced 2026-09-24 — a courier 200 short read as 120 short in
+        # any sum of variances. Two presses AT ONCE were worse: both chose the
+        # same jobs, and the shortfall was counted twice.
+        #
+        # So the set is chosen under the wallet's row lock, and a deposit
+        # that covers nothing is refused — there is no work for it to settle,
+        # and the likeliest reason is that it has just been recorded.
+        wallet.lock!
+        # The SAME set is summed and then marked, chosen once, so a delivery
+        # completing while this runs cannot be marked settled without having
+        # been expected.
+        jobs = [ Order, Trip ].to_h { |klass| [ klass, covered_ids(klass, wallet.user, cutoff) ] }
+        raise ActiveRecord::Rollback if jobs.values.all?(&:empty?)
+
+        expected = jobs.sum(BigDecimal("0")) do |klass, ids|
+          klass.where(id: ids, currency: wallet.currency).sum(:commission)
+        end
+
         settlement = Settlement.create!(
           courier: wallet.user, expected_amount: expected, counted_amount: counted,
           currency: wallet.currency, counted_by_name: counter,
@@ -112,6 +128,11 @@ module Admin
         # Marking the jobs settled is what clears the cash-in-hand gate and
         # lets dispatch offer them work again.
         mark_settled(jobs)
+      end
+
+      if settlement.nil?
+        return reject_amount(wallet, "Nothing collected up to that time is still unsettled — " \
+                                     "if this deposit was just recorded, it is already under Settlements.")
       end
 
       log_intervention("courier.settled", target: settlement,
