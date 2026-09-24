@@ -26,8 +26,13 @@ module Notifications
 
       result = @client.send_to(
         tokens,
-        title_key: "customer.arrival.title",
-        body_key: "customer.arrival.body",
+        # A RIDE HAS ITS OWN WORDS. The delivery copy reads "he is outside with
+        # order KQA…, go to the door" — said to a passenger waiting at the kerb
+        # for a car, it is the wrong sentence. Found 24 Sept 2026 checking
+        # which of the night's fixes reach rides; rides have no front door yet,
+        # so this is fixed before anybody can receive it.
+        title_key: @job.is_a?(Trip) ? "customer.arrival.ride.title" : "customer.arrival.title",
+        body_key: @job.is_a?(Trip) ? "customer.arrival.ride.body" : "customer.arrival.body",
         data: {
           # `kind` rather than a class name: the app routes on the demand type,
           # and a Ruby class name in a payload is an implementation detail the

@@ -89,6 +89,15 @@ RSpec.describe Notifications::ArrivalAlert do
       expect(sent.last[:tokens]).to eq([ "passenger-device" ])
       expect(sent.last[:data][:kind]).to eq("ride")
     end
+
+    # The delivery copy says "he is outside with order … go to the door";
+    # a passenger waiting at the kerb for a car needs different words.
+    it "tells the passenger in a ride's own words, not a delivery's" do
+      described_class.new(trip, client: client).deliver!
+
+      expect(sent.last[:title_key]).to eq("customer.arrival.ride.title")
+      expect(sent.last[:body_key]).to eq("customer.arrival.ride.body")
+    end
   end
 
   describe "when it cannot be delivered" do

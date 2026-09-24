@@ -371,7 +371,7 @@ half, derived from the send sites and held to the code by
 | notification | fires when | `title_key` / `body_key` | data | deep link | alarm? |
 |---|---|---|---|---|---|
 | shop: new order | an order is placed (`Orders::PlaceService`) | `merchant.alert.new_order.title` `merchant.alert.new_order.body` | `order_id` `order_code` `item_count` `merchant_payout` `currency` | `karwan://open/new-order/:order_id` | **yes**, the only one; and the only one in words (below) |
-| customer: courier at the gate | the courier taps "I am here" (`Couriers::AnnounceArrivalService`) | `customer.arrival.title` `customer.arrival.body` | `kind` `job_id` `code` `courier_phone` | `karwan://open/arrival/:job_id` | no |
+| customer: courier at the gate | the courier taps "I am here" (`Couriers::AnnounceArrivalService`) | `customer.arrival.title` `customer.arrival.body`; for a RIDE, `customer.arrival.ride.title` `customer.arrival.ride.body` (the delivery copy says "with order … go to the door") | `kind` `job_id` `code` `courier_phone` | `karwan://open/arrival/:job_id` | no |
 | courier: are you all right? | a job sits past its timeout (`Dispatch::JobTimeoutsJob`), once per stuck state | `courier.check_in.title` `courier.check_in.body` | `kind` `job_id` `code` `status` `support_phone` | `karwan://open/check-in/:kind/:job_id` | no |
 | applicant: review outcome | an operator approves, rejects or asks for more (`CourierProfile`) | `courier.review.approved.title` `courier.review.approved.body` `courier.review.needs_more.title` `courier.review.needs_more.body` `courier.review.rejected.title` `courier.review.rejected.body` | `status` `missing` (JSON) `note` | `karwan://apply-rider` | no |
 
