@@ -68,7 +68,7 @@ RSpec.describe Notifications::MerchantAlert do
         data = JSON.parse(request.body).dig("message", "data")
         data["title_key"] == "merchant.alert.new_order.title" &&
           data["order_code"] == order.code &&
-          data["deep_link"].include?("karwan://merchant/orders/")
+          data["deep_link"] == "karwan://open/new-order/#{order.id}"
       }
     end
 

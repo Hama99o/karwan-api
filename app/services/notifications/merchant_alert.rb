@@ -23,21 +23,30 @@ module Notifications
       owner = @order.merchant&.owner
       tokens = owner ? owner.device_tokens.active.pluck(:token) : []
 
+      item_count = @order.order_items.sum(&:quantity)
       result = @client.send_to(
         tokens,
         alarm: true,
+        # In WORDS, in the owner's own language, so a closed app still shows
+        # it. The only push the server writes — see Notifications::PushCopy.
+        display: owner && PushCopy.new_order(locale: owner.locale,
+                                             values: { order_code: @order.code, item_count: item_count }),
         title_key: "merchant.alert.new_order.title",
         body_key: "merchant.alert.new_order.body",
         data: {
           order_id: @order.id,
           order_code: @order.code,
-          item_count: @order.order_items.sum(&:quantity),
+          item_count: item_count,
           # The merchant is entitled to know what they are being paid before
           # they accept.
           merchant_payout: @order.merchant_payout,
           currency: @order.currency,
-          # So the app can route straight to the order rather than the board.
-          deep_link: "karwan://merchant/orders/#{@order.id}"
+          # WHAT HAPPENED AND TO WHICH RECORD, not a screen path: the app's
+          # three role homes are route groups that all sit at "/", so a path
+          # from here is ambiguous by construction (the old
+          # `karwan://merchant/orders/:id` matched a CUSTOMER's restaurant
+          # page). The app decides the screen.
+          deep_link: "karwan://open/new-order/#{@order.id}"
         }
       )
 

@@ -38,7 +38,7 @@ module Notifications
           # SO THEY CAN RING HIM WITHOUT OPENING ANYTHING. The number is the
           # fallback for this exact notification failing, and it costs no data.
           courier_phone: @job.courier&.phone,
-          deep_link: "karwan://orders"
+          deep_link: "karwan://open/arrival/#{@job.id}"
         }
       )
 

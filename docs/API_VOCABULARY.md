@@ -349,12 +349,35 @@ half, derived from the send sites and held to the code by
 
 | notification | fires when | `title_key` / `body_key` | data | deep link | alarm? |
 |---|---|---|---|---|---|
-| shop: new order | an order is placed (`Orders::PlaceService`) | `merchant.alert.new_order.title` `merchant.alert.new_order.body` | `order_id` `order_code` `item_count` `merchant_payout` `currency` | `karwan://merchant/orders/:id` | **yes**, the only one |
-| customer: courier at the gate | the courier taps "I am here" (`Couriers::AnnounceArrivalService`) | `customer.arrival.title` `customer.arrival.body` | `kind` `job_id` `code` `courier_phone` | `karwan://orders` | no |
-| courier: are you all right? | a job sits past its timeout (`Dispatch::JobTimeoutsJob`), once per stuck state | `courier.check_in.title` `courier.check_in.body` | `kind` `job_id` `code` `status` `support_phone` | `karwan://courier/job` | no |
+| shop: new order | an order is placed (`Orders::PlaceService`) | `merchant.alert.new_order.title` `merchant.alert.new_order.body` | `order_id` `order_code` `item_count` `merchant_payout` `currency` | `karwan://open/new-order/:order_id` | **yes**, the only one; and the only one in words (below) |
+| customer: courier at the gate | the courier taps "I am here" (`Couriers::AnnounceArrivalService`) | `customer.arrival.title` `customer.arrival.body` | `kind` `job_id` `code` `courier_phone` | `karwan://open/arrival/:job_id` | no |
+| courier: are you all right? | a job sits past its timeout (`Dispatch::JobTimeoutsJob`), once per stuck state | `courier.check_in.title` `courier.check_in.body` | `kind` `job_id` `code` `status` `support_phone` | `karwan://open/check-in/:kind/:job_id` | no |
 | applicant: review outcome | an operator approves, rejects or asks for more (`CourierProfile`) | `courier.review.approved.title` `courier.review.approved.body` `courier.review.needs_more.title` `courier.review.needs_more.body` `courier.review.rejected.title` `courier.review.rejected.body` | `status` `missing` (JSON) `note` | `karwan://apply-rider` | no |
 
-**What a phone would show today, if Firebase were switched on:**
+**Deep links say what happened and to which record, not which screen**
+(`karwan://open/<event>/<record>`). The app's three role homes are route groups
+that all sit at `/`, so a screen path from the server is ambiguous by
+construction: the old `karwan://merchant/orders/:id` matched a customer's
+restaurant page. The app decides the screen, so a layout change on its side
+can't break this contract. `karwan://apply-rider` is unchanged.
+
+**THE ONE DELIBERATE DUPLICATE: the shop's new-order alert, in words.** The
+other pushes are data-only and worded by the app from its own i18n; a fully
+closed app may show nothing for them, which their severity allows. The
+new-order alert can't allow it, because a blank banner is a lost order. So the
+server renders its `title` and `body` in the owner's saved `user.locale` and
+sends a real `notification` block, which the OS draws with no handler.
+- `*_loc_key` Android resources were ruled out: they resolve against the
+  PHONE's system language, and Karwan's language is chosen in the app.
+- The copy lives in `config/push/merchant_new_order.yml`, **mirrored from
+  karwan-mobile, not authored there**, keeping the app's `{{name}}`
+  placeholders.
+- `spec/config/push_copy_mirrors_the_app_spec.rb` compares the two text for
+  text in all three languages, and fails the day they differ. It skips, and
+  says so, only where karwan-mobile isn't checked out beside the API.
+- Change the words in the app first, then mirror them.
+
+**What a phone would show today, if Firebase were switched on** (as first measured; the app has since written the twelve strings):
 - **None of the 12 keys has a string in `karwan-mobile/src/i18n/locales/{en,ps,fa}.ts`.** Every notification would be wordless, in every language.
 - **The OS draws nothing from these keys.** The only display block sent is
   `android.notification`, with a channel and a sound but no title, body or
@@ -362,11 +385,8 @@ half, derived from the send sites and held to the code by
   notification from `data`, or Android string resources exist under matching
   `*_loc_key` names. Which of those to build is the app's decision and the
   owner's (Firebase).
-- **Two deep links match no route:** `karwan://merchant/orders/:id` (the app
-  has no `merchant/orders/[id]`, only `merchant/[id]`, which is a customer's
-  restaurant page) and `karwan://courier/job` (the courier's job is the
-  `(courier)` group's index). `karwan://orders` and `karwan://apply-rider`
-  resolve. `karwan://orders` opens the list, not the order that arrived.
+- **Two deep links matched no route** (`merchant/orders/:id`, `courier/job`).
+  They were replaced by the `open/` links above.
 - **Channels:** `karwan_orders` (the alarm) and `karwan_updates` (everything
   else) must be created by the app. On Android 8+ a channel that doesn't exist
   falls back to the system's default.

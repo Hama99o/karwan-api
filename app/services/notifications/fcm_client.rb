@@ -43,7 +43,7 @@ module Notifications
     # was being sent on that same loud channel with the same repeating
     # vibration, found on 24 Sept 2026: a courier's approval would have
     # sounded like an order he had to run for.
-    def send_to(tokens, title_key:, body_key:, data: {}, alarm: false)
+    def send_to(tokens, title_key:, body_key:, data: {}, alarm: false, display: nil)
       tokens = Array(tokens).uniq.compact
       return Result.new(delivered: 0, failed: 0, status: :no_tokens) if tokens.empty?
 
@@ -56,7 +56,7 @@ module Notifications
       failed = 0
 
       tokens.each do |token|
-        deliver_one(token, title_key: title_key, body_key: body_key, data: data, alarm: alarm) ? delivered += 1 : failed += 1
+        deliver_one(token, title_key: title_key, body_key: body_key, data: data, alarm: alarm, display: display) ? delivered += 1 : failed += 1
       end
 
       Result.new(delivered: delivered, failed: failed, status: failed.zero? ? :ok : :partial)
@@ -64,12 +64,12 @@ module Notifications
 
     private
 
-    def deliver_one(token, title_key:, body_key:, data:, alarm: false)
+    def deliver_one(token, title_key:, body_key:, data:, alarm: false, display: nil)
       uri = URI("https://fcm.googleapis.com/v1/projects/#{@project_id}/messages:send")
       request = Net::HTTP::Post.new(uri)
       request["Authorization"] = "Bearer #{@access_token}"
       request["Content-Type"] = "application/json"
-      request.body = payload(token, title_key: title_key, body_key: body_key, data: data, alarm: alarm).to_json
+      request.body = payload(token, title_key: title_key, body_key: body_key, data: data, alarm: alarm, display: display).to_json
 
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = true
@@ -99,10 +99,14 @@ module Notifications
     UPDATE_ANDROID = { channel_id: "karwan_updates", sound: "default" }.freeze
     UPDATE_APS = { sound: "default", "interruption-level" => "active" }.freeze
 
-    def payload(token, title_key:, body_key:, data:, alarm: false)
+    # `display:` — words the OS draws itself ({ title:, body: }), for the one
+    # push that must be readable with the app closed (Notifications::PushCopy).
+    # Everything else stays data-only and is worded by the app.
+    def payload(token, title_key:, body_key:, data:, alarm: false, display: nil)
       {
         message: {
           token: token,
+          **(display ? { notification: { title: display[:title], body: display[:body] } } : {}),
           # KEYS, not words. The server cannot write Pashto, and a
           # server-written English notification is untranslatable on the
           # device — so the app localises from these and renders the values.

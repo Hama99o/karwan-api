@@ -1,0 +1,24 @@
+# THE SHOP'S NEW-ORDER ALERT, IN WORDS — a deliberate duplicate.
+#
+# Every other push is data-only and worded by the app from its own i18n. This
+# one is rendered by the SERVER, in the owner's saved `user.locale`, and sent
+# as a real `notification` block, so the OS draws it with the app fully
+# closed — a blank banner here is a lost order. Android's `*_loc_key` was
+# ruled out: it resolves against the PHONE's system language, and Karwan's
+# language is chosen inside the app, so a Dari speaker on an English-locale
+# phone would have been told in English.
+#
+# MIRRORED, NOT AUTHORED HERE. The source is karwan-mobile's
+# src/i18n/locales/{en,ps,fa}.ts, `merchant.alert.new_order`. The templates
+# keep the app's i18next `{{name}}` placeholders so the two can be compared
+# text for text; spec/config/push_copy_mirrors_the_app_spec.rb fails the day
+# they differ. Change the words in the app first, then here.
+en:
+  title: New order {{order_code}}
+  body: '{{item_count}} items — open to accept or reject'
+ps:
+  title: نوی فرمایش {{order_code}}
+  body: '{{item_count}} توکي — د منلو یا ردولو لپاره یې خلاص کړئ'
+fa:
+  title: سفارش تازه {{order_code}}
+  body: '{{item_count}} قلم — برای پذیرفتن یا رد کردن باز کنید'
