@@ -569,6 +569,49 @@ needs the owner's word, because it touches production):
 Until those exist, the honest sentence is **"Karwan has no backups and has
 never restored one."**
 
+**Nothing records a dump having run, on either project, so nobody would notice
+one stopping.** For Hatiwal the evidence is a `backups/` folder holding one
+file, dated 1 September.
+
+**THE MECHANISM, PROVEN ON 24 SEPT 2026.** A dump and restore was run against
+the development database. Nothing production was touched, and nothing was
+written to the dev database.
+- `pg_dump -Fc` of `karwan_development` (32 MB on disk): a 448 KB dump in
+  0.6 s.
+- `pg_restore` into a throwaway `postgres:16` container: data on tmpfs, no
+  volume, its own loopback port, removed afterwards. Exit 0, no errors, in
+  0.6 s.
+- Row counts identical for `wallet_entries`, `status_transitions`,
+  `audit_logs`, `orders`, `settlements`, `merchant_statements`,
+  `courier_wallets`, `active_storage_blobs` and `users`.
+- Extensions identical (`pg_trgm 1.6`, `plpgsql`), and `pg_trgm`'s `%`
+  operator answers in the restored copy.
+- Every wallet's balance and its ledger sum identical across the restore, for
+  all 157 wallets.
+
+So pg_dump and pg_restore work against this schema, extensions included. What
+the proof could NOT show: timing at production size, and files, since uploads
+are outside the database.
+
+**AND IT TAUGHT THE CHECK SOMETHING.** In the dev data, 156 of 157 wallets'
+balances do NOT equal the sum of their entries, identically in the source and
+in the restore. The restore is faithful; the data isn't.
+- 150 are the opt-in stress seed (`+9379…`), which `insert_all`s random
+  balances with bulk commission rows, and says so. It's refused in production
+  (`db/seeds.rb`).
+- The rest are residue of older sample and e2e seed versions, which wrote
+  balances directly. The current seeds use `record_entry!`, and the ledger gate
+  finds no such write in app code.
+
+So `bin/restore-check` must make TWO comparisons, not one:
+1. **restored == source** (the restore is faithful);
+2. **every balance == the sum of its entries, in the source** (the books are
+   sound). In production this second one must be zero mismatches. A dev copy
+   will always fail it.
+
+A check that only compared the restore with its source would have passed the
+156 contradictions straight through.
+
 ---
 
 # ONBOARDING A RESTAURANT — the operator's sequence
