@@ -10,7 +10,9 @@ class CourierProfileDashboard < Administrate::BaseDashboard
     verification_status: Field::Select.with_options(
       collection: ->(_f) { CourierProfile.verification_statuses.keys }
     ),
-    vehicle_type: Field::Select.with_options(collection: ->(_f) { CourierProfile.vehicle_types.keys }),
+    # Blank allowed: a profile has no vehicle until the courier names one (F-92).
+    vehicle_type: Field::Select.with_options(collection: ->(_f) { CourierProfile.vehicle_types.keys },
+                                             include_blank: true),
     plate_number: Field::String,
     accepted_job_kinds: Field::String,
     is_available: Field::Boolean,

@@ -6939,6 +6939,18 @@ got motorbike capacity. **A seed that sets a column the app never sets is a
 seed testing a state that cannot occur.** Same family as the board order that
 was born dead: the fixture's shape, not the product's.
 
+**Fixed 25 Sept 2026**, after karwan-mobile `d6f313d` began sending the field
+(the picker is deliberately NOT prefilled; a preselected motorbike would have
+let a courier confirm the bug by pressing Send). The column is now nullable
+with no default, `vehicle_type` is in `REQUIRED_FOR_APPROVAL` (so it is listed
+in the registration's `missing` and refused at the approve button) and is
+validated on an approved profile. **Existing 0s were set to NULL**, which was
+free only because there was no production data: the migration says so, so the
+pattern isn't reused after launch. Dev databases need a reseed; the seeds set
+the vehicle. Spec: `a_courier_names_his_vehicle_spec` drives a registration
+that does not send the field. Plants: not required for approval (2 red), not
+validated (1), motorbike default restored (3).
+
 ## THE RIDE DOOR — build it from this list (24 Sept 2026)
 
 Rides have no front door. Nothing in `app/` creates a `Trip`, and every

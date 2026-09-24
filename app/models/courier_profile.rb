@@ -76,10 +76,13 @@ class CourierProfile < ApplicationRecord
   # submission, because an application is built up over several attempts on a
   # bad connection and refusing the whole form for one missing photo is how an
   # application is abandoned. `approve!` cannot pass without them.
-  REQUIRED_FOR_APPROVAL = %i[full_name national_id_number guarantor_name guarantor_phone].freeze
+  # `vehicle_type` since 25 Sept 2026 (F-92): it used to default to motorbike,
+  # so it could never be missing, and every courier from the app was one.
+  # Dispatch sizes jobs, seats passengers and sets the offer radius from it.
+  REQUIRED_FOR_APPROVAL = %i[full_name national_id_number guarantor_name guarantor_phone vehicle_type].freeze
   REQUIRED_DOCUMENTS = %i[id_document selfie].freeze
 
-  validates :full_name, :national_id_number, :guarantor_name, :guarantor_phone,
+  validates :full_name, :national_id_number, :guarantor_name, :guarantor_phone, :vehicle_type,
             presence: true, if: :verification_approved?
   validate :accepts_at_least_one_demand_type, if: :verification_approved?
   validate :accepted_job_kinds_are_known
