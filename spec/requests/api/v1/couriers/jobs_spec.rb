@@ -294,6 +294,37 @@ RSpec.describe "Api::V1::Couriers::Jobs", type: :request do
       expect(json["code"]).to eq("cannot_advance")
     end
 
+    # The app always names the step it pressed. A retry of one that already
+    # went through — its answer lost on a bad connection — is answered with
+    # the job as it stands, and nothing moves again.
+    describe "a retry of a step that already went through" do
+      before do
+        post "/api/v1/courier/jobs/delivery/#{order.id}/advance", params: { step_key: "pay_merchant" }, headers: auth
+      end
+
+      it "is answered with the job, not refused" do
+        post "/api/v1/courier/jobs/delivery/#{order.id}/advance", params: { step_key: "pay_merchant" }, headers: auth
+
+        expect(response).to have_http_status(:ok)
+        expect(json.dig("job", "status") || json["status"]).to eq("picked_up")
+      end
+
+      it "moves nothing a second time" do
+        expect {
+          post "/api/v1/courier/jobs/delivery/#{order.id}/advance", params: { step_key: "pay_merchant" }, headers: auth
+        }.not_to change { order.transitions.count }
+      end
+
+      it "is answered after delivery too, and charges nothing again" do
+        post "/api/v1/courier/jobs/delivery/#{order.id}/advance", params: { step_key: "collect_and_deliver" }, headers: auth
+
+        expect {
+          post "/api/v1/courier/jobs/delivery/#{order.id}/advance", params: { step_key: "collect_and_deliver" }, headers: auth
+        }.not_to change { courier.courier_wallet.reload.balance }
+        expect(response).to have_http_status(:ok)
+      end
+    end
+
     it "refuses another courier's job with a 404, not a 403 that confirms it exists" do
       other = create(:order, :ready, merchant: merchant, courier: create(:user, :courier))
 

@@ -37,6 +37,16 @@ module Couriers
         @job.lock!
         raise NotYourJob, "this job is not assigned to you" unless @job.courier_id == @courier.id
 
+        # ── A RETRY OF A STEP ALREADY DONE IS ANSWERED, NOT REFUSED ─────────
+        #
+        # The app always names the step it is pressing. When that step is
+        # already complete — the first request went through and its answer
+        # was lost, or two landed together and the other won — the courier
+        # did nothing wrong, and a 422 made the phone's re-read the only
+        # thing standing between him and an error screen. The job as it now
+        # stands is the truthful answer, and nothing moves a second time.
+        return @job if already_done?
+
         step = current_step
         raise NothingToDo, "there is nothing left to do on this job" if step.nil?
         # An explicit step key is optional, but when the app sends one it must
@@ -60,7 +70,16 @@ module Couriers
     # current for display purposes while carrying no transition, and requiring
     # both made every job unadvanceable at step one.
     def current_step
-      JobSteps.new(@job).call.find { |step| step[:status_after].present? && !step[:completed] }
+      steps.find { |step| step[:status_after].present? && !step[:completed] }
+    end
+
+    def already_done?
+      @step_key.present? && steps.any? { |step| step[:key] == @step_key.to_s && step[:completed] }
+    end
+
+    # Read once, after the lock: both questions are about the job as it is now.
+    def steps
+      @steps ||= JobSteps.new(@job).call
     end
 
     def apply_money(step)

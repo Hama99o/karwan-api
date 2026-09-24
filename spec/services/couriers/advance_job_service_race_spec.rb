@@ -16,7 +16,8 @@ require "rails_helper"
 # window is only open while BOTH requests are between reading the step and
 # committing — which is what the gate below holds open. With the row lock the
 # second request cannot reach the gate until the first commits, the first
-# gives up waiting after a second, and the second then sees `delivered`.
+# gives up waiting after a second, and the second then finds its step already
+# done — answered with the job, moved by nobody.
 #
 # Real commits, so no transactional fixture: each thread has its own
 # connection and would not see the other's uncommitted rows.
@@ -67,12 +68,14 @@ RSpec.describe Couriers::AdvanceJobService do
     end.map(&:value)
   end
 
-  it "delivers once and refuses the other" do
+  # Both answered — the second is a retry of a step already done, so it gets
+  # the job as it stands — and only one of them moved it.
+  it "delivers once, however many taps are answered" do
     hold_both_at_the_step_check
 
     outcomes = two_taps_at_once
 
-    expect(outcomes).to contain_exactly(:delivered, described_class::NothingToDo)
+    expect(outcomes).to eq(%i[delivered delivered])
     expect(order.transitions.where(to_status: "delivered").count).to eq(1)
   end
 end
