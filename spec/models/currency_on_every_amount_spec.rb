@@ -34,6 +34,7 @@ RSpec.describe "currency on every amount" do
     "pickup_latitude" => "a coordinate", "pickup_longitude" => "a coordinate",
     "dropoff_latitude" => "a coordinate", "dropoff_longitude" => "a coordinate",
     "last_latitude" => "a coordinate", "last_longitude" => "a coordinate",
+    "courier_latitude" => "a coordinate", "courier_longitude" => "a coordinate",
     "distance_km" => "a distance", "origin_snap_metres" => "a distance",
     "destination_snap_metres" => "a distance",
     "shortage_multiplier" => "a multiplier applied TO an amount, not an amount",
