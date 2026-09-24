@@ -79,6 +79,23 @@ module Couriers
       totals.select { |_courier_id, held| held >= limit }.keys
     end
 
+    # ── HOW LONG HE HAS BEEN HOLDING IT ─────────────────────────────────────
+    #
+    # `MONEY_AND_SETTLEMENT.md` §4 — *"warn, grace, then stop"* — runs on TIME,
+    # and *"the app must warn him as the date approaches, not on the day."* The
+    # limit above is about AMOUNT; nothing answered "since when". This is the
+    # date a warning would count from: when the oldest cash he still holds was
+    # collected — an order at delivery, a ride at completion. Nil when he holds
+    # none. No deadline is computed here: the cycle and the grace are §4's
+    # numbers and not yet set.
+    COLLECTED_AT = { Order => :delivered_at, Trip => :completed_at }.freeze
+
+    def held_since(currency = Monetary::DEFAULT_CURRENCY)
+      COLLECTED_AT.filter_map { |klass, column|
+        klass.for_courier(@courier).where(payment_status: :collected, currency: currency).minimum(column)
+      }.min
+    end
+
     def remaining_allowance
       [ Setting.fetch("cash_in_hand_limit") - held(Monetary::DEFAULT_CURRENCY), 0 ].max
     end

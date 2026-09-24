@@ -124,7 +124,7 @@ RSpec.describe "payload key sets" do
       get "/api/v1/courier/wallet", headers: auth
 
       expect(keys_of(JSON.parse(response.body)["wallet"])).to eq(%w[
-        available_credit balance blocked cash_allowance_remaining cash_in_hand
+        available_credit balance blocked cash_allowance_remaining cash_held_since cash_in_hand
         credit_line currency floor id low_balance must_settle today top_up_code
         top_up_instructions
       ])

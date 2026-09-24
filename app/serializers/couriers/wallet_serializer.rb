@@ -44,6 +44,14 @@ module Couriers
       CashPosition.new(wallet.user).over_limit?
     end
 
+    # When the oldest cash he still holds was collected, or null. §4: the app
+    # must warn him "as the date approaches, not on the day" — this is the
+    # date it counts from. A timestamp, not a deadline: the cycle and the
+    # grace are not set yet.
+    field :cash_held_since do |wallet|
+      CashPosition.new(wallet.user).held_since(wallet.currency)
+    end
+
     view :detailed do
       # The instructions themselves are i18n KEYS plus the values they need —
       # the server does not know how to explain a bank deposit in Pashto, and a

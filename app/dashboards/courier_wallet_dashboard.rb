@@ -9,6 +9,9 @@ class CourierWalletDashboard < Administrate::BaseDashboard
     # Derived on the wallet, so Administrate reads the METHOD rather than a
     # column. Named for the money it describes, not for how it is obtained.
     cash_in_hand: Field::Number.with_options(decimals: 2),
+    # When the oldest of that cash was collected — "who has held our money
+    # longest" is the §4 question, and the amount alone cannot answer it.
+    cash_held_since: Field::DateTime,
     credit_line: Field::Number.with_options(decimals: 2),
     currency: Field::String,
     wallet_entries: Field::HasMany,
@@ -20,7 +23,7 @@ class CourierWalletDashboard < Administrate::BaseDashboard
   # It is on the show page and NOT on the index: the index lists every wallet,
   # and a derived sum per row would be two queries a row. The `needs_settling`
   # filter below answers the index's version of the question in SQL instead.
-  SHOW_PAGE_ATTRIBUTES = %i[user top_up_code balance cash_in_hand credit_line currency
+  SHOW_PAGE_ATTRIBUTES = %i[user top_up_code balance cash_in_hand cash_held_since credit_line currency
                             wallet_entries created_at].freeze
   # The credit line is the one field an operator sets directly — raising it
   # with track record is the design. The BALANCE is not editable: it is a

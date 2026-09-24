@@ -132,6 +132,11 @@ class CourierWallet < ApplicationRecord
     Couriers::CashPosition.new(user).held(currency)
   end
 
+  # Since when — §4 runs on time as well as amount. See CashPosition#held_since.
+  def cash_held_since
+    Couriers::CashPosition.new(user).held_since(currency)
+  end
+
   private
 
   # A 4-digit code, not a name. Names repeat and transliterate badly

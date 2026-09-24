@@ -131,13 +131,12 @@ module Admin
       end
     end
 
-    # When the cash changed hands: delivery for an order, completion for a
-    # ride — the moment `payment_status` became `collected`.
-    COLLECTED_AT = { Order => :delivered_at, Trip => :completed_at }.freeze
-
+    # When the cash changed hands — ONE definition, shared with the "held
+    # since" date the courier is warned from, so a settlement and a warning
+    # cannot disagree about when money was collected.
     def covered_ids(klass, courier, cutoff)
       klass.for_courier(courier).where(payment_status: :collected)
-           .where(COLLECTED_AT.fetch(klass) => ..cutoff).pluck(:id)
+           .where(Couriers::CashPosition::COLLECTED_AT.fetch(klass) => ..cutoff).pluck(:id)
     end
 
     # Read in `Time.zone` (Kabul): the statement's time is local. Nil for a

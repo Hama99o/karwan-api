@@ -5276,6 +5276,7 @@ section becomes another true sentence nothing enforces.
 | 14 | **`POST /courier/offers/:id/accept` can answer 422 `job_taken`** — the job was given to someone else by hand while the offer was live | new error code; same sentence as `offer_expired` |
 | 15 | **problem reason `fake_note`** on deliveries and rides — held back from `problem_reasons` until the `fake_note_reason_offered` Setting is on | new value in an existing list, **dormant until the app switches it on** |
 | 16 | **push `courier.check_in.*`** to a courier whose job goes overdue in his hands — sent only when the `courier_check_in_enabled` Setting is on | **new notification type, dormant until the app switches it on** |
+| 17 | **`cash_held_since`** on `GET /courier/wallet` — when the oldest cash of ours he holds was collected | new field, a timestamp or null |
 
 **11, 12 and 13 are the newest and 12 is the one that breaks silently**: a client
 comparing or formatting those two fields with a numeric helper was already
@@ -6633,3 +6634,27 @@ Recorded rather than built.
 
 `CLAUDE.md` was read but not edited: nothing in it was stale by this test, and
 a peer's queue is not a reason to change it.
+
+
+---
+
+## SINCE WHEN — §4 RUNS ON TIME, AND ONLY AMOUNT WAS MEASURED
+
+**24 Sept 2026.** `MONEY_AND_SETTLEMENT.md` §4: *"Non-payment: warn, grace,
+then stop... the app must warn him as the date approaches, not on the day."*
+Everything built measured AMOUNT (`cash_in_hand_limit`); nothing could say how
+long a courier had held our cash — so an operator enforcing §4 by hand could
+not ask "who has held it longest", and the app had no date to warn from.
+
+`Couriers::CashPosition#held_since` — when the oldest cash he still holds was
+collected (an order's `delivered_at`, a ride's `completed_at`), nil when none.
+On the wallet's console page and on the courier's wallet payload as
+`cash_held_since` (manifest 17). The settle cutoff now reads the same
+`COLLECTED_AT` map, so a settlement and a warning cannot disagree about when
+money was collected. Three plants, all red.
+
+**NOT built, and why:** the warn / grace / stop itself. It takes a courier's
+work away on a schedule, and §4 says the cycle, the grace (*"two or three
+days, up to a week"*) and the contract that states them come first. Those are
+Hamma9900's numbers. With `held_since` in place the rule, once set, is one
+comparison.
