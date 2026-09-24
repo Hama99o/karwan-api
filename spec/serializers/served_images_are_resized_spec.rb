@@ -26,7 +26,12 @@ RSpec.describe "images served to a client are resized" do
   #
   # Every `Attachments::PublicUrl.for(x.attachment, ...)` call in app/serializers,
   # which is by definition every attachment this API hands to a client.
-  CALL_SITES = Dir.glob(Rails.root.join("app/serializers/**/*.rb")).flat_map { |file|
+  #
+  # Widened 2026-09-24 from app/serializers to all of app/: the audit found a
+  # call in `Couriers::JobSteps` (a service builds the courier's step list),
+  # so an image served that way was invisible to a serializer-only glob. The
+  # one there today is a voice note, which is audio and served whole.
+  CALL_SITES = Dir.glob(Rails.root.join("app/**/*.rb")).reject { |f| f.end_with?("attachments/public_url.rb") }.flat_map { |file|
     File.readlines(file).each_with_index.filter_map do |line, i|
       # GREEDY `[\w.]*`, and the `?` that used to be there was a real bug.
       # Non-greedy took the FIRST segment after the first dot, so a two-hop
@@ -38,7 +43,10 @@ RSpec.describe "images served to a client are resized" do
       # Greedy consumes `order.courier.` and captures `avatar`, and still
       # captures `logo` from `merchant.logo` — there is an example below
       # asserting both.
-      match = line.match(/Attachments::PublicUrl\.for\(\s*[\w.]*\.(\w+)([^)]*)\)/)
+      # `@?` — a receiver can be an instance variable (`@job.merchant.logo`);
+      # without it the call is not parsed and simply not checked, which the
+      # 2026-09-24 audit caught with a plant that stayed green.
+      match = line.match(/Attachments::PublicUrl\.for\(\s*@?[\w.]*\.(\w+)([^)]*)\)/)
       next unless match
 
       { file: file.sub("#{Rails.root}/", ""), line: i + 1,
@@ -53,7 +61,8 @@ RSpec.describe "images served to a client are resized" do
   # here must declare and use a variant, so adding an image field to a
   # serializer turns this red until somebody decides which it is.
   SERVED_WHOLE = {
-    "voice_note" => "audio — a landmark note recorded by the customer, nothing to resize"
+    "voice_note" => "audio — a landmark note recorded by the customer, nothing to resize",
+    "delivery_voice_note" => "the same audio, copied onto the order and served to the courier by Couriers::JobSteps"
   }.freeze
 
   it "found the call sites, or every example below is asserting nothing" do
