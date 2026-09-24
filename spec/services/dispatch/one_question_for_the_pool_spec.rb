@@ -44,6 +44,39 @@ RSpec.describe "dispatch asks who is busy once for the whole pool" do
     expect(verdicts(batched: true)[:finished]).not_to eq(:already_on_a_job)
   end
 
+  # THE CASH-IN-HAND CHECK, pooled the same way. `>=` is the rule, so "exactly
+  # at the limit" is where two implementations would disagree if they could.
+  describe "the cash-in-hand check" do
+    def holding(amount, offset)
+      courier(offset).tap do |c|
+        create(:order, :with_items, :delivered, merchant: merchant, courier: c, commission: amount,
+                                                  items_total: amount + 1_000, merchant_payout: 1_000,
+                                                  customer_total: amount + 1_100, courier_fee: 100)
+          .update_columns(payment_status: Order.payment_statuses[:collected])
+      end
+    end
+
+    let(:limit) { Setting.fetch("cash_in_hand_limit").to_d }
+    let!(:cash_pool) do
+      { over: holding(limit + 1, 0.011), at: holding(limit, 0.012), under: holding(limit - 1, 0.013) }
+    end
+
+    def cash_verdicts(batched:)
+      ids = cash_pool.values.map(&:id)
+      busy = Dispatch::Eligibility.busy_courier_ids(ids, job: job) if batched
+      over = Couriers::CashPosition.over_limit_courier_ids(among: ids).to_set if batched
+      cash_pool.transform_values do |c|
+        Dispatch::Eligibility.new(courier: c.reload, job: job, busy_courier_ids: busy, over_cash_limit_ids: over).reason
+      end
+    end
+
+    it "reaches the per-courier verdict on either side of the limit and exactly on it" do
+      expect(cash_verdicts(batched: true)).to eq(cash_verdicts(batched: false))
+      expect(cash_verdicts(batched: true)).to include(over: :cash_in_hand, at: :cash_in_hand)
+      expect(cash_verdicts(batched: true)[:under]).not_to eq(:cash_in_hand)
+    end
+  end
+
   it "does not count the job being dispatched against the courier who holds it" do
     holder = pool[:free]
     job.update!(courier: holder)
@@ -61,7 +94,8 @@ RSpec.describe "dispatch asks who is busy once for the whole pool" do
     counter = ->(*, payload) { seen << payload[:sql] unless payload[:name] == "SCHEMA" }
     ActiveSupport::Notifications.subscribed(counter, "sql.active_record") { Dispatch::OfferService.new(job).blocked_reason }
 
-    per_courier = seen.grep(/FROM "(orders|trips)" WHERE .*"status" NOT IN .*"courier_id" = /)
+    per_courier = seen.grep(/FROM "(orders|trips)" WHERE .*"status" NOT IN .*"courier_id" = /) +
+                  seen.grep(/SUM\("(orders|trips)"."commission"\).*"courier_id" = /)
     pooled = seen.grep(/SELECT DISTINCT "(orders|trips)"."courier_id"/)
 
     expect(per_courier).to be_empty

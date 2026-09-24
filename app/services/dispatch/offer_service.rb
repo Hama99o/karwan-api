@@ -126,10 +126,15 @@ module Dispatch
                            .includes(user: :courier_wallet).to_a
       # One question for the whole pool rather than two per courier — see
       # `Dispatch::Eligibility.busy_courier_ids`.
-      busy = Dispatch::Eligibility.busy_courier_ids(pool.map(&:user_id), job: @job)
+      ids = pool.map(&:user_id)
+      busy = Dispatch::Eligibility.busy_courier_ids(ids, job: @job)
+      # And who is over the cash-in-hand limit — two grouped queries, not two
+      # SUMs per courier.
+      over_cash = Couriers::CashPosition.over_limit_courier_ids(among: ids).to_set
 
       pool.filter_map do |profile|
-        next unless Dispatch::Eligibility.new(courier: profile.user, job: @job, busy_courier_ids: busy).eligible?
+        next unless Dispatch::Eligibility.new(courier: profile.user, job: @job, busy_courier_ids: busy,
+                                              over_cash_limit_ids: over_cash).eligible?
 
         distance = Geo::Distance.km(
           from_lat: profile.last_latitude, from_lng: profile.last_longitude,

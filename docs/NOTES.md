@@ -7078,3 +7078,15 @@ earlier check. Still per courier, and not changed:
 Going from 2 to 8 eligible couriers, the total grew from 17 to 41. Batching the
 cash position (one grouped SUM for the pool), and memoising settings within a
 request, are the next two steps. Both are proposals, not built.
+
+**Both built the same night.** Settings are read once per request
+(`Setting::RequestCache`). The cash-in-hand check is pooled through the
+existing `CashPosition.over_limit_courier_ids(among:)`, the same `>=` rule the
+console's list uses. Measured with ELIGIBLE couriers, a dispatch decision now
+costs **10 queries for 2 couriers and 10 for 8**, flat, where it had been 17
+and 41.
+
+**The lesson worth keeping: a profile taken against data where nothing
+succeeds measures the failure path.** The first capture ran on the dev DB,
+where every courier stopped at an early check, so it showed only the first
+N+1. The rest appeared only once the couriers were made to pass.

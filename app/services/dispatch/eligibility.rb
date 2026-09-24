@@ -44,10 +44,15 @@ module Dispatch
     # caller asking about many couriers (see `Dispatch::OfferService`, and
     # `.busy_courier_ids`). Without it the question is asked per courier, as it
     # always was, which is right for the single-courier callers (accept, shift).
-    def initialize(courier:, job:, busy_courier_ids: nil)
+    #
+    # `over_cash_limit_ids:` — the same kind of speed-up for the cash-in-hand
+    # check: `Couriers::CashPosition.over_limit_courier_ids(among:)` for the
+    # pool, the SAME rule as `over_limit?` (a spec holds the two to agree).
+    def initialize(courier:, job:, busy_courier_ids: nil, over_cash_limit_ids: nil)
       @courier = courier
       @job = job
       @busy_courier_ids = busy_courier_ids
+      @over_cash_limit_ids = over_cash_limit_ids
     end
 
     # WHO AMONG THESE ALREADY HOLDS A LIVE JOB — two queries for the whole
@@ -158,7 +163,7 @@ module Dispatch
       return :no_wallet if wallet.nil?
       return :wallet_blocked if wallet.blocked?
       return :insufficient_credit unless wallet.can_fund?(@job)
-      return :cash_in_hand if cash_position.over_limit?
+      return :cash_in_hand if over_cash_limit?
 
       nil
     end
@@ -241,6 +246,12 @@ module Dispatch
 
     def wallet
       @wallet ||= @courier.courier_wallet
+    end
+
+    def over_cash_limit?
+      return @over_cash_limit_ids.include?(@courier.id) if @over_cash_limit_ids
+
+      cash_position.over_limit?
     end
 
     def cash_position
