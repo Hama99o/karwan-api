@@ -247,6 +247,35 @@ class Merchant < ApplicationRecord
     verified_at.present?
   end
 
+  # ── WHAT THIS SHOP DID TO THE ORDERS IT WAS SENT, IN ONE LINE ─────────────
+  #
+  # `TRUST_AND_REPUTATION.md` §5-B: *"cancellation reasons should be tracked per
+  # restaurant, so a restaurant cancelling a fifth of its orders is visible
+  # before its customers leave."* Same shape as `User#delivery_failures_summary`
+  # on the other side of the door — one readable line, the counts in it, and
+  # nothing to click through to work out what it means.
+  #
+  # THE RATE LEADS, because the rate is the sentence the document wrote. Ten
+  # refusals out of a thousand orders is a good restaurant having a bad week;
+  # ten out of forty is a conversation.
+  #
+  # The three outcomes stay apart for the reason the platform report keeps them
+  # apart: a shop that answers and says no is a supply problem, a shop that
+  # never answers is a broken tablet, and they are different phone calls.
+  def reliability_summary
+    figures = Merchants::Reliability.for(self)
+    return "no orders in the last 30 days" if figures[:orders].zero?
+    return "#{figures[:orders]} orders, none lost" if figures[:unfulfilled].zero?
+
+    parts = []
+    refused = figures[:refused].sum { |_reason, n| n }
+    parts << "#{refused} refused (#{figures[:refused].map { |r, n| "#{r.to_s.humanize.downcase} ×#{n}" }.join(', ')})" if refused.positive?
+    parts << "#{figures[:never_answered]} never answered" if figures[:never_answered].positive?
+    parts << "#{figures[:cancelled_after_accepting]} cancelled after accepting" if figures[:cancelled_after_accepting].positive?
+
+    "#{figures[:unfulfilled_rate]}% of #{figures[:orders]} orders — #{parts.join(', ')}"
+  end
+
   # Only meaningful for a merchant that prepares food. Nil elsewhere, and
   # callers must treat nil as "not applicable" rather than as zero.
   def effective_prep_time_minutes

@@ -160,6 +160,61 @@
     <%= @lost[:total] %> cancelled in total, including those with no reason on record.
   </p>
 
+  <h2>Shops to ring — last 30 days</h2>
+  <%# THE ONE QUESTION THIS PAGE COULD NOT ANSWER. Everything above is
+      platform-wide and says WHY orders fail. TRUST_AND_REPUTATION.md §5-B asks
+      WHICH SHOP: "a restaurant cancelling a fifth of its orders is visible
+      before its customers leave". With ten restaurants he knows personally,
+      the name is the actionable part and the rate is the sentence.
+
+      THE DENOMINATOR IS ON EVERY ROW. "40%" alone is unarguable; "4 of 10" is
+      something an owner can weigh against a shop he knows. Same rule as the
+      settlement screen showing expected AND counted.
+
+      NO PENALTY IS IMPLIED. §5-C is explicit that a cancellation carries no
+      consequence in v0 — "visibility is not a penalty". This is a list of
+      conversations to have, not a list of shops to punish. %>
+  <% if @unreliable.any? %>
+    <table class="karwan-report">
+      <thead>
+        <tr>
+          <th>Shop</th><th>Lost</th><th>Refused</th>
+          <th>Never answered</th><th>Cancelled after accepting</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @unreliable.each do |row| %>
+          <% shop = @unreliable_shops[row[:merchant_id]] %>
+          <tr>
+            <td><%= link_to shop&.name || "merchant ##{row[:merchant_id]}", admin_merchant_path(row[:merchant_id]) %></td>
+            <td>
+              <strong><%= number_to_percentage(row[:unfulfilled_rate], precision: 1) %></strong>
+              <small>(<%= row[:unfulfilled] %> of <%= row[:orders] %> orders)</small>
+            </td>
+            <td><%= row[:refused] %></td>
+            <td><%= row[:never_answered] %></td>
+            <td><%= row[:cancelled_after_accepting] %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+    <p class="karwan-report__note">
+      A shop that answers and says no is a supply problem; a shop that never
+      answers is a tablet nobody is watching. They are different phone calls,
+      which is why they are different columns.
+      Shops with fewer than <%= Merchants::Reliability::MIN_ORDERS_TO_RANK %>
+      orders are left out — one bad evening at a new shop is not a reason to ring it.
+    </p>
+  <% else %>
+    <p class="karwan-report__note">
+      <%# Shown at zero, like `unserved` above: an absent section reads as "not
+          measured", and "every shop delivered what it was sent" is the thing
+          being watched. %>
+      Every shop with at least <%= Merchants::Reliability::MIN_ORDERS_TO_RANK %>
+      orders delivered what it was sent.
+    </p>
+  <% end %>
+
   <h2>Why shops refused orders — same <%= @days %> days</h2>
   <%# THREE DIFFERENT EVENTS, AND THEY MUST NOT BE ADDED TOGETHER.
 

@@ -30,6 +30,18 @@ class MerchantDashboard < Administrate::BaseDashboard
     verified_at: Field::DateTime,
     verified_by_admin_user: Field::BelongsTo.with_options(class_name: "AdminUser"),
     rejection_reason: Field::Text,
+    # ── WHAT THIS SHOP DID TO THE ORDERS IT WAS SENT ──────────────────────
+    #
+    # `TRUST_AND_REPUTATION.md` §5-B, decided and unbuilt until now: *"cancel-
+    # lation reasons should be tracked per restaurant."* Same shape as
+    # `users.delivery_failures_summary` on the other side of the door.
+    #
+    # `searchable: false` for the reason that one carries in its own comment:
+    # Administrate turns a searchable field into a SQL LIKE, and there is no
+    # `reliability_summary` column to LIKE against. The ranking that answers
+    # "which shop do I ring" is on the REPORTS page — this is the figure for a
+    # shop you are already looking at.
+    reliability_summary: Field::String.with_options(searchable: false),
     deleted_at: Field::DateTime,
     opening_hours: Field::HasMany,
     # Reachable from the SHOP, because "what did this restaurant earn" is asked
@@ -53,7 +65,8 @@ class MerchantDashboard < Administrate::BaseDashboard
     name merchant_kind phone status is_open prep_time_minutes commission_rate
     latitude longitude landmark_note owner owner_name owner_phone
     owner_national_id_number license_number contact_person_name contact_person_phone
-    verified_at verified_by_admin_user rejection_reason deleted_at opening_hours statements merchant_categories
+    verified_at verified_by_admin_user rejection_reason reliability_summary
+    deleted_at opening_hours statements merchant_categories
     logo storefront_photo license_photo catalog_categories catalog_items created_at
   ].freeze
   # Admin onboards merchants, so unlike orders the form IS the workflow — but

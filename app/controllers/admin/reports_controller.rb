@@ -39,6 +39,21 @@ module Admin
       @failures = failure_reasons_ranked
       @rejections = rejections_ranked
       @lost = demand_we_lost
+      # ── WHICH SHOP TO RING, WHICH IS NOT THE SAME QUESTION AS WHY ────────
+      #
+      # Everything else on this page is platform-wide: it answers "why do
+      # orders fail". `TRUST_AND_REPUTATION.md` §5-B asks a different question —
+      # *"a restaurant cancelling a fifth of its orders is visible before its
+      # customers leave"* — and no page answered it. With ten restaurants he
+      # knows personally, the shop's NAME is the actionable part.
+      #
+      # Its own window, deliberately: 30 days rather than this page's 14. A
+      # refusal rate needs enough orders under it to mean anything, and ten
+      # shops in one neighbourhood do not produce that in a fortnight.
+      @unreliable = Merchants::Reliability.ranked
+      @unreliable_since = Merchants::Reliability::DEFAULT_WINDOW.ago
+      @unreliable_shops = Merchant.where(id: @unreliable.map { |row| row[:merchant_id] })
+                                  .index_by(&:id)
     end
 
     private
