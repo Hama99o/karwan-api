@@ -58,16 +58,19 @@ RSpec.describe Notifications::CourierReviewAlert do
 
     expect(sent.last[:title_key]).to eq("courier.review.needs_more.title")
     expect(sent.last[:title_key]).not_to eq("courier.review.rejected.title")
-    expect(sent.last[:data][:note]).to eq("تذکره خوانا نیست")
+    expect(sent.last[:data]).not_to have_key(:note)
   end
 
-  it "refuses plainly, with the reason a human wrote" do
+  # A push carries identifiers, not content. The reason is an operator's
+  # sentence about a person; it is fetched on the application screen, over the
+  # app's own authenticated channel, and never crosses Google's servers.
+  it "refuses plainly, and never sends the reason a human wrote about him" do
     profile.reject!(by: nil, reason: "ضمانت‌کننده انکار کرد")
 
     deliver!
 
     expect(sent.last[:title_key]).to eq("courier.review.rejected.title")
-    expect(sent.last[:data][:note]).to eq("ضمانت‌کننده انکار کرد")
+    expect(sent.last[:data].values.map(&:to_s)).not_to include(a_string_including("ضمانت‌کننده"))
   end
 
   # WHAT IS STILL WANTED travels with the notification, so it can say it rather

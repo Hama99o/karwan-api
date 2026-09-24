@@ -37,12 +37,13 @@ RSpec.describe Notifications::ArrivalAlert do
       expect(sent.last[:title_key]).to eq("customer.arrival.title")
     end
 
-    # SO THEY CAN RING HIM WITHOUT OPENING ANYTHING. The number is the fallback
-    # for this very notification failing, and it costs no data.
-    it "carries the courier's number, because that is the fallback" do
+    # A push carries identifiers, not content: a courier's personal number
+    # does not cross Google's servers. The order screen the push opens has it.
+    it "does not carry the courier's number" do
       described_class.new(order, client: client).deliver!
 
-      expect(sent.last[:data][:courier_phone]).to eq("+93700000123")
+      expect(sent.last[:data]).not_to have_key(:courier_phone)
+      expect(sent.last[:data].values.map(&:to_s)).not_to include("+93700000123")
     end
 
     it "carries the code, so the notification can name the order" do

@@ -53,7 +53,6 @@ module Notifications
           job_id: @job.id,
           code: @job.code,
           status: @job.status,
-          support_phone: Setting.fetch("support_phone"),
           deep_link: "karwan://open/check-in/#{@job.class::JOB_KIND}/#{@job.id}"
         }
       )

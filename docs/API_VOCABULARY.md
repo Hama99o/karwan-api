@@ -420,12 +420,25 @@ practice; nothing here is a finding, and nothing has been removed.
 | push | leaves in the clear |
 |---|---|
 | shop: new order | the shop's device token; `order_id`, `order_code`, `item_count`, **`merchant_payout`**, `currency`; the title and body **as rendered text** in the owner's language (the order code and item count, by our decision, so a closed app can draw it) |
-| customer: courier at the gate | `kind`, `job_id`, `code`, **`courier_phone`** (a courier's personal number) |
-| courier: are you all right? | `kind`, `job_id`, `code`, `status`, `support_phone` |
-| applicant: review outcome | `status`; `missing` (which documents are still needed); **`note`**, which is an operator's free-text review note or rejection reason |
+| customer: courier at the gate | `kind`, `job_id`, `code` |
+| courier: are you all right? | `kind`, `job_id`, `code`, `status` |
+| applicant: review outcome | `status`; `missing` (the CODES of the documents still needed) |
 
-The ones worth a second look if this is ever decided properly:
-- **`courier_phone`**: the customer can already reach him from the app;
-- **`note`**: free text an operator typed, which could say anything;
-- **the shop's payout**.
-No customer name, address, pin or phone number is in any push.
+**THE RULE, set 24 Sept 2026: a push carries IDENTIFIERS, not CONTENT.** It
+says what happened and which record. The app fetches the substance over its own
+authenticated channel when it opens.
+- **Removed on that rule:** the applicant's `note` (an operator's free-text
+  sentence about a person, the only thing any human typed about another human in
+  any payload; the application screen fetches it), `courier_phone` and
+  `support_phone` (the screens the pushes open already have them; the "call
+  without opening" action they were for was never built, and a data-only push
+  has no drawn notification to put one on).
+- **Kept by decision:** the shop's payout and currency, raw on the wire and never
+  on the lock screen.
+- **The one deliberate exception is the new-order alert's rendered words**
+  (above).
+- `spec/services/notifications/a_push_carries_identifiers_not_content_spec.rb`
+  holds every notifier's keys to an allowlist with a reason each, and fails for a
+  fifth notifier with no entry.
+
+No name, address, pin, phone number or free text travels in any push.

@@ -40,9 +40,10 @@ module Notifications
           kind: @job.class::JOB_KIND,
           job_id: @job.id,
           code: @job.code,
-          # SO THEY CAN RING HIM WITHOUT OPENING ANYTHING. The number is the
-          # fallback for this exact notification failing, and it costs no data.
-          courier_phone: @job.courier&.phone,
+          # No `courier_phone`: a push carries identifiers, not content. The
+          # "ring him without opening anything" it was for needs a notification
+          # action nobody built, and this push is data-only, so the OS draws
+          # nothing to hang one on. The order screen it opens has his number.
           # The KIND is in the link, not only in `data`: order 5 and trip 5 are
           # different records, and a link is the durable contract — it must
           # stand alone the first time anything reconstructs one. Same shape

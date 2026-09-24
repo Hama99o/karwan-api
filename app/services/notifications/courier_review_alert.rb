@@ -55,9 +55,15 @@ module Notifications
           # structured value on this path has to be encoded on purpose or it
           # ships as debug output.
           missing: @profile.missing_for_approval.map(&:to_s).to_json,
-          # The one prose field, written by a human and shown as given: a
-          # courier who cannot see WHY cannot fix it.
-          note: @profile.review_note.presence || @profile.rejection_reason.presence,
+          # NO NOTE. A PUSH CARRIES IDENTIFIERS, NOT CONTENT (24 Sept 2026).
+          # The review note or rejection reason is an operator's free-text
+          # assessment of a PERSON — "the guarantor denied it" — the only
+          # thing a human typed about another human in any payload. It crossed
+          # Google's servers in the clear, sat in the OS's notification store,
+          # and could land on a phone a rejected applicant shares with his
+          # family. Nothing is lost: this push is data-only, so the OS never
+          # showed it, and the application screen it opens fetches both the
+          # note and the reason fresh (couriers/registration_serializer).
           deep_link: "karwan://apply-rider"
         }
       )
