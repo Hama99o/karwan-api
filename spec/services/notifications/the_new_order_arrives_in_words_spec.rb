@@ -45,6 +45,6 @@ RSpec.describe "the new-order push arrives in words" do
     Notifications::ArrivalAlert.new(create(:order, :with_items, :picked_up, customer: customer), client: client).deliver!
 
     expect(sent.last).not_to have_key("notification")
-    expect(sent.last.dig("data", "deep_link")).to match(%r{\Akarwan://open/arrival/\d+\z})
+    expect(sent.last.dig("data", "deep_link")).to match(%r{\Akarwan://open/arrival/delivery/\d+\z})
   end
 end

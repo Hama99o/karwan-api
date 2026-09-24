@@ -95,6 +95,7 @@ RSpec.describe Notifications::ArrivalAlert do
     it "tells the passenger in a ride's own words, not a delivery's" do
       described_class.new(trip, client: client).deliver!
 
+      expect(sent.last[:data][:deep_link]).to eq("karwan://open/arrival/ride/#{trip.id}")
       expect(sent.last[:title_key]).to eq("customer.arrival.ride.title")
       expect(sent.last[:body_key]).to eq("customer.arrival.ride.body")
     end

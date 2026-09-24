@@ -8,7 +8,8 @@ require "rails_helper"
 # SHARED machinery those fixes live in — dispatch (and its lock), the locked
 # transition, the courier's steps, the commission, the cash he holds, and
 # settlement — so the day a ride door is built, what is under it is known to
-# work rather than assumed to.
+# work rather than assumed to. What must come WITH the door is
+# docs/NOTES.md, "THE RIDE DOOR — build it from this list".
 RSpec.describe "a ride through the shared machinery" do
   let(:courier) { create(:user, :courier) }
   let(:trip) { create(:trip, fare: 160, commission: 20, courier_earnings: 140) }

@@ -6901,3 +6901,46 @@ construction, and whether that blind spot hid anything.
 - `every_setting_is_read`: it walked definitions to readers, so it was blind to a key read but never defined (which raises in production). The reverse check was added (all 45 literal reads are defined).
 - `served_images_are_resized`: it read serializers only, and its receiver regex could not start with `@`. It now reads all of `app/`, including `@` receivers. The one new site is audio.
 - `config_reachability`: sound. It seeds and checks a row for every definition. `TODAYS_KNOBS` is a redundant dated list, not the load-bearing check.
+
+## THE RIDE DOOR — build it from this list (24 Sept 2026)
+
+Rides have no front door. Nothing in `app/` creates a `Trip`, and every
+polymorphic `Dispatch::OfferService` call is a RE-offer (a decline, the expiry
+sweep, a console redispatch). The machinery behind the door is sound, and proven
+by `spec/integration/a_ride_through_the_shared_machinery_spec.rb`:
+- dispatch and the offer lock;
+- the locked `transition_to!`;
+- the three ride steps;
+- the commission charged once;
+- cash held;
+- settlement;
+- the timeouts;
+- the arrival row with the courier's position.
+
+**Build these with the door, in this order:**
+
+1. **The console's manual override, FIRST: cancel, fail, reassign and
+   redispatch for trips.** `admin/trips` is index and show only. The brief says
+   build the override before the automation. An operator who can't unstick a
+   ride leaves a person standing in the street. Copy
+   `Admin::OrdersController`'s four actions: the audit gate and the policy
+   sweep will demand a case and a listing for each.
+2. **The door must call `Dispatch::OfferService` itself**, as the merchant's
+   accept does for orders (`Api::V1::Merchants::OrdersController#transition!`).
+   Without it no ride is ever dispatched. That is the one that would ship
+   silently broken: everything downstream is green and nothing ever starts.
+3. **The retry and price protections the food door has.** An `Idempotency-Key`
+   (API_VOCABULARY §E), with its OWN fingerprint over what a ride request
+   sends: pickup, drop-off, passenger count, vehicle class, tier.
+   `Orders::RequestFingerprint` is order-shaped (merchant, lines) and can't be
+   reused. And a fare check, **whose rule is the owner's and not yet decided**:
+   food refuses a price that went up since the quote, while a ride may have to
+   honour the SHOWN fare exactly (correction 13: "quoted upfront and frozen";
+   the Afghan norm of agreeing before getting in).
+4. **The passenger's tracking payload** on `CourierProfile.seconds_since_fix`
+   and the same `STALE_AFTER` withholding as `Customers::TrackSerializer`.
+   Without both, the bug where the customer was drawn as the courier returns
+   for passengers.
+5. **Words for the ride pushes.** The server already sends
+   `customer.arrival.ride.title/.body` and `karwan://open/arrival/ride/:id`;
+   the app writes the strings (§F).

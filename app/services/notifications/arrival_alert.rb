@@ -43,7 +43,11 @@ module Notifications
           # SO THEY CAN RING HIM WITHOUT OPENING ANYTHING. The number is the
           # fallback for this exact notification failing, and it costs no data.
           courier_phone: @job.courier&.phone,
-          deep_link: "karwan://open/arrival/#{@job.id}"
+          # The KIND is in the link, not only in `data`: order 5 and trip 5 are
+          # different records, and a link is the durable contract — it must
+          # stand alone the first time anything reconstructs one. Same shape
+          # as `open/check-in/:kind/:job_id`.
+          deep_link: "karwan://open/arrival/#{@job.class::JOB_KIND}/#{@job.id}"
         }
       )
 
