@@ -68,6 +68,17 @@ RSpec.describe Merchants::Reliability do
 
   def figures = described_class.for(merchant)
 
+  def count_queries
+    queries = []
+    subscription = ActiveSupport::Notifications.subscribe("sql.active_record") do |_, _, _, _, payload|
+      queries << payload[:sql] unless payload[:name].to_s.match?(/SCHEMA|TRANSACTION/)
+    end
+    yield
+    queries.size
+  ensure
+    ActiveSupport::Notifications.unsubscribe(subscription)
+  end
+
   describe "the three outcomes, which are three different phone calls" do
     it "counts a shop's own refusals by the reason it gave" do
       2.times { refused!(:out_of_stock) }
@@ -227,6 +238,101 @@ RSpec.describe Merchants::Reliability do
     end
   end
 
+  # ══ WHY NOBODY ANSWERED — A FORGOTTEN SWITCH OR AN UNWATCHED TABLET ══════
+  #
+  # `docs/NOTES.md` measured this before the column existed: at 21:08 on the
+  # rig, **23 of 32** shops that were toggled open with posted hours were
+  # outside those hours. *"It is what a shop looks like most evenings, because
+  # the toggle is what people forget."*
+  #
+  # Those shops are orderable into an empty kitchen, the timeout closes the
+  # order as `no_answer`, and it lands in `never_answered`. Left whole, that
+  # column is dominated by forgotten switches and reads as unwatched tablets —
+  # the same mistake this service exists to prevent, one level down.
+  describe "why nobody answered" do
+    # Thursday 21:30 Kabul. The posted week below closes at 21:00, so this is
+    # after hours; 19:00 on the same day is inside them.
+    #
+    # THESE TIMES ARE ALSO THE TIMEZONE TEST, deliberately. `placed_at` is read
+    # back through Active Record and must arrive in `Time.zone` (Kabul) for
+    # `open_per_schedule?` to compare hours correctly. 21:30 Kabul is 17:00 UTC
+    # — which is INSIDE the 09:00–21:00 window — so if the value ever came back
+    # as UTC, the first example below would report `during_posted_hours` and
+    # fail. The reports page already shipped one double-conversion bug of
+    # exactly this kind; this one cannot ship quietly.
+    let(:thursday_evening) { Time.zone.parse("2026-09-17 21:30:00 +0430") }
+    let(:thursday_dinner) { Time.zone.parse("2026-09-17 19:00:00 +0430") }
+
+    def posts_hours!(shop, opens: "09:00", closes: "21:00")
+      MerchantOpeningHour::DAYS.each do |day|
+        create(:merchant_opening_hour, merchant: shop, day_of_week: day,
+                                       opens_at: opens, closes_at: closes)
+      end
+    end
+
+    it "tells a forgotten toggle apart from a tablet nobody watches" do
+      posts_hours!(merchant)
+      never_answered!(placed_at: thursday_evening)
+      never_answered!(placed_at: thursday_evening)
+      never_answered!(placed_at: thursday_dinner)
+
+      causes = figures[:unanswered_causes]
+
+      expect(figures[:never_answered]).to eq(3)
+      expect(causes[:outside_posted_hours]).to eq(2),
+                                               "two orders arrived after the shop's own closing time — that is a switch, not a tablet"
+      expect(causes[:during_posted_hours]).to eq(1),
+                                              "the one that arrived during opening hours is the real unwatched tablet"
+      # ── THE SPLIT MUST ACCOUNT FOR EVERY ORDER IT SPLITS ────────────────
+      #
+      # A cause that cannot be determined is easy to drop with a `next`, and
+      # nothing would notice: the column would still read 3 and the reasons
+      # would silently sum to 2. Asserting the total makes any such gap loud.
+      expect(causes.values.sum).to eq(figures[:never_answered]),
+                                   "the causes do not add up to the count they explain — a row was dropped"
+    end
+
+    # Not folded into "during posted hours", for the reason the platform report
+    # keeps `unrecorded` apart: an order whose cause was never recorded is
+    # counted as itself rather than attributed to one.
+    it "says nothing about a shop that has never posted a week" do
+      never_answered!(placed_at: thursday_evening)
+
+      causes = figures[:unanswered_causes]
+
+      expect(causes[:no_hours_posted]).to eq(1)
+      expect(causes[:during_posted_hours]).to be_zero,
+                                             "a shop with no posted hours is being called an unwatched tablet on no evidence"
+      expect(causes[:outside_posted_hours]).to be_zero
+    end
+
+    it "carries the split into the ranking as well as the shop's own page" do
+      posts_hours!(merchant)
+      2.times { never_answered!(placed_at: thursday_evening) }
+      4.times { delivered! }
+
+      row = described_class.ranked.detect { |r| r[:merchant_id] == merchant.id }
+
+      expect(row[:unanswered_causes][:outside_posted_hours]).to eq(2)
+      expect(row[:unanswered_causes]).to eq(figures[:unanswered_causes]),
+                                         "the two readings disagree about the same shop"
+    end
+
+    it "costs the same two queries however many orders it explains" do
+      posts_hours!(merchant)
+      3.times { never_answered!(placed_at: thursday_evening) }
+      # The window is what both real callers pass, and it is also what
+      # guarantees `placed_at` is present on every row this walks.
+      windowed = Order.where(placed_at: 30.days.ago..)
+      few = count_queries { described_class.unanswered_causes(windowed) }
+
+      12.times { never_answered!(placed_at: thursday_evening) }
+      many = count_queries { described_class.unanswered_causes(windowed) }
+
+      expect(many).to eq(few), "explaining #{many} costs more than explaining #{few} — it is per-order"
+    end
+  end
+
   # ══ THE RANKING, WHICH IS THE READING §5-B ACTUALLY ASKS FOR ═════════════
   #
   # *"Visible before its customers leave."* A figure on one shop's own console
@@ -303,17 +409,6 @@ RSpec.describe Merchants::Reliability do
 
       expect(many).to eq(few),
                       "the ranking costs #{many} queries at nine shops and #{few} at three — it is per-merchant"
-    end
-
-    def count_queries
-      queries = []
-      subscription = ActiveSupport::Notifications.subscribe("sql.active_record") do |_, _, _, _, payload|
-        queries << payload[:sql] unless payload[:name].to_s.match?(/SCHEMA|TRANSACTION/)
-      end
-      yield
-      queries.size
-    ensure
-      ActiveSupport::Notifications.unsubscribe(subscription)
     end
   end
 

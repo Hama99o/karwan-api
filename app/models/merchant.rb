@@ -235,6 +235,32 @@ class Merchant < ApplicationRecord
     fuzzy_on(:search_text, query)
   end
 
+  # ── DID THE POSTED WEEK SAY THIS SHOP WAS OPEN AT THAT MOMENT? ────────────
+  #
+  # A CLASS method taking its rows, because it uses nothing from the instance
+  # and the interesting caller is a BATCH one: `Merchants::Reliability` asks it
+  # of hundreds of past orders across many shops, and an instance method would
+  # mean loading a merchant and its week per order.
+  #
+  # It answers only about the POSTED HOURS. `is_open` remains the authority for
+  # whether a shop takes orders — this is the advisory half, used to tell a
+  # forgotten toggle apart from a tablet nobody watches. `docs/NOTES.md` records
+  # the policy question that follows as **Hamma9900's**, and nothing here
+  # decides it: no order is blocked, no toggle is changed.
+  #
+  # `at` must be a zone-aware time. `placed_at` read through Active Record is
+  # already in `Time.zone`, which is Kabul — the same double-conversion trap the
+  # reports page hit is avoided by never touching the raw UTC value.
+  def self.open_per_schedule?(at, rows)
+    rows.any? do |hours|
+      next false unless hours.day_of_week == at.to_date.wday
+
+      minutes = (at.hour * 60) + at.min
+      minutes >= (hours.opens_at.hour * 60) + hours.opens_at.min &&
+        minutes < (hours.closes_at.hour * 60) + hours.closes_at.min
+    end
+  end
+
   # `is_open` is a MANUAL toggle and is the authority. Opening hours are
   # advisory — they tell a customer when to come back, they do not open the
   # merchant. A merchant that forgot to close must be closeable by admin,
@@ -270,7 +296,15 @@ class Merchant < ApplicationRecord
     parts = []
     refused = figures[:refused].sum { |_reason, n| n }
     parts << "#{refused} refused (#{figures[:refused].map { |r, n| "#{r.to_s.humanize.downcase} ×#{n}" }.join(', ')})" if refused.positive?
-    parts << "#{figures[:never_answered]} never answered" if figures[:never_answered].positive?
+    # WHY nobody answered, where it is known. A count of unanswered orders that
+    # were placed after the shop's own closing time is a forgotten toggle, and
+    # saying "never answered" without it sends the reader to talk about a
+    # tablet. `docs/NOTES.md` measured 23 of 32 shops in that state one evening.
+    if figures[:never_answered].positive?
+      stale = figures[:unanswered_causes][:outside_posted_hours].to_i
+      note = stale.positive? ? " (#{stale} after their posted closing time)" : ""
+      parts << "#{figures[:never_answered]} never answered#{note}"
+    end
     parts << "#{figures[:cancelled_after_accepting]} cancelled after accepting" if figures[:cancelled_after_accepting].positive?
 
     "#{figures[:unfulfilled_rate]}% of #{figures[:orders]} orders — #{parts.join(', ')}"
@@ -337,15 +371,7 @@ class Merchant < ApplicationRecord
   # Inside a window ACCORDING TO THE SCHEDULE — which is not the same as open.
   # `is_open` decides whether orders are accepted; this only says whether the
   # posted hours cover right now.
-  def open_per_schedule?(at, rows)
-    rows.any? do |hours|
-      next false unless hours.day_of_week == at.to_date.wday
-
-      minutes = (at.hour * 60) + at.min
-      minutes >= (hours.opens_at.hour * 60) + hours.opens_at.min &&
-        minutes < (hours.closes_at.hour * 60) + hours.closes_at.min
-    end
-  end
+  def open_per_schedule?(at, rows) = self.class.open_per_schedule?(at, rows)
 
   # A merchant that is gone must not leave an orderable menu behind.
   def discard_dependents!

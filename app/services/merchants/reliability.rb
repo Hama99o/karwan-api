@@ -118,6 +118,60 @@ module Merchants
       scope.where(status: :cancelled).where.not(accepted_at: nil)
     end
 
+    # ── WHY NOBODY ANSWERED, WHICH IS THREE DIFFERENT PHONE CALLS AGAIN ─────
+    #
+    # `docs/NOTES.md` measured the trap this closes, and measured it BEFORE this
+    # column existed: at 21:08 on the rig, **23 of 32** shops that were toggled
+    # open and had posted hours were outside those hours. *"Not an edge case —
+    # it is what a shop looks like most evenings, because the toggle is what
+    # people forget."*
+    #
+    # A shop that forgot its toggle is orderable into an empty kitchen. The
+    # order sits in `placed`, the timeout closes it as `no_answer`, and it lands
+    # in `never_answered` — so that column, left whole, would be **dominated by
+    # forgotten toggles** and read as "shops are not watching their tablets".
+    # That is the same mistake this whole service exists to avoid, one level
+    # down: the owner rings about a tablet when the problem is a switch.
+    #
+    #   outside_posted_hours  the shop's own week says it was shut — a toggle
+    #   during_posted_hours   it said it was open and nobody answered — a tablet
+    #   no_hours_posted       it has never posted a week, so nothing can be said
+    #
+    # The third is not folded into the second, for the reason the platform
+    # report keeps `unrecorded` separate: *"an order whose rejection was never
+    # recorded is counted as itself rather than attributed to a cause."* It is
+    # also its own small action — ask the shop for its hours.
+    #
+    # NOTHING HERE DECIDES THE POLICY. `docs/NOTES.md` reserves that for
+    # Hamma9900 with three costed options; no order is blocked and no toggle is
+    # touched. This only stops the number lying about which of them it is.
+    #
+    # TWO QUERIES, whatever the number of orders or shops: the unanswered rows,
+    # then every posted week they belong to.
+    #
+    # `scope` must already be filtered to a `placed_at` window — both callers
+    # are — which is also what guarantees a time to compare against the week.
+    # The spec asserts the causes SUM to the count they explain, so a row
+    # skipped for any reason is loud rather than quietly missing.
+    def self.unanswered_causes(scope)
+      rows = unanswered_in(scope).pluck(:merchant_id, :placed_at)
+      return Hash.new { |h, k| h[k] = Hash.new(0) } if rows.empty?
+
+      weeks = MerchantOpeningHour.where(merchant_id: rows.map(&:first).uniq).group_by(&:merchant_id)
+
+      rows.each_with_object(Hash.new { |h, k| h[k] = Hash.new(0) }) do |(merchant_id, placed_at), tally|
+        posted = weeks[merchant_id]
+        cause = if posted.blank?
+                  :no_hours_posted
+        elsif Merchant.open_per_schedule?(placed_at, posted)
+                  :during_posted_hours
+        else
+                  :outside_posted_hours
+        end
+        tally[merchant_id][cause] += 1
+      end
+    end
+
     # A RELATION, not a list of ids — plucking would pull every order's id into
     # Ruby to hand straight back to Postgres.
     def self.transitions_into(scope, status = :rejected)
@@ -142,6 +196,7 @@ module Merchants
       refused = refusals_in(scope).group(:merchant_id).count
       unanswered = unanswered_in(scope).group(:merchant_id).count
       dropped = dropped_after_accepting_in(scope).group(:merchant_id).count
+      causes = unanswered_causes(scope)
 
       rows = totals.filter_map do |merchant_id, orders|
         next if orders < MIN_ORDERS_TO_RANK
@@ -152,6 +207,7 @@ module Merchants
         { merchant_id: merchant_id, orders: orders,
           refused: refused[merchant_id].to_i,
           never_answered: unanswered[merchant_id].to_i,
+          unanswered_causes: causes[merchant_id],
           cancelled_after_accepting: dropped[merchant_id].to_i,
           unfulfilled: lost, unfulfilled_rate: (lost.to_f / orders * 100).round(1) }
       end
@@ -169,6 +225,7 @@ module Merchants
         orders: orders.count,
         refused: refused_by_reason,
         never_answered: self.class.unanswered_in(orders).count,
+        unanswered_causes: self.class.unanswered_causes(orders)[@merchant.id],
         cancelled_after_accepting: self.class.dropped_after_accepting_in(orders).count,
         unfulfilled: unfulfilled_count,
         unfulfilled_rate: unfulfilled_rate,

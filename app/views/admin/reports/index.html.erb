@@ -192,7 +192,23 @@
               <small>(<%= row[:unfulfilled] %> of <%= row[:orders] %> orders)</small>
             </td>
             <td><%= row[:refused] %></td>
-            <td><%= row[:never_answered] %></td>
+            <td>
+              <%= row[:never_answered] %>
+              <%# WHICH KIND OF SILENCE. A shop toggled open past its own closing
+                  time is orderable into an empty kitchen, and the timeout files
+                  the result as "nobody answered" — docs/NOTES.md measured 23 of
+                  32 shops in that state at 21:08 one evening. Without this the
+                  column sends the owner to talk about a tablet when the problem
+                  is a switch. Nothing here blocks an order or moves a toggle;
+                  the policy is his and is written up unchanged. %>
+              <% stale = row[:unanswered_causes][:outside_posted_hours].to_i %>
+              <% unknown = row[:unanswered_causes][:no_hours_posted].to_i %>
+              <% if stale.positive? %>
+                <small>(<%= stale %> after their posted closing time — a toggle, not a tablet)</small>
+              <% elsif unknown.positive? && row[:never_answered] == unknown %>
+                <small>(no posted hours, so the cause is not known)</small>
+              <% end %>
+            </td>
             <td><%= row[:cancelled_after_accepting] %></td>
           </tr>
         <% end %>
