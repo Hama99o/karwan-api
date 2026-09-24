@@ -503,6 +503,72 @@ anything you care about:
 kamal accessory exec db "pg_dump -U karwan karwan_production" > karwan-$(date +%F).sql
 ```
 
+### 9.1 · BACKUPS: what exists, what a restore would lose, and the proof to build first
+
+**Investigated 24 Sept 2026, read-only. Nothing was dumped or restored.**
+
+**Today there is nothing to lose.** Karwan is not deployed: there's no VPS and
+`KAMAL_HOST` is blank. The only Karwan data is a development database. The risk
+starts on the first deploy, and from then it holds what nothing else can
+reconstruct:
+- couriers' wallet ledgers and cash positions;
+- settlements and merchants' statements;
+- the transition log a delivery dispute is settled from;
+- the audit log of every console money action;
+- couriers' identity documents.
+
+**What would exist on day one, if deployed as written:**
+- **No scheduled backup of anything.** The one provision is the manual line
+  above: a `pg_dump`, by hand, "before any deploy that migrates".
+- **That line dumps one of FOUR databases.** Production has `karwan_production`,
+  plus `_queue`, `_cache` and `_cable` (Solid Queue, Cache, Cable). The primary
+  is the one that matters. The queue holds jobs not yet run, such as an
+  enqueued new-order alert, which is acceptable to lose but should be known.
+- **It captures NO uploaded files.** Active Storage is `:local`, on the Docker
+  volume `karwan_api_storage:/rails/storage`, which `pg_dump` never touches. A
+  restore from the dump alone brings back every `active_storage_blobs` row
+  pointing at a file that no longer exists: couriers' ID documents and
+  selfies, vehicle photos, shop logos, customers' voice notes. For a courier,
+  that means his approval can't be re-checked, and he re-uploads his identity.
+- **The dump lands wherever it was run from**, a laptop, and nothing records
+  that it ran. Nobody would know it had stopped, because it never started.
+- **No restore has ever been performed**, of Karwan or, as far as this repo
+  records, of Hatiwal (whose `bin/kms db:dump` is the same manual shape; its one
+  local dump is dated 1 Sept 2026).
+
+**If the box died the day after launch:**
+- **Lost:** everything since the last manual dump, which may be never. All
+  uploaded files, always.
+- **Rebuildable in about 10 minutes:** the OSRM graph (from the extract) and the
+  map (served from Hatiwal's box).
+- **Time to serve orders again, given a dump:** a new VPS, `kamal setup`, and
+  loading the dump. Roughly two to four hours of someone following this runbook.
+  Without a dump, the service can come back, but the books can't.
+
+**The smallest thing that would make a restore provable** (proposed, not built;
+needs the owner's word, because it touches production):
+1. **`bin/backup`**, run nightly by cron on the box:
+   - `pg_dump -Fc` of `karwan_production`;
+   - a `tar` of the storage volume;
+   - both copied OFF the box (a storage box or bucket costs a few euros a
+     month at this size), keeping the last N.
+2. **`bin/restore-check`**, the part that actually matters. It takes the newest
+   backup and restores it into a THROWAWAY Postgres container: no volume, a
+   separate port, removed afterwards. Then it checks:
+   - row counts of `wallet_entries`, `status_transitions`, `audit_logs`,
+     `orders`, `settlements` and `merchant_statements` against the source;
+   - **every wallet's balance replayed from its entries** (one-way door 4 says
+     entries are the record, so the replay is the real test);
+   - every `active_storage_blobs` key present in the restored files.
+
+   It prints one line: pass, or exactly what didn't come back.
+3. **Run it weekly, and record each run** (a line in a log the console can
+   show), so "we have restored from a backup" is a dated claim rather than a
+   belief.
+
+Until those exist, the honest sentence is **"Karwan has no backups and has
+never restored one."**
+
 ---
 
 # ONBOARDING A RESTAURANT — the operator's sequence
