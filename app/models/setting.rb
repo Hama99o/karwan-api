@@ -217,6 +217,13 @@ class Setting < ApplicationRecord
     # stored and counted either way; this only decides whether the courier's
     # problem sheet OFFERS it. See `Dispatchable.offered_failure_reasons`.
     "fake_note_reason_offered" => { type: :boolean, default: "false", description: "Whether the courier app's problem sheet offers 'fake note' (a counterfeit refused at the door). Switch on in the same release as the app's labels for it." },
+    # RE-ROUTING a courier who has left the drawn line (map queue item 1). The
+    # APP compares his fix to the line and asks `/route` again from where he
+    # is; these two numbers decide when, and they are Settings because they
+    # will be tuned against real Kabul GPS. The FARE never moves — `/route`
+    # writes nothing (correction 13).
+    "reroute_off_route_metres" => { type: :integer, default: "75", description: "How far a courier's GPS fix may be from the drawn route before the app asks for a new one from where he is. Above Kabul's 20–50 m GPS error, so noise alone does not re-route." },
+    "reroute_min_interval_seconds" => { type: :integer, default: "30", description: "The least time between two re-routes for one courier, so a jittery fix cannot spend the route endpoint's 60-a-minute limit. Only the line and the ETA change — never the fare." },
     "support_phone"          => { type: :string,  default: "", description: "Shown in all three apps. Delivery is an ops business with an app attached." },
 
     # THE OTP MESSAGE, per locale. Settings rather than Ruby constants for two

@@ -27,7 +27,11 @@ class Api::V1::Public::AppConfigController < Api::V1::PublicController
   PUBLIC_SETTINGS = {
     # The number on every screen, in every role, for a user who cannot read
     # the interface.
-    support_phone: "support_phone"
+    support_phone: "support_phone",
+    # When the courier app re-asks for a route: operational thresholds, not the
+    # business's numbers — they say nothing about money or margin.
+    reroute_off_route_metres: "reroute_off_route_metres",
+    reroute_min_interval_seconds: "reroute_min_interval_seconds"
   }.freeze
 
   def show

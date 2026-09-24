@@ -51,7 +51,7 @@ RSpec.describe "Api::V1::Public::AppConfig", type: :request do
   it "NEVER leaks the business's own numbers" do
     get "/api/v1/public/app_config"
 
-    expect(json["app_config"].keys).to eq(%w[support_phone])
+    expect(json["app_config"].keys).to eq(%w[support_phone reroute_off_route_metres reroute_min_interval_seconds])
     expect(json["app_config"].keys).not_to include(
       "commission_rate", "default_credit_line", "cash_in_hand_limit",
       "delivery_base_fee", "trip_commission_rate", "dispatch_max_offers"
@@ -63,5 +63,16 @@ RSpec.describe "Api::V1::Public::AppConfig", type: :request do
     get "/api/v1/public/app_config"
 
     expect(json["app_config"].size).to be < Setting::DEFINITIONS.size / 4
+  end
+
+  # Map queue item 1: the courier app re-routes from where he is once his fix
+  # leaves the line. The thresholds are the server's, tunable with no release.
+  it "serves the re-routing thresholds as numbers, tunable from the console" do
+    Setting.find_or_initialize_by(key: "reroute_off_route_metres").update!(value: "120", value_type: :integer)
+
+    get "/api/v1/public/app_config"
+
+    expect(json.dig("app_config", "reroute_off_route_metres")).to eq(120)
+    expect(json.dig("app_config", "reroute_min_interval_seconds")).to eq(30)
   end
 end
