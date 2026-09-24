@@ -23,6 +23,28 @@ RSpec.describe "config/recurring.yml" do
                                                       .map { |name| "Dispatch::#{name}" }
   end
 
+  # ── EVERY JOB RUNS SOMEHOW, WHEREVER IT LIVES ─────────────────────────
+  #
+  # Audited 2026-09-24: `sweep_jobs` is the dispatch folder, so the check that
+  # every sweep has a schedule could not see one anywhere else — and
+  # `Merchants::IssueWeeklyStatementsJob` already lives elsewhere; it is on the
+  # schedule today only because somebody remembered. From the other side:
+  # every job class must be either enqueued by something in app/ or on the
+  # schedule. A job with neither is code that never runs.
+  it "leaves no job that nothing enqueues and nothing schedules" do
+    scheduled = production.values.map { |task| task["class"] }
+    app_source = Dir[Rails.root.join("app/**/*.rb")].map { |f| File.read(f) }.join("\n")
+    jobs = Dir[Rails.root.join("app/jobs/**/*_job.rb")].map { |f| f.sub(%r{.*/app/jobs/}, "").delete_suffix(".rb").camelize }
+                                                        .reject { |name| name == "ApplicationJob" }
+
+    orphans = jobs.reject do |job|
+      scheduled.include?(job) || app_source.match?(/\b#{Regexp.escape(job.demodulize)}\.(?:perform_later|perform_now|set)\b/)
+    end
+
+    expect(jobs.size).to be >= 5
+    expect(orphans).to be_empty, "these jobs are neither enqueued anywhere nor scheduled, so they never run: #{orphans.join(', ')}"
+  end
+
   it "finds the schedule and the sweeps at all" do
     expect(production).to be_present
     expect(sweep_jobs.size).to be >= 3, "no sweep jobs found — every check below is vacuous"
