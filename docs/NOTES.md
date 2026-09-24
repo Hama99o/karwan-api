@@ -5260,7 +5260,7 @@ section becomes another true sentence nothing enforces.
 
 | # | change | shape |
 |---|---|---|
-| 1 | `POST /me/switch_role` into a money-handling role needs `password` | **breaking** — 422 `reauthentication_required` |
+| 1 | `POST /me/switch_role` into a money-handling role needs `password` | **breaking** — 422 `reauthentication_required` · client side fixed in karwan-mobile `2d9f31d` (F-81), 24 Sept |
 | 2 | `ended_reason` on customer order detail, list, merchant board | new object, or null |
 | 3 | `unorderable` on customer and merchant catalog | new code, or null |
 | 4 | `blocked_by` on `couriers/shifts#show` | new code, or null |
@@ -6499,3 +6499,36 @@ a `git stash` of an untracked file that stashed nothing and said so.
 
 The browser run reassigned two dev orders (22018, 3) — dev QA data, each with
 an audit row naming the operator.
+
+
+---
+
+## THE SIBLING HUNT: WHAT ELSE WAS TRUE BY NAME AND FALSE IN EFFECT
+
+**24 Sept 2026.** The unloaded stylesheet was a shape, not an incident: a
+spec asserted a CLASS NAME, which is true whether or not a rule for it reaches
+a browser. Swept the repo for the same shape. What each scan found:
+
+| Scan | Found | Now |
+|---|---|---|
+| stylesheets shipped vs registered | `karwan_admin.css` unregistered | fixed; **gate** `every_console_class_has_a_rule_spec` |
+| `karwan-*` classes used vs a rule existing | **six** with no rule — the reports tables, a dashboard note, a wide tile, and the `--warn` note carrying *"Do not use this alone to decide whether to recruit"* | rules added; same gate |
+| console routes vs a form on a page | the twenty interventions | fixed; **gate** `every_console_action_has_a_button_spec` — a future route with no form fails it |
+| routes vs controller actions | all 229 reach an action | clean |
+| job classes vs enqueue / schedule | all used | clean |
+| serializers vs callers | all used | clean |
+| services vs callers | `Pricing::RideQuote` has none — the ride product is not built (`PRODUCT.md`); waiting, not dead | recorded |
+| schema columns no code mentions | Devise/ActiveStorage internals and FKs used through association names, plus three always-nil user FKs superseded by `*_admin_user` / `*_name` columns (`settings.updated_by_id`, `settlements.counted_by_id`, `*.verified_by_id`) | the one a page SHOWED (`counted_by`, an always-empty "counted by") removed from the settlement page, and `period_end` added |
+| ENV read vs preflight / RUNBOOK | only `JOB_CONCURRENCY`, a Rails default with a fallback | clean |
+| i18n keys the API calls | none — the API sends codes, copy lives in the app and in Settings | n/a |
+| `lib/middleware` vs the stack | registered | clean |
+
+**The two gates are the part worth keeping.** Each is written for the case
+nobody has written yet: a stylesheet added and not registered, a class used
+and not styled, a console action added as a bare route. Each was planted —
+a rule removed, a stray stylesheet, a button removed, a new route with no form
+— and went red.
+
+**Still true by name only, and not gated here:** the error-code gate accounts
+for `code:` EXPRESSIONS by name (`"conflict.to_s" => "Eligibility::REASONS"`)
+without checking their values — recorded in the redispatch entry above.
