@@ -83,4 +83,16 @@ RSpec.describe "Api::V1::Public::AppConfig", type: :request do
 
     expect(json.dig("app_config", "map_style_family")).to eq("hatiwal")
   end
+
+  # A typo in the console must be refused where it is typed: the app treats an
+  # unknown family as the live one, so a saved `karwn` would be invisible.
+  it "refuses a map style family the app cannot draw" do
+    setting = Setting.find_or_initialize_by(key: "map_style_family")
+    setting.assign_attributes(value: "karwn", value_type: :string)
+
+    expect(setting).not_to be_valid
+    expect(setting.errors[:value].join).to include("hatiwal, karwan")
+    setting.value = "karwan"
+    expect(setting).to be_valid
+  end
 end

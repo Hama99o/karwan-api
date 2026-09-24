@@ -12,6 +12,14 @@ class Setting < ApplicationRecord
   validates :key, presence: true, uniqueness: true
   validates :value_type, presence: true
 
+  # The map style sets the app knows how to draw. A free string would let a
+  # console typo (`karwn`) leave every installed app silently on the old map —
+  # the app treats anything it does not recognise as `hatiwal`, by design, so
+  # the mistake would be invisible. Refused here instead, where it is typed.
+  # karwan-mobile's `MapStyleFamily` is swept against this list (qa/vocabulary.py).
+  MAP_STYLE_FAMILIES = %w[hatiwal karwan].freeze
+  validate :map_style_family_is_known, if: -> { key == "map_style_family" }
+
   # Every key the app reads, with its type, default and unit. A key missing
   # from here is a typo, not a setting — `fetch` raises on it rather than
   # returning nil and letting a fee silently become zero.
@@ -19,6 +27,12 @@ class Setting < ApplicationRecord
   # fallback and the six per-vehicle rows cannot be given different "today"
   # values by accident.
   DEFAULT_OFFER_RADIUS_KM = "8.0".freeze
+
+  private def map_style_family_is_known
+    return if MAP_STYLE_FAMILIES.include?(value.to_s)
+
+    errors.add(:value, "must be one of: #{MAP_STYLE_FAMILIES.join(', ')}")
+  end
 
   DEFINITIONS = {
     "commission_rate"        => { type: :decimal, default: "0.125", description: "The STANDARD share of the food total a NEW shop is onboarded at (0.125 = 12.5%). Each merchant then carries its own rate — editing this changes what the next shop is offered, never what an existing one is paid." },
