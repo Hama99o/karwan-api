@@ -97,8 +97,18 @@ module ErrorCodes
   # The request itself, or the server's own state.
   INFRASTRUCTURE = %w[bad_request not_found bad_platform rate_limited pending_migration].freeze
 
+  # A signed-in account reaching the courier namespace with no courier profile
+  # (403, couriers/base_controller). Sent the whole time and declared NOWHERE:
+  # it goes out as a POSITIONAL argument to `render_courier_error`, so the
+  # `code: "…"` scan never saw it, and the gate's by-name accounting called the
+  # site "a forwarded parameter, not a vocabulary". Found 24 Sept 2026 when
+  # the gate was rebuilt to check values. The same fact Eligibility names
+  # `no_profile` — two words for one thing, recorded rather than renamed,
+  # because renaming a wire code is a change the app must make in step.
+  COURIER_ACCESS = %w[no_courier_profile].freeze
+
   ALL = (AUTH + OTP + RESET + ORDERING + DISPATCH + ACCOUNT_DELETION + ELIGIBILITY +
-         MERCHANT_SELF_SERVICE + GEOGRAPHY + INFRASTRUCTURE).freeze
+         MERCHANT_SELF_SERVICE + GEOGRAPHY + INFRASTRUCTURE + COURIER_ACCESS).freeze
 
   # Reachable by an ordinary person doing an ordinary thing, as opposed to by a
   # malformed request or a switched-off feature. These are the ones that most

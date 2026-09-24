@@ -6530,9 +6530,9 @@ and not styled, a console action added as a bare route. Each was planted —
 a rule removed, a stray stylesheet, a button removed, a new route with no form
 — and went red.
 
-**Still true by name only, and not gated here:** the error-code gate accounts
-for `code:` EXPRESSIONS by name (`"conflict.to_s" => "Eligibility::REASONS"`)
-without checking their values — recorded in the redispatch entry above.
+~~**Still true by name only, and not gated here:** the error-code gate accounts
+for `code:` EXPRESSIONS by name without checking their values~~ — **rebuilt the
+same day, see "THE ERROR-CODE GATE NOW CHECKS VALUES" below.**
 
 
 ---
@@ -6727,3 +6727,41 @@ checked against what in karwan-mobile calls or parses it
    menu editing, opening-hours editing, the two Today screens — unread
    because the screens are on the app's own LATER list, not because anything
    broke. Roadmap entries, not defects.
+
+
+---
+
+## THE ERROR-CODE GATE NOW CHECKS VALUES — AND ITS FIRST RUN FOUND TWO THINGS
+
+**24 Sept 2026.** `spec/models/error_codes_spec.rb` accounted for every
+non-literal `code:` by NAME — `"conflict.to_s" => "Eligibility::REASONS"` — a
+label, not a check. Two sessions recorded it as the weak spot; `job_taken`
+walked through it this morning. Rebuilt:
+
+- **per SITE** (`file: expression`), because the same expression in a second
+  controller can carry a different vocabulary;
+- **resolved to VALUES in code** — `Eligibility::REASONS`,
+  `AccountDeletion::REASONS`, the `return :x` lines of `role_refusal`, the
+  strings of `error_code_for`, the positional literals passed to
+  `render_courier_error` — each value asserted declared in `ErrorCodes`;
+- "declared but never sent" now derives from those resolved values instead of
+  a list typed beside them;
+- a **stale-entry** check: every accounted site must still exist.
+
+**What the first run found:**
+
+1. **`no_courier_profile` — sent for weeks, declared nowhere.** A 403 from any
+   `/courier/*` route for an account with no courier profile, passed as a
+   POSITIONAL argument (`render_courier_error("…", "no_courier_profile")`), so
+   the `code: "…"` scan never saw it and the by-name map called the site "a
+   forwarded parameter — not a vocabulary". The app receives it (its own dev
+   log shows `GET /courier/shift -> 403 no_courier_profile`) and has no word for
+   it. Now `ErrorCodes::COURIER_ACCESS` and documented. **Two words for one
+   fact** — Eligibility says `no_profile` — kept, because renaming a wire code
+   must move with the app.
+2. **A dead entry** — `nil`, "the default in render_unprocessable_entity's
+   signature", for a site that no longer exists. Nothing could notice.
+
+Three plants, each red: a new undeclared positional code (no_courier_profile's
+exact shape), `role_refusal` gaining an undeclared word, and this morning's
+`job_taken` sent through an expression.

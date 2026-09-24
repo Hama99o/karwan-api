@@ -20,8 +20,21 @@ require "rails_helper"
 # So this file now asserts THREE things, and the third is the one that matters:
 #   1. every literal code is declared
 #   2. every declared code is really sent
-#   3. every `code:` site that is NOT a literal is ACCOUNTED FOR BY NAME —
-#      a new one fails here until somebody says where its words come from
+#   3. every `code:` site that is NOT a literal is ACCOUNTED FOR — keyed by
+#      FILE AND EXPRESSION, and resolved to the VALUES it can send, each of
+#      which must be declared.
+#
+# ── 3 USED TO BE BY NAME ONLY, AND TWO THINGS WALKED THROUGH IT ──────────
+#
+# ACCOUNTED_FOR mapped an expression to a LABEL: `"conflict.to_s" =>
+# "Eligibility::REASONS"`. A label is a claim, not a check, so:
+#   - on 24 Sept 2026 `job_taken` went out through `conflict.to_s` and every
+#     example here stayed green (it is now a literal — see NOTES);
+#   - `no_courier_profile` has gone out for weeks as a POSITIONAL argument to
+#     `render_courier_error`, a site labelled "a forwarded parameter — not a
+#     vocabulary". It was declared nowhere.
+# Now each site says where its values come from IN CODE, and the values are
+# asserted; a new site, or an old expression in a new file, fails until it does.
 RSpec.describe ErrorCodes do
   API = Rails.root.join("app/controllers/api").freeze
 
@@ -44,7 +57,19 @@ RSpec.describe ErrorCodes do
       .scan(/code:\s*"([a-z_]+)"/).flatten.uniq
   end
 
-  # Every `code:` whose value is not a string literal, normalised to the bare
+  # Every non-literal `code:` SITE, as "path: expression" — per file, because
+  # the same expression in a second controller may carry a different
+  # vocabulary, and a name-only key would pass it on the first one's account.
+  def dynamic_sites
+    Dir[API.join("**/*.rb")].sort.flat_map do |file|
+      body = strip_comments([ file ])
+      rel = Pathname(file).relative_path_from(API).to_s
+      body.scan(/\bcode:[ \t]*([A-Za-z_][A-Za-z0-9_.\[\]:()]*)/).flatten
+          .map { |expr| "#{rel}: #{balance(expr)}" }
+    end.uniq
+  end
+
+  # Every non-literal `code:` whose value is not a string literal, normalised to the bare
   # expression so the set is comparable.
   def dynamic_expressions
     # THE CAPTURE HAS BEEN WRONG TWICE, both times producing a confident list.
@@ -68,43 +93,85 @@ RSpec.describe ErrorCodes do
     expr
   end
 
-  # Each expression, and what it resolves to. An entry here is a claim that
-  # somebody looked; `nil` means "not a wire code at all" with the reason.
-  ACCOUNTED_FOR = {
-    "deletion.reason.to_s" => "Users::AccountDeletion::REASONS — me#destroy, 422",
-    "error_code_for(e)" => "the case in customers/orders_controller#error_code_for",
-    "eligibility.reason.to_s" => "Dispatch::Eligibility::REASONS — offers#create",
-    "conflict.to_s" => "Dispatch::Eligibility::REASONS — offers, combination conflict",
-    "refusal.to_s" => "UserSession.role_refusal — the role_request body",
-    "code" => "a forwarded parameter (couriers/base_controller, otp) — not a vocabulary",
-    "nil" => "the default in render_unprocessable_entity's signature",
-    "params[:code]" => "an OTP or reset code the user TYPED — an input, not a refusal"
-  }.freeze
+  # The codes a method can RETURN, read from its body: every `:symbol` it
+  # returns and every "string" it yields. Used where the vocabulary is a
+  # method rather than a hash — and it fails loudly on an empty read, so a
+  # renamed method cannot quietly resolve to nothing.
+  def returned_by(file, method)
+    body = File.read(Rails.root.join(file))[/def (self\.)?#{method}\b.*?\n  end/m]
+    raise "could not read #{method} in #{file}" if body.nil?
+
+    lines = body.lines.reject { |l| l =~ /\A\s*#/ }.join
+    (lines.scan(/return :([a-z_]+)/).flatten + lines.scan(/"([a-z_]+)"/).flatten).uniq
+  end
+
+  # Each SITE, and the values it can send — resolved in code. `:not_a_code`
+  # (with the reason as the second element) is for a `code:` key that is not a
+  # wire vocabulary at all.
+  def accounted_for
+    {
+      "v1/me_controller.rb: deletion.reason.to_s" => Users::AccountDeletion::REASONS.keys.map(&:to_s),
+      "v1/customers/orders_controller.rb: error_code_for(e)" =>
+        returned_by("app/controllers/api/v1/customers/orders_controller.rb", "error_code_for"),
+      "v1/couriers/offers_controller.rb: eligibility.reason.to_s" => Dispatch::Eligibility::REASONS.keys.map(&:to_s),
+      "v1/couriers/offers_controller.rb: conflict.to_s" => Dispatch::Eligibility::REASONS.keys.map(&:to_s),
+      "v1/auth/sessions_controller.rb: refusal.to_s" => returned_by("app/models/user_session.rb", "role_refusal"),
+      "v1/auth/registrations_controller.rb: refusal.to_s" => returned_by("app/models/user_session.rb", "role_refusal"),
+      # THE ONE THE LABEL HID. A forwarded parameter whose callers pass wire
+      # codes as positional literals — so its values are those literals.
+      "v1/couriers/base_controller.rb: code" => File.read(API.join("v1/couriers/base_controller.rb"))
+                                                     .scan(/render_courier_error\([^)]*?,\s*"([a-z_]+)"\)/).flatten.uniq,
+      "v1/auth/otp_controller.rb: code" => [ :not_a_code, "the OTP digits handed to the SMS body — not a wire code" ],
+      "v1/auth/password_resets_controller.rb: params[:code]" => [ :not_a_code, "a reset code the user TYPED — an input" ],
+      "v1/auth/sessions_controller.rb: params[:code]" => [ :not_a_code, "an OTP the user TYPED — an input" ]
+    }
+  end
+
+  def vocabulary_sites
+    accounted_for.reject { |_site, values| values.first == :not_a_code }
+  end
 
   it "declares every literal code the API sends" do
     expect(literal_codes - ErrorCodes::ALL).to be_empty,
                                                "sent but not declared: #{(literal_codes - ErrorCodes::ALL).join(', ')}"
   end
 
+  # "Sent" now includes what the dynamic sites RESOLVE to, rather than a list
+  # typed beside them — the typed list is how a code can be declared, "sent",
+  # and never actually leave the building.
   it "sends every code it declares" do
-    from_sources = ErrorCodes::ACCOUNT_DELETION + ErrorCodes::ELIGIBILITY +
-                   %w[not_a_mobile_role item_unavailable invalid_options empty_cart
-                      no_vehicle_for_this_order cannot_price_order merchant_unavailable]
+    from_sources = vocabulary_sites.values.flatten.uniq
 
     expect(ErrorCodes::ALL - literal_codes - from_sources).to be_empty,
                                                               "declared but never sent: " \
                                                               "#{(ErrorCodes::ALL - literal_codes - from_sources).join(', ')}"
   end
 
-  # THE ONE THAT WOULD HAVE CAUGHT THE MISS.
-  it "accounts for every `code:` that is not a literal" do
-    unaccounted = dynamic_expressions - ACCOUNTED_FOR.keys
+  # THE ONE THAT WOULD HAVE CAUGHT THE MISS — per site, not per name.
+  it "accounts for every `code:` site that is not a literal" do
+    unaccounted = dynamic_sites - accounted_for.keys
 
     expect(unaccounted).to be_empty,
-                           "these `code:` expressions are not accounted for: #{unaccounted.join(', ')}. " \
-                           "Each one puts words on the wire that no grep for `code: \"…\"` can see. Say where " \
-                           "they come from in ACCOUNTED_FOR and declare them in ErrorCodes, or this file is " \
-                           "certifying a vocabulary it cannot read."
+                           "these `code:` sites are not accounted for: #{unaccounted.join(', ')}. " \
+                           "Each one puts words on the wire that no grep for `code: \"…\"` can see. Say in " \
+                           "accounted_for where its values come from IN CODE, or this file is certifying a " \
+                           "vocabulary it cannot read."
+  end
+
+  # Found a dead entry on its first run: the name-only map listed `nil` ("the
+  # default in render_unprocessable_entity's signature") for a site that no
+  # longer exists — and nothing could notice, because nothing checked.
+  it "has no stale entry — every accounted site still exists" do
+    expect(accounted_for.keys - dynamic_sites).to be_empty
+  end
+
+  # BY VALUE. Every word each dynamic site can put on the wire is declared.
+  it "declares every value a dynamic site can send" do
+    vocabulary_sites.each do |site, values|
+      expect(values).not_to be_empty, "#{site} resolved to no values — the resolver is reading nothing"
+      undeclared = values - ErrorCodes::ALL
+      expect(undeclared).to be_empty, "#{site} can send undeclared: #{undeclared.join(', ')}"
+    end
   end
 
   it "is actually reading both kinds out of the controllers" do
@@ -135,7 +202,7 @@ RSpec.describe ErrorCodes do
     flat = [ ErrorCodes::AUTH, ErrorCodes::OTP, ErrorCodes::RESET, ErrorCodes::ORDERING,
              ErrorCodes::DISPATCH, ErrorCodes::ACCOUNT_DELETION, ErrorCodes::ELIGIBILITY,
              ErrorCodes::MERCHANT_SELF_SERVICE, ErrorCodes::GEOGRAPHY,
-             ErrorCodes::INFRASTRUCTURE ].flatten
+             ErrorCodes::INFRASTRUCTURE, ErrorCodes::COURIER_ACCESS ].flatten
 
     expect(flat.uniq).to eq(flat), "a code is in two groups: #{flat.tally.select { |_, n| n > 1 }.keys.join(', ')}"
     expect(ErrorCodes::ALL.sort).to eq(flat.sort)

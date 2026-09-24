@@ -220,6 +220,7 @@ may be undeclared, nothing declared may be unemitted.
 | **reset** | `reset_code_invalid` `reset_invalid` `reset_throttled` |
 | **ordering** | `no_merchant` `merchant_is_a_lead` `tier_unavailable` `not_cancellable` `invalid_transition` `reason_required` |
 | **dispatch** | `offer_expired` `not_your_job` `cannot_advance` `wrong_step` `too_early_to_arrive` `wallet_blocked` `job_taken` |
+| **courier access** | `no_courier_profile` | 403 from any `/courier/*` route for an account with no courier profile. **Declared 24 Sept 2026 — it had gone out for weeks undeclared**, as a positional argument the `code:` scan could not see. The same fact Eligibility calls `no_profile`: two words for one thing, kept until the app can move with a rename |
 | **merchant self-service** | `invalid_opening_hours` |
 | **geography** | `outside_service_area` `unroutable` |
 | **infrastructure** | `bad_request` `not_found` `bad_platform` `rate_limited` `pending_migration` |
@@ -259,7 +260,7 @@ after the countdown — the job went to somebody else and another will come),
 `not_cancellable` (a customer cancels as the merchant accepts — the restaurant
 has started cooking), and `outside_service_area`.
 
-`ErrorCodes.reachable_in_normal_use` returns the **54** that are not OTP,
+`ErrorCodes.reachable_in_normal_use` returns the **55** that are not OTP,
 malformed requests or server state. The ten it excludes are `otp_*` (switched
 off), `bad_request`, `bad_platform`, `not_found`, `registration_invalid` and
 `pending_migration`.
