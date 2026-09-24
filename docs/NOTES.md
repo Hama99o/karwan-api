@@ -6681,3 +6681,49 @@ Found by reading `blocked_by`'s vocabulary against where the app calls
 open. Built in karwan-mobile `72c295e`, with the idle screen now saying why his
 phone is quiet when something about him is the reason. **Not verified on a
 device** — the emulator floor is 20 GB free disk and the box has ~8.
+
+
+---
+
+## THE SEAM AUDIT — WHAT THE API SENDS, AND WHAT IN THE APP READS IT
+
+**24 Sept 2026.** The method that found the never-dispatched courier, made
+systematic: every route and every serialized field the API gives the app,
+checked against what in karwan-mobile calls or parses it
+(`qa/api_surface.py` for routes; a grep of every `field :x` in
+`app/serializers` against `src/` for payloads). Closed today, in the app:
+
+| Seam | Consequence | Closed |
+|---|---|---|
+| position never reported while on shift | **never dispatched** | `72c295e` (his decision, REQUIREMENTS R-2026-09-24) |
+| `top_up_instructions` unread | told to top up, never told WHERE | `88dd353` |
+| `onward_distance_km` unread on the offer | 1 km and 8 km jobs looked the same | `0f64cdd` |
+| `bring_change_for`, `ended_reason`, `job_taken`, `blocked_by`, `cash_held_since` | the handover items | `b80de5d` `fd5058d` `7bfdcff` `72c295e` `88dd353` |
+
+### Named, NOT closed — each with who or what it waits on
+
+1. **THE APP HAS NO PUSH HANDLER.** The server sends `title_key`/`body_key`
+   and *"the app localises from these"* (`FcmClient#payload`); the app
+   registers its token (`src/lib/push.ts`) and nothing else — no
+   notification handler, no listener, no background task. So what a device
+   shows for the **merchant's new-order alert**, the customer's arrival notice,
+   an applicant's review outcome — and the dormant `courier.check_in` — is
+   **unverified and possibly wordless or nothing.** The highest-stakes seam
+   here: the brief calls the merchant alert "loud, repeating, until
+   acknowledged". **Needs a real device** receiving a real FCM push; the
+   emulator was out today (disk). Mobile work, next.
+2. **`POST /merchant/orders/:id/acknowledge` has no caller.** Its honest
+   producer is a person tapping the full-screen alarm, which is on the app's
+   LATER list. Until then the console tile "orders the kitchen has not looked
+   at" counts every `placed` order over two minutes old, because nothing ever
+   acknowledges. Harmless while the `placed` timeout closes those at two
+   minutes; misleading if the timeout is ever lengthened.
+3. **`service_tier` / `can_be_combined` unread on the offer.** Deliberately
+   left: batching is off (`batch_max_jobs` 1), so "cannot be combined" would be
+   a promise about something that never happens. Read it the day batching is.
+4. **`fake_note` and `courier.check_in`** — dormant behind their Settings, with
+   the mobile half specified above (manifest 15, 16).
+5. **Merchant board `accepted_at` / `ready_at` / `paid_at`,** statements,
+   menu editing, opening-hours editing, the two Today screens — unread
+   because the screens are on the app's own LATER list, not because anything
+   broke. Roadmap entries, not defects.
