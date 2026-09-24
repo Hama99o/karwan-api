@@ -101,6 +101,30 @@ module Couriers
       field :onward_distance_km do |job|
         job.distance_km
       end
+
+      # ── THE TWO DISTANCES ARE DIFFERENT KINDS OF NUMBER ─────────────────
+      #
+      # Measured on a real offer payload, 24 Sept 2026: `distance_km` (to the
+      # shop) is a STRAIGHT line from his last fix — 1.15 km — while
+      # `onward_distance_km` is the ROAD distance his fee was priced on —
+      # 15.78 km for two pins 2.36 km apart. The card printed both as "km" in
+      # one format, so a courier read a crow-flies number beside a road number
+      # as the same kind of thing; across Kabul the road to a point runs a
+      # median 1.6x the straight line.
+      #
+      # Said here, per distance, in the words `distance_source` already uses on
+      # a quote (`osrm` = by road, `straight_line`), so the app can make them
+      # read as different quantities. The pickup stays straight-line on
+      # purpose: measuring it by road would put a router call inside the job's
+      # row lock in `Dispatch::OfferService`, and a slow router there is a
+      # dispatch outage for a number that informs time, not money.
+      field :distance_source do |_job|
+        Routing::Route::STRAIGHT_LINE
+      end
+
+      field :onward_distance_source do |job|
+        job.distance_source
+      end
     end
 
     view :active do

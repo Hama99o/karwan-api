@@ -276,5 +276,30 @@ RSpec.describe "Api::V1::Couriers::Offers", type: :request do
       expect(json.dig("offer", "job")).to have_key("onward_distance_km")
       expect(json.dig("offer", "job", "onward_distance_km")).to be_nil
     end
+
+    # They are different KINDS of number, and the payload says which: the ride
+    # to the shop is a straight line from his last fix; the onward leg is what
+    # his fee was priced on — by road unless routing was off or unreachable.
+    it "says the ride to the shop is a straight line, and the onward leg is by road" do
+      order = delivery
+      order.update!(distance_km: 15.78, distance_source: "osrm")
+      create(:offer, courier: courier, offerable: order)
+
+      get "/api/v1/courier/offer", headers: auth
+
+      job = json.dig("offer", "job")
+      expect(job["distance_source"]).to eq("straight_line")
+      expect(job["onward_distance_source"]).to eq("osrm")
+    end
+
+    it "says so when the onward leg itself fell back to a straight line" do
+      order = delivery
+      order.update!(distance_km: 3.2, distance_source: "straight_line")
+      create(:offer, courier: courier, offerable: order)
+
+      get "/api/v1/courier/offer", headers: auth
+
+      expect(json.dig("offer", "job", "onward_distance_source")).to eq("straight_line")
+    end
   end
 end
