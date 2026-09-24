@@ -6223,3 +6223,20 @@ and is not counted — the spec builds one so the filter is exercised.
 No limit, no ranking, no penalty. §5 is the open conversation. Eight plants,
 each asserted to have landed, all red, including removing the line from the
 page and dropping the recurring passenger's name.
+
+### And on the report, because "unusually" needs the others beside it
+
+Same day, same service. §5-E's *"an unusually high cancellation rate for one
+driver"* is a comparison, and a courier's own page cannot make one — the
+argument §5-B's ranking was built on. So `Couriers::Reliability.ranked` puts
+**"Couriers to ring"** on the reports page under "Shops to ring": the share of
+answered offers not taken (declined + let run out, with the denominator), the
+two kept apart, rides ended mid-way, and any recurring passenger.
+
+Two rules for who is listed, and why they differ: a **rate** needs at least
+five answered offers (the shop ranking's floor, for its reason); a **recurring
+passenger** is listed at any volume and first, because two mid-ride endings
+with one person is §5-E's fraud shape and not a rate at all. `.for` and
+`.ranked` read the same two definitions; three grouped queries whatever the
+fleet size, asserted by count. Six plants, each asserted to have landed, all
+red — including an N+1 planted in the loop.

@@ -231,6 +231,63 @@
     </p>
   <% end %>
 
+  <h2>Couriers to ring — last 30 days</h2>
+  <%# TRUST_AND_REPUTATION.md §5-A and §5-E, the courier's side of the table
+      above. Declining is normal — §5-A: "another rider picks it up, and the
+      platform should not penalise it" — so this is a share, with its
+      denominator, and not a list of faults. An offer let run out is a minute a
+      customer waited; one declined was looked at. Different columns.
+
+      A recurring passenger among rides that ended mid-way is §5-E's fraud
+      shape ("they tell the customer to cancel, to keep the commission") and is
+      listed whatever the courier's volume. Nothing acts on any of it. %>
+  <% if @couriers_to_ring.any? %>
+    <table class="karwan-report">
+      <thead>
+        <tr>
+          <th>Courier</th><th>Not taken</th><th>Declined</th><th>Let run out</th>
+          <th>Rides ended mid-way</th><th>Same passenger again</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @couriers_to_ring.each do |row| %>
+          <% courier = @couriers_to_ring_people[row[:courier_id]] %>
+          <tr>
+            <td><%= link_to courier&.display_name || "user ##{row[:courier_id]}", admin_user_path(row[:courier_id]) %></td>
+            <td>
+              <% if row[:not_taken_rate] %>
+                <strong><%= number_to_percentage(row[:not_taken_rate], precision: 1) %></strong>
+                <small>(<%= row[:declined] + row[:timed_out] %> of <%= row[:offers] %> offers)</small>
+              <% else %>
+                <small>no offers answered</small>
+              <% end %>
+            </td>
+            <td><%= row[:declined] %></td>
+            <td><%= row[:timed_out] %></td>
+            <td><%= row[:rides_ended_mid_way] %></td>
+            <td>
+              <% if row[:repeated_passengers].any? %>
+                <%= row[:repeated_passengers].map { |id, n| "#{@couriers_to_ring_people[id]&.display_name || "user ##{id}"} ×#{n}" }.join(", ") %>
+              <% else %>
+                —
+              <% end %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+    <p class="karwan-report__note">
+      Couriers with fewer than <%= Couriers::Reliability::MIN_OFFERS_TO_RANK %>
+      answered offers are left out of the share, and listed only if a passenger
+      recurs among their rides that ended mid-way.
+    </p>
+  <% else %>
+    <p class="karwan-report__note">
+      Every courier with at least <%= Couriers::Reliability::MIN_OFFERS_TO_RANK %>
+      answered offers took all of them, and no passenger recurs among rides that ended mid-way.
+    </p>
+  <% end %>
+
   <h2>Why shops refused orders — same <%= @days %> days</h2>
   <%# THREE DIFFERENT EVENTS, AND THEY MUST NOT BE ADDED TOGETHER.
 

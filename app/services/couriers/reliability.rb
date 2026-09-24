@@ -53,7 +53,65 @@ module Couriers
     # The courier's own answers. `offered` is still open and is not an answer.
     ANSWERED = %w[accepted declined timed_out].freeze
 
+    # Same floor as the shop ranking and for its reason: four offers and two
+    # declines is 50% and means nothing. A floor on noise, not a test; every
+    # row carries its denominator.
+    MIN_OFFERS_TO_RANK = Merchants::Reliability::MIN_ORDERS_TO_RANK
+
+    # ══ THE DEFINITIONS. `.for` and `.ranked` both read these. ═════════════
+    #
+    # Two readings of one question must not come to disagree about the same
+    # courier, which is why `Merchants::Reliability` is built this way too.
+
+    def self.answered_offers(since)
+      Offer.where(offered_at: since.., status: ANSWERED)
+    end
+
+    def self.rides_ended_mid_way(since)
+      Trip.where(status: :failed, failed_at: since..).where.not(in_progress_at: nil)
+    end
+
+    # ══ READING ONE COURIER ═════════════════════════════════════════════════
+
     def self.for(courier, since: DEFAULT_WINDOW.ago) = new(courier, since: since).call
+
+    # ══ READING EVERY COURIER, FOR THE REPORT ═══════════════════════════════
+    #
+    # §5-E says *"unusually high"*, which only means something against the
+    # others — and a figure on one courier's page is only seen by somebody who
+    # already suspects him. THREE GROUPED QUERIES, whatever the fleet size.
+    #
+    # Listed: a courier with enough answered offers who did not take some of
+    # them, ranked by the share not taken; and ANY courier with a recurring
+    # mid-ride passenger, whatever his volume, because that is §5-E's fraud
+    # shape rather than a rate. Those come first.
+    def self.ranked(since: DEFAULT_WINDOW.ago, limit: 10)
+      answers = answered_offers(since).group(:courier_id, :status).count
+      ended = rides_ended_mid_way(since).group(:courier_id).count
+      pairs = rides_ended_mid_way(since).group(:courier_id, :passenger_id).having("COUNT(*) > 1").count
+
+      by_courier = Hash.new { |h, k| h[k] = Hash.new(0) }
+      answers.each { |(courier_id, status), n| by_courier[courier_id][status] = n }
+      repeated = pairs.each_with_object(Hash.new { |h, k| h[k] = {} }) do |((courier_id, passenger_id), n), acc|
+        acc[courier_id][passenger_id] = n
+      end
+
+      rows = (by_courier.keys | repeated.keys).filter_map do |courier_id|
+        tally = by_courier[courier_id]
+        offers = tally.values.sum
+        not_taken = tally["declined"] + tally["timed_out"]
+        flagged_rate = offers >= MIN_OFFERS_TO_RANK && not_taken.positive?
+        next unless flagged_rate || repeated.key?(courier_id)
+
+        { courier_id: courier_id, offers: offers, accepted: tally["accepted"],
+          declined: tally["declined"], timed_out: tally["timed_out"],
+          not_taken_rate: offers.zero? ? nil : (not_taken.to_f / offers * 100).round(1),
+          rides_ended_mid_way: ended[courier_id].to_i,
+          repeated_passengers: repeated.fetch(courier_id, {}) }
+      end
+
+      rows.sort_by { |row| [ row[:repeated_passengers].empty? ? 1 : 0, -row[:not_taken_rate].to_f ] }.first(limit)
+    end
 
     def initialize(courier, since: DEFAULT_WINDOW.ago)
       @courier = courier
@@ -61,32 +119,18 @@ module Couriers
     end
 
     def call
-      answers = Offer.where(courier: @courier, offered_at: @since..)
-                     .where(status: ANSWERED).group(:status).count
-      offers = answers.values.sum
+      answers = self.class.answered_offers(@since).where(courier: @courier).group(:status).count
+      ended = self.class.rides_ended_mid_way(@since).where(courier: @courier)
 
-      ended = rides_ended_mid_way
       {
-        offers: offers,
+        offers: answers.values.sum,
         accepted: answers["accepted"].to_i,
         declined: answers["declined"].to_i,
         timed_out: answers["timed_out"].to_i,
         rides_ended_mid_way: ended.count,
-        repeated_passengers: repeated_passengers(ended),
+        repeated_passengers: ended.group(:passenger_id).having("COUNT(*) > 1").count,
         since: @since
       }
-    end
-
-    private
-
-    def rides_ended_mid_way
-      Trip.where(courier: @courier, status: :failed, failed_at: @since..).where.not(in_progress_at: nil)
-    end
-
-    # passenger_id => how many of this driver's rides with them ended mid-way,
-    # for passengers where that happened more than once.
-    def repeated_passengers(ended)
-      ended.group(:passenger_id).having("COUNT(*) > 1").count
     end
   end
 end

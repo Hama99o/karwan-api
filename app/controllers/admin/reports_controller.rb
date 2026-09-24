@@ -54,6 +54,17 @@ module Admin
       @unreliable_since = Merchants::Reliability::DEFAULT_WINDOW.ago
       @unreliable_shops = Merchant.where(id: @unreliable.map { |row| row[:merchant_id] })
                                   .index_by(&:id)
+
+      # ── AND THE OTHER SIDE OF THE COUNTER ───────────────────────────────
+      #
+      # `TRUST_AND_REPUTATION.md` §5-A (offers declined or let run out) and
+      # §5-E (*"an unusually high cancellation rate for one driver, or the same
+      # driver-passenger pair cancelling repeatedly"*). "Unusually" needs the
+      # others beside it, which a courier's own page cannot give. One lookup for
+      # every name on the table, couriers and passengers together.
+      @couriers_to_ring = Couriers::Reliability.ranked
+      people = @couriers_to_ring.flat_map { |row| [ row[:courier_id], *row[:repeated_passengers].keys ] }
+      @couriers_to_ring_people = User.where(id: people.uniq).index_by(&:id)
     end
 
     private
