@@ -45,3 +45,8 @@
 .karwan-report__note--warn { background: #fff6e5; color: #7a4a00; border-left: 4px solid #d97706;
                              padding: .6rem .8rem; border-radius: 4px; }
 .karwan-tile--wide { flex-basis: 100%; }
+/* The detour report's "road more than [k] times" control: one row, not a
+   stacked form — Administrate's width: 100% would put the number on its own
+   line under its own label. */
+.karwan-inline-form { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin: 0 0 .5rem; }
+.karwan-inline-form input[type=number] { width: 6rem; margin: 0; }

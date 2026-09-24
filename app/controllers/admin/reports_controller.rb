@@ -62,6 +62,11 @@ module Admin
       # driver-passenger pair cancelling repeatedly"*). "Unusually" needs the
       # others beside it, which a courier's own page cannot give. One lookup for
       # every name on the table, couriers and passengers together.
+      # ── ROADS FAR LONGER THAN THE STRAIGHT LINE ─────────────────────────
+      #
+      # What a cap on the charged distance would have touched, on his own
+      # orders. Measures only; see `Routing::Detours`.
+      @detours = Routing::Detours.new(ratio: params[:detour_ratio].presence || Routing::Detours::DEFAULT_RATIO)
       @couriers_to_ring = Couriers::Reliability.ranked
       people = @couriers_to_ring.flat_map { |row| [ row[:courier_id], *row[:repeated_passengers].keys ] }
       @couriers_to_ring_people = User.where(id: people.uniq).index_by(&:id)

@@ -359,4 +359,41 @@
     </tbody>
   </table>
 
+  <h2>Roads far longer than the straight line — last 30 days</h2>
+  <%# A MEASUREMENT, NOT A RULE. The delivery fee is charged on the road
+      distance, and nothing bounds it: across Kabul a road runs a median 1.6x
+      the straight line, and a few run 4-7x on what look like gaps in the map
+      data. Whether to cap that is the owner's decision — a cap takes money
+      off the courier unless the platform pays it — and this shows which of
+      his real orders a given ratio would have touched. The fee column is what
+      was charged; nothing here re-prices anything. %>
+  <%= form_with url: admin_reports_path, method: :get, data: { turbo: false }, class: "karwan-inline-form" do |f| %>
+    <%= f.label :detour_ratio, "Road more than" %>
+    <%= f.number_field :detour_ratio, value: @detours.ratio, step: 0.1, min: 1 %>
+    <span>times the straight line</span>
+    <%= f.submit "Show", class: "button" %>
+  <% end %>
+  <p>
+    <strong><%= @detours.over.size %></strong> of <%= @detours.measured.size %> road-priced orders
+    since <%= l(@detours.since.to_date) %> ran more than <%= @detours.ratio %>x the straight line.
+  </p>
+  <% if @detours.over.any? %>
+    <table class="karwan-report">
+      <thead>
+        <tr><th>Order</th><th>Straight line</th><th>Road</th><th>Ratio</th><th>Delivery fee charged</th></tr>
+      </thead>
+      <tbody>
+        <% @detours.over.each do |row| %>
+          <tr>
+            <td><%= link_to row.order.code, admin_order_path(row.order) %></td>
+            <td><%= number_with_precision(row.straight_km, precision: 2) %> km</td>
+            <td><%= number_with_precision(row.road_km, precision: 2) %> km</td>
+            <td><strong><%= row.ratio %>x</strong></td>
+            <td><%= row.order.delivery_fee %> <%= row.order.currency %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% end %>
+
 </section>
