@@ -40,6 +40,12 @@ false now is worse than no warning, and OSM data for Kabul does change.
 
 ### THE LEDGER CANNOT NAME AN OPERATOR — `recorded_by` POINTS AT THE WRONG TABLE
 
+> **CLOSED — re-read against the code on 24 Sept 2026.** The fix this entry
+> says "is NOT made here" was made: `WalletEntry belongs_to
+> :recorded_by_admin_user`, and every console money action passes
+> `recorded_by_admin_user: current_admin_user` (e.g.
+> `admin/courier_wallets_controller.rb:19`). The ledger now names its operator.
+
 Audited 2026-09-18 against one-way door 5 (*"who credited a wallet, before and
 after. Unanswerable later if nobody wrote it"*). **The information is not lost,
 and the alarming version of this finding is wrong** — but the ledger is not
@@ -129,7 +135,9 @@ nothing for every category forever.
 
 **Still open from this table:** `CatalogItemOption` and `CatalogItemOptionValue`
 have no door anywhere — an operator can create an item but not its sizes or
-extras. `DeviceToken` and `UserSession` were closed by `c5057fe` (read-only
+extras. **CLOSED (re-read 24 Sept 2026):** both are routed with full CRUD in the
+console (`admin/catalog_item_options`, `admin/catalog_item_option_values`), and
+`delete_is_discard_spec` drives their destroys. `DeviceToken` and `UserSession` were closed by `c5057fe` (read-only
 visibility and a revoke action, never a credential shown).
 
 **The sequencing question answered itself.** It was recorded as depending on
@@ -408,7 +416,10 @@ a customer is most likely to notice.
 ### WHAT IS OPEN IS HAMMA9900'S — EXCEPT ONE LINE OF OURS
 
 The backend is functionally complete for v0: **1,944 examples, 0 failures, 2
-pending**, measured on 2026-09-18 at `99a0a8b`. The two pendings are the §2
+pending**, measured on 2026-09-18 at `99a0a8b`. *(Superseded: the whole suite on 24 Sept 2026 was **204 files, 3,061
+examples, 0 failures, 3 pending** at `4864764`; see the section recording that
+run. The table's rows below were re-read the same day and are still open, and
+still his.)* The two pendings are the §2
 collection-channel question and are Hamma9900's to answer, not defects. (The
 previous stamp read 1,523 from `5d86ce8` and was already 400 examples stale
 when it was written, for the reason this section's own header gives.)
@@ -467,7 +478,11 @@ refusal from the same line, and the one after that builds it by accident.
 Two things are deliberately OUT rather than open: **the ride product**
 (PRODUCT.md — "do not build the ride product yet") and **merchant
 self-service profile editing** (PRODUCT.md — "not self-serve in v0, admin
-onboards restaurants"). **Verified 2026-09-17** for the first: `trips` is
+onboards restaurants"). **CHANGED (re-read 24 Sept 2026):** a shop CAN now
+edit four fields itself (phone, description, prep time, landmark note) through
+`PATCH merchant/profile`, built 21 Sept (the "MERCHANT PROFILE" entry above).
+The rest of its profile, including name and commission, is still
+admin-onboarded. **Verified 2026-09-17** for the first: `trips` is
 routed only inside the ADMIN namespace as `index`/`show`,
 `app/controllers/api/v1/customers/` holds `addresses` and `orders` and nothing
 else, and the courier's side is complete — so the model, the pricing and the
@@ -1428,8 +1443,8 @@ spec-only with 11 spec refs, and disappears when wired.
 
 | Finding | Consequence |
 |---|---|
-| **`undiscard!` has no caller anywhere** — no route, no controller, no dashboard action | **A soft delete cannot be undone from the ops console.** One-way door 6 makes deletion recoverable *in the data*; an operator who deletes a merchant by mistake still has to ring a developer. Operator-facing, and the console is the surface Hamma9900 says five to ten people will work in. |
-| **The admin policies are never consulted** — `CourierWalletPolicy#top_up?/adjust?/settle?`, `CourierProfilePolicy#approve?/reject?` | Not a hole **today**: `Admin::ApplicationController` gates on `authenticate_admin_user!` and every one of those methods is `= admin?`, so the session gate enforces the same rule. The trap is latent and exactly edu-safi's: a file that READS as the authorization for crediting a wallet is not what enforces it, so adding a read-only admin later would mean editing a policy that changes nothing. |
+| **`undiscard!` has no caller anywhere** — no route, no controller, no dashboard action | **A soft delete cannot be undone from the ops console.** **CLOSED (re-read 24 Sept 2026):** `restore` exists for merchants, users, catalog items and catalog categories, through `Admin::ApplicationController#restore_resource`, with a Restore button on each deleted record's page. One-way door 6 makes deletion recoverable *in the data*; an operator who deletes a merchant by mistake still has to ring a developer. Operator-facing, and the console is the surface Hamma9900 says five to ten people will work in. |
+| **The admin policies are never consulted** — `CourierWalletPolicy#top_up?/adjust?/settle?`, `CourierProfilePolicy#approve?/reject?` | **CLOSED** 18 Sept (the policies are wired), and counted from the routes on 24 Sept: 6 of 110 console actions consult a policy (`every_action_consults_a_policy_spec`). Not a hole **today**: `Admin::ApplicationController` gates on `authenticate_admin_user!` and every one of those methods is `= admin?`, so the session gate enforces the same rule. The trap is latent and exactly edu-safi's: a file that READS as the authorization for crediting a wallet is not what enforces it, so adding a read-only admin later would mean editing a policy that changes nothing. |
 | `dispatchable_for?` | Superseded. `Dispatch::Eligibility:41` uses `profile.accepts?(kind)` and checks approval and availability separately so it can name the reason. Delete or use — two implementations of one gate is how they diverge. |
 | `vehicle_types_seating` | Ahead of its consumer, legitimately: its comment says it filters the classes a passenger is offered, and a passenger cannot request a ride yet (the ride product is deliberately OUT of v0). Same shape as `/courier/wallet/entries`. |
 | `platform_cash_held`, `totals_by_currency`, `states_without_timeout`, `typed_value`, `capped?`, `open_hours_for`, `throttled?`, `straight_line?`, `osrm?`, `phone?`, `production_ready?`, `overdue_condition`, `terminal_status_values` | Helpers and predicates with no current consumer. None encodes a rule that is therefore unenforced — checked individually. Not proposed for deletion here; several are the readable half of a concept used elsewhere in its raw form. |
@@ -6967,3 +6982,34 @@ specs share process-wide state that only a whole run exercises together:
 None of them broke another spec under a random order. That is one seed, not a
 proof for every order. It is still the first whole-suite fact since the
 targeted runs began.
+
+## THE OPEN-PROBLEMS LIST, RE-READ AGAINST THE CODE — 24 Sept 2026
+
+The rule the list itself states: *re-read the code, not the list.* Every entry
+in "Open problems — not yet fixed" that the evening's work touched was checked
+against the code, and each one is marked in place, not rewritten.
+
+**CLOSED, still reading as open:**
+- the ledger naming its operator (`recorded_by_admin_user` exists and is written);
+- menu options and values with "no door" (full console CRUD);
+- `undiscard!` with no caller (Restore exists on four resources);
+- the admin policies never consulted (wired 18 Sept; counted 24 Sept).
+
+**CHANGED:**
+- merchant self-service profile editing, listed as out: four fields are now self-serve;
+- the v0 example stamp (1,944 → 3,061).
+
+**Still open, still true, re-checked:**
+- The owner's table: SMS gateway (the adapter defaults to `log`), support phone
+  (defaults to `""`), eight `AWAITING TRANSLATION` strings (still 8),
+  new-courier credit line (still 500).
+- The active order costing two requests (a measurable trigger, not yet reached).
+- A `ready` order saying nothing to the merchant (his Pashto).
+- The ride product (no door, now itemised in "THE RIDE DOOR").
+
+**Added tonight and open, the owner's** (routed through Hamma9901):
+- the detour cap and who pays for it;
+- a maximum delivery distance;
+- whether anyone else will hold a console login;
+- the ride fare rule;
+- what a push may carry out of the country (§F).
