@@ -50,6 +50,22 @@ RSpec.describe Merchants::IssueWeeklyStatementsJob do
     end
   end
 
+  # A statement records what happened in the week; the shop's state on the
+  # morning it is cut does not undo that. Measured 24 Sept 2026: a shop
+  # suspended or removed before the run got no statement, ever, for a week
+  # it had delivered in.
+  { "suspended" => ->(shop) { shop.update!(status: :suspended) },
+    "removed" => ->(shop) { shop.discard! } }.each do |what, stop|
+    it "still issues the week to a shop #{what} before the statement was cut" do
+      travel_to Time.zone.parse("2026-09-21 03:00:00 +0430") do
+        delivered_order(at: Time.zone.parse("2026-09-16 12:00:00 +0430"))
+        stop.call(merchant)
+
+        expect { described_class.perform_now }.to change { MerchantStatement.where(merchant: merchant).count }.by(1)
+      end
+    end
+  end
+
   it "issues nothing for a week with no deliveries" do
     travel_to Time.zone.parse("2026-09-21 03:00:00 +0430") do
       expect { described_class.perform_now }.not_to change { MerchantStatement.count }

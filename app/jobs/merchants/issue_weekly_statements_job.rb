@@ -1,5 +1,14 @@
 module Merchants
-  # Issues last week's statement for every live shop.
+  # Issues last week's statement for every shop that delivered in it.
+  #
+  # ── WHO DELIVERED, NOT WHO IS LIVE NOW ────────────────────────────────────
+  #
+  # This used to walk `Merchant.kept.status_active`. Measured on 24 Sept 2026:
+  # a shop that delivered all week and was suspended — or removed — before the
+  # run got NO statement for that week, ever. Its orders happened, its
+  # commission was taken, and it was left with nothing to check either
+  # against. A statement is a record of the period; the shop's state today
+  # does not change what happened in it.
   #
   # ── THE WEEK IS THE SAME WEEK FOR EVERY SHOP ──────────────────────────────
   #
@@ -37,7 +46,9 @@ module Merchants
       period_start = period_end - (days - 1)
       issued = 0
 
-      Merchant.kept.status_active.find_each do |merchant|
+      delivered_in_period = Order.where(status: :delivered,
+                                        delivered_at: period_start.beginning_of_day..period_end.end_of_day)
+      Merchant.where(id: delivered_in_period.select(:merchant_id)).find_each do |merchant|
         issued += IssueStatement.new(merchant, period_start: period_start, period_end: period_end).call.size
       end
 

@@ -6872,6 +6872,8 @@ lock. Read a single disputed decline with that in mind.
 
 ## WHAT EACH GATE CANNOT SEE — the instrument audit, 24 Sept 2026
 
+**The count: 20 gates examined, 14 blind by construction, 2 of those hiding real bugs, 8 widened.** Fourteen of twenty is a default, not an accident. The shapes repeat: a hand list, one folder, one column type, one line at a time. Each of them reports green.
+
 The rule the audit applied: **an instrument that enumerates what exists cannot
 find what is missing.** For each gate: what it enumerates, its blind spot by
 construction, and whether that blind spot hid anything.
@@ -6885,7 +6887,7 @@ construction, and whether that blind spot hid anything.
 | `every_transition_is_recorded` | single lines, `status` first | status not first, multi-line, enum bangs (`order.delivered!`) | no | whole-file scan added (`d1400b9`) |
 | `no_console_form_writes_a_protected_column` | a hand list of protected columns | an unlisted money column | no | every writable column must be argued for (`ccbda62`) |
 | `currency_on_every_amount` | decimal columns | money in an integer or float column | no | integer and float money flagged (`8c16abe`) |
-| `recurring_schedule` | `app/jobs/dispatch/` | a sweep elsewhere | no (the one elsewhere was scheduled by memory) | every job enqueued or scheduled (`51525d6`) |
+| `recurring_schedule` | `app/jobs/dispatch/` | a sweep elsewhere | no. The one elsewhere, `IssueWeeklyStatementsJob`, IS scheduled (`config/recurring.yml:32`); the gate simply could not have noticed if it were not | every job enqueued or scheduled (`51525d6`) |
 | `index_is_gated_by_the_scope`, `authorization_boundary` | the base controller's `verify_*` callbacks, and routes | explicit `skip_authorization` opt-outs | no: all 14 opt-outs read `current_user`'s own data | recorded, not gated |
 | `every_intervention_is_audited`, `intervention_authorization`, `every_console_page_opens`, `every_console_action_has_a_button` | routes | none of this kind | — | sound |
 | `error_codes` | resolved values | — | — | rebuilt earlier today (`37dba0c`) |
