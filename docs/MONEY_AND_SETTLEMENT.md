@@ -317,6 +317,13 @@ holds — but the code must treat the two cases separately, and the timeout job 
 Everything downstream follows from that column: whether the customer's order code stays the
 same, whether the restaurant is asked to cook again, and whose wallet is debited.
 
+**GUARDED, NOT DECIDED — 24 Sept 2026.** The console's reassign used to swap the courier in both
+columns of the table above. After pickup that told the new courier his pay step was done, sent
+him to the customer with no food, charged him the commission, and dropped the job from the phone
+of the courier holding the food (reproduced over HTTP; `docs/NOTES.md`). It now **refuses once
+`merchant_paid_at` is set** and says why. The after-pickup rule itself — new order, whose wallet
+bears the first advance — is still this section's open question.
+
 ## 9. The reminder system, before any penalty
 
 Before a timeout takes a job away, the platform **contacts the courier** — Hamma9900's

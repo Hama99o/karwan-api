@@ -45,6 +45,26 @@ module Admin
       courier = User.find(params.require(:courier_id))
       before = order.courier_id
 
+      # ── AFTER THE SHOP IS PAID, THIS IS NOT A REASSIGNMENT ─────────────────
+      #
+      # `MONEY_AND_SETTLEMENT.md` §8: *"After pickup, reassignment is not a
+      # reassignment — it is a new order plus a loss."* Swapping the courier
+      # here told the new one his pay step was done — he never paid — sent him
+      # to the customer with no food, charged him the commission, and dropped
+      # the job from the phone of the courier holding the food and out of
+      # pocket for it. Reproduced over HTTP; see the spec.
+      #
+      # What should happen instead is §8's open question and Hamma9900's, so
+      # this refuses and says why rather than guessing. `merchant_paid_at`, not
+      # the status name, because it is the fact §8 turns on.
+      if order.merchant_paid_at.present?
+        holder = order.courier&.display_name || "The courier"
+        return redirect_back fallback_location: admin_order_path(order),
+                             alert: "#{holder} has already paid the shop and is holding the food, so " \
+                                    "moving this order would tell the new courier he had paid when he " \
+                                    "had not. Ring #{holder}, or mark the order failed."
+      end
+
       order.update!(courier: courier)
       # Any live offer is now moot; left alone the expiry sweep would re-offer
       # work an operator has just assigned by hand.

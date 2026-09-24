@@ -6286,3 +6286,41 @@ nothing contacts the courier either; the operator sees the flag and phones.
 A push to the courier on first flag is the natural next step, and it is
 **copy a courier sees and a notification type the app must handle** — a mobile
 change, recorded for that session rather than half-built from here.
+
+
+---
+
+## REASSIGNING AFTER THE SHOP WAS PAID TOLD THE NEW COURIER HE HAD PAID
+
+**24 Sept 2026.** `MONEY_AND_SETTLEMENT.md` §8 says the reassignment fork
+turns on `merchant_paid_at` and that after pickup a reassignment *"is a new
+order plus a loss"*. `Admin::OrdersController#reassign` branched on nothing.
+Reproduced over HTTP with a throwaway spec before changing anything — courier A
+pays the shop 350, an operator reassigns to B, B finishes:
+
+```
+B's steps: go_to_merchant(done), pay_merchant(done), go_to_customer*, collect_and_deliver
+A's job now: nil
+commission charged to: Courier B        A wallet 5000.0   B wallet 4950.0
+A cash held 0.0   B cash held 50.0
+```
+
+B is **told he paid the shop**, which he never did, and sent to the customer
+empty-handed. A's job disappears from his phone while he is holding the food
+and 350 out of pocket, and nothing ties that advance to him any more. B pays
+A's commission, and the platform believes B holds its 50.
+
+**Guarded, not decided.** Reassign now refuses once `merchant_paid_at` is set,
+with an alert saying who holds the food and what to do instead (ring them, or
+mark it failed). Before the shop is paid it is unchanged — *"nothing moved"*.
+The after-pickup rule is §8's and Hamma9900's.
+
+`merchant_paid_at`, not the status name, because it is the fact §8 names. The
+spec's discriminating case is a `ready` order that has been paid beside one
+that has not; planting `order.picked_up?` in place of the column fails exactly
+that example. **A first version of that plant failed all three examples** —
+because it called a method that does not exist and raised. A plant that errors
+is not a plant that discriminates; re-run with the real predicate, it failed
+one, the right one.
+
+No mobile payload changed; the console alone.
