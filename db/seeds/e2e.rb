@@ -604,7 +604,15 @@ seed_section "e2e merchant board states" do
   # `ready` already exists as KQA00003. These are the three the board could not
   # render, each with the timestamps its card reads.
   [
-    { code: "KQA00004", status: :placed,    placed: 3.minutes.ago,  accepted: nil,            preparing: nil },
+    # PLACED NOW, NOT "3 minutes ago". Order::TIMEOUTS[:placed] is two
+    # minutes, so a fixture born three minutes old was already past its own
+    # deadline: the timeout sweep rejected it as `no_answer` at its next run,
+    # and the new-order alarm (placed AND unacknowledged) had nothing to fire
+    # for. Found 24 Sept 2026 — the dev DB's KQA00004 was `rejected`. Even now
+    # it is live for two minutes after seeding, by the domain's own rule; a
+    # flow that must see the alarm should place a fresh order through the API
+    # rather than lean on this.
+    { code: "KQA00004", status: :placed,    placed: Time.current,   accepted: nil,            preparing: nil },
     { code: "KQA00005", status: :accepted,  placed: 12.minutes.ago, accepted: 9.minutes.ago,  preparing: nil },
     { code: "KQA00006", status: :preparing, placed: 20.minutes.ago, accepted: 17.minutes.ago, preparing: 14.minutes.ago },
     # ── TWO MORE, SO A TABLET BOARD IS NOT HALF EMPTY ────────────────────
@@ -625,7 +633,12 @@ seed_section "e2e merchant board states" do
       delivery_latitude: 34.5290, delivery_longitude: 69.1610,
       delivery_landmark_note: "QA fixture — board state #{row[:status]}",
       customer_phone: board_customer.phone,
-      placed_at: row[:placed], accepted_at: row[:accepted], preparing_at: row[:preparing]
+      placed_at: row[:placed], accepted_at: row[:accepted], preparing_at: row[:preparing],
+      # A re-run revives an order the timeout sweep rejected; without these it
+      # would be `placed` while still claiming it was rejected for no answer,
+      # and an acknowledgement from the last device run would silence the alarm.
+      rejected_at: nil, rejection_reason: nil,
+      merchant_acknowledged_at: nil, merchant_acknowledged_by: nil
     )
     order.save!
 
