@@ -88,6 +88,38 @@ class Api::V1::Customers::OrdersController < Api::V1::BaseController
     return answer_repeat(existing, fingerprint) if existing
 
     merchant = Merchant.kept.status_active.find(order_params[:merchant_id])
+
+    # ── HE PAYS NO MORE THAN HE WAS SHOWN ──────────────────────────────────
+    #
+    # Placement re-prices from scratch, so a shop raising a price between the
+    # quote and the tap placed the order at the new figure: measured 24 Sept
+    # 2026, 518.56 shown, 768.56 placed, 201, nothing said — and a courier
+    # at the door asking for money nobody had agreed to. When the app sends
+    # what its confirm screen showed, a HIGHER fresh price is refused with the
+    # new quote, and nothing is placed; he confirms again. A LOWER one places
+    # at the lower figure — refusing a happy surprise protects nobody — and
+    # the shown amount is kept on the order so the console can see they
+    # differed.
+    #
+    # Considered and not done: a quote age limit. A price he has stared at
+    # for ten minutes and one that changed as he tapped are both answered
+    # honestly by this — the check is against the price now, not the age of
+    # the screen.
+    #
+    # Checked together with the Idempotency-Key: a refusal places nothing, so
+    # the retry under the same key simply places; and the expected amount is
+    # not part of "the same request" (Orders::RequestFingerprint) — it says
+    # what he agreed to pay, not what he ordered.
+    if (shown = expected_amount)
+      fresh = quote_for(merchant)
+      if fresh.amounts[:customer_total] > shown
+        return render json: {
+          error: "the price has gone up since it was shown", code: "price_changed",
+          quote: Customers::QuoteSerializer.render_as_hash(fresh)
+        }, status: :conflict
+      end
+    end
+
     order = Orders::PlaceService.new(
       delivery_address: own_delivery_address,
       customer: current_user, merchant: merchant, lines: cart_lines,
@@ -97,10 +129,13 @@ class Api::V1::Customers::OrdersController < Api::V1::BaseController
       customer_phone: order_params[:customer_phone],
       notes: order_params[:notes],
       service_tier: tier_param,
-      idempotency_key: key, request_fingerprint: fingerprint
+      idempotency_key: key, request_fingerprint: fingerprint,
+      shown_amount_to_pay_in_cash: expected_amount
     ).call
 
     render_blue(Customers::OrderSerializer, order, view: :detailed, status: :created)
+  rescue InvalidExpectedAmount
+    render_unprocessable_entity("expected_amount_to_pay_in_cash must be a number", code: "invalid_expected_amount")
   rescue ActiveRecord::RecordNotUnique
     # Two attempts at once: both found nothing, and the index let one insert.
     # The other is a repeat of it, answered like any other.
@@ -181,6 +216,28 @@ class Api::V1::Customers::OrdersController < Api::V1::BaseController
       code: "idempotency_key_reused",
       order: Customers::OrderSerializer.render_as_hash(existing, view: :detailed)
     }, status: :conflict
+  end
+
+  # Nil when not sent (older builds). A value that is not a number is a
+  # client bug, answered as one rather than guessed at.
+  def expected_amount
+    raw = params[:expected_amount_to_pay_in_cash]
+    return nil if raw.blank?
+
+    @expected_amount ||= BigDecimal(raw.to_s)
+  rescue ArgumentError
+    raise InvalidExpectedAmount
+  end
+
+  InvalidExpectedAmount = Class.new(StandardError)
+
+  def quote_for(merchant)
+    Orders::QuoteService.new(
+      merchant: merchant, lines: cart_lines,
+      delivery_latitude: order_params[:delivery_latitude],
+      delivery_longitude: order_params[:delivery_longitude],
+      service_tier: tier_param
+    ).call
   end
 
   def request_fingerprint

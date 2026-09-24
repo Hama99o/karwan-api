@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_24_210000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_24_220000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -445,6 +445,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_24_210000) do
     t.datetime "settled_at"
     t.decimal "shortage_multiplier", precision: 5, scale: 3, default: "1.0", null: false
     t.decimal "shortage_multiplier_requested", precision: 5, scale: 3, default: "1.0", null: false
+    t.decimal "shown_amount_to_pay_in_cash", precision: 12, scale: 2
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", null: false
     t.index ["code"], name: "index_orders_on_code", unique: true

@@ -37,7 +37,8 @@ module Orders
     def initialize(customer:, merchant:, lines:, delivery_latitude:, delivery_longitude:,
                    delivery_address: nil,
                    delivery_landmark_note: nil, customer_phone: nil, notes: nil,
-                   service_tier: :normal, idempotency_key: nil, request_fingerprint: nil)
+                   service_tier: :normal, idempotency_key: nil, request_fingerprint: nil,
+                   shown_amount_to_pay_in_cash: nil)
       @customer = customer
       @merchant = merchant
       @lines = Array(lines)
@@ -60,6 +61,8 @@ module Orders
       # two simultaneous attempts into one order. See `RequestFingerprint`.
       @idempotency_key = idempotency_key
       @request_fingerprint = request_fingerprint
+      # What the confirm screen said, kept beside what is charged.
+      @shown_amount_to_pay_in_cash = shown_amount_to_pay_in_cash
     end
 
     def call
@@ -142,6 +145,7 @@ module Orders
           notes: @notes,
           idempotency_key: @idempotency_key,
           request_fingerprint: @request_fingerprint,
+          shown_amount_to_pay_in_cash: @shown_amount_to_pay_in_cash,
           placed_at: Time.current
         )
       )

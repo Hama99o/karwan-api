@@ -265,15 +265,16 @@ after the countdown — the job went to somebody else and another will come),
 `not_cancellable` (a customer cancels as the merchant accepts — the restaurant
 has started cooking), and `outside_service_area`.
 
-`ErrorCodes.reachable_in_normal_use` returns the **56** that are not OTP,
-malformed requests or server state. The twelve it excludes are `otp_*` (switched
+`ErrorCodes.reachable_in_normal_use` returns the **57** that are not OTP,
+malformed requests or server state. The thirteen it excludes are `otp_*` (switched
 off), `bad_request`, `bad_platform`, `not_found`, `registration_invalid`,
 `pending_migration`, `invalid_idempotency_key` (a client bug, like
 `bad_request`; its sibling `idempotency_key_reused` is a customer's real
 situation and is counted), and `invalid_location`: a device fix that cannot be
 a place, refused by `POST /courier/shift/location` and never shown to anybody,
 because the app reports positions fire-and-forget and the next real fix
-follows within seconds.
+follows within seconds; and `invalid_expected_amount`, a client bug (its sibling
+`price_changed` is the customer's real situation, and is counted).
 
 > **This number said 25 for an hour**, written when the vocabulary was 35 and
 > not revisited when twenty-five dynamic codes were folded in. It is the count
@@ -337,6 +338,26 @@ repeat: 201 with the same order, or 409 if its body differed.
 
 **Error codes** `idempotency_key_reused` and `invalid_idempotency_key` are in
 `ErrorCodes::ORDERING`.
+
+## E2 · HE PAYS NO MORE THAN HE WAS SHOWN — `expected_amount_to_pay_in_cash`
+
+**24 Sept 2026.** Placement re-prices from scratch. So a shop raising a price
+between the quote and the tap placed the order at the new figure (518.56 shown,
+768.56 placed, 201).
+
+- **Send** `expected_amount_to_pay_in_cash` on `POST /customer/orders`: the
+  `amount_to_pay_in_cash` the confirm screen showed. It's optional; without it
+  the order places as before.
+- **Higher now** → **409** `{ error, code: "price_changed", quote: … }`, with the
+  quote in the same shape as `/orders/quote`, and **nothing placed**. Show him
+  the new amount; when he confirms, send it again with the new figure.
+- **Lower now** → **201** at the lower figure. The shown amount is kept on the
+  order (`shown_amount_to_pay_in_cash`, console only), so the difference is
+  visible.
+- **Not a number** → 422 `invalid_expected_amount`.
+- **With the `Idempotency-Key` (§E):** a 409 placed nothing, so the retry under
+  the SAME key places normally. The expected amount isn't part of "the same
+  request": it's what he agreed to pay, not what he ordered.
 
 ## F · PUSH NOTIFICATIONS — what the server sends, and what a phone would show
 
