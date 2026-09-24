@@ -97,9 +97,31 @@ a reason code, not a strike.
 
 **B. The restaurant cancels. THE DAMAGING ONE.** The customer has already committed. The
 **sold-out toggle already exists** — endpoint and board control — and prevents most of it: a
-restaurant that marks the qabuli palaw gone never takes the order. What is missing is that
+restaurant that marks the qabuli palaw gone never takes the order. ~~What is missing is that
 **cancellation reasons should be tracked per restaurant**, so a restaurant cancelling a fifth of
-its orders is visible before its customers leave.
+its orders is visible before its customers leave.~~
+
+**BUILT ON 24 SEPT 2026 — `Merchants::Reliability`.** Per shop and across all shops, over 30
+days: what it refused and why, what it never answered, and what it took and then dropped. Three
+figures rather than one, because *"a shop that answers and says no is a supply problem and a
+shop that never answers is a broken tablet"* — different phone calls. The rate carries its own
+denominator on every row: `40.0% (4 of 10 orders)`, because a rate alone is unarguable.
+
+It is on **the reports page as a ranking** — "shops to ring" — and on each shop's own console
+page. The ranking is the one this section asked for: a figure on one shop's page is only visible
+to somebody who already suspects that shop. Shops under five orders are left out; one bad
+evening at a new shop is not a reason to spend a relationship.
+
+**No penalty attaches to any of it**, per C below. This is a list of conversations, not of
+punishments.
+
+**And one thing this work found rather than built:** `Order::TRANSITIONS` gives `cancelled` to a
+`merchant_owner` from `accepted` and from `preparing` — **exactly case C, "including while
+cooking" — and the merchant API has no route for it.** `PRODUCT.md`'s restaurant screen offers
+accept, reject and ready, so today a shop that runs out mid-cook must ring the office and an
+operator cancels from the console. That is why an admin cancellation IS counted against the
+shop here. Whether the merchant app should get its own cancel button is Hamma9900's, and it is
+in `docs/NOTES.md` rather than assumed either way.
 
 **C. A restaurant cancels, including while cooking. DECIDED — no consequence, and the message
 does the work.** Hamma9900: *"when restaurant cancel it, it's done, nothing will happen — but we

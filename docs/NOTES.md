@@ -5935,3 +5935,86 @@ Clearing the backlog took the machine from **11 GB free to 18 GB**.
 Neither correction makes the finding less right. The symptom was real, found by
 somebody watching a graph this session was not watching, and it was the largest
 single thing wrong with this checkout.
+
+
+---
+
+## WHICH SHOP TO RING — §5-B BUILT, AND THE ROUTE IT TURNS OUT NOBODY HAS
+
+**24 Sept 2026.** `TRUST_AND_REPUTATION.md` §5-B named its own gap and called the
+case **THE DAMAGING ONE**: *"cancellation reasons should be tracked per
+restaurant, so a restaurant cancelling a fifth of its orders is visible before
+its customers leave."* §5-C restated it: *"Visibility is not a penalty, and the
+data is already recorded."*
+
+The data was recorded and **nothing read it per shop.**
+`Admin::ReportsController` counts reasons across the platform, which answers
+*why do orders fail* and cannot answer *which shop do I ring* — and with ten
+restaurants he knows personally, the second is the one Hamma9900 acts on.
+
+### Three figures, not one
+
+`Merchants::Reliability` keeps them apart for the reason the platform table
+already keeps them apart:
+
+```
+refused                    the shop decided — out of stock, too busy, closing
+never_answered             nobody touched the tablet; the timeout closed it
+cancelled_after_accepting  taken, then dropped — §5-B's own case
+```
+
+*"A shop that answers and says no is a supply problem; a shop that never answers
+is a broken tablet."* Different phone calls, so different columns.
+
+The rate carries its own denominator everywhere it appears — `40.0% (4 of 10
+orders)` — because a rate alone is unarguable, which is the one thing a report
+must not be. Same rule as the settlement screen showing expected AND counted.
+
+**Two readings, one set of definitions.** `.for(shop)` for the console page,
+`.ranked` for the report, both reading the same three scopes. Writing the
+ranking as its own queries is how a report and a shop's page come to disagree
+about a real restaurant, and two answers to one question is the defect this repo
+keeps finding. A spec asserts they agree shop for shop, and another asserts the
+ranking's query count does not grow with the number of shops — four grouped
+queries, not one per merchant, which is the shape that cost the public catalog
+102 queries.
+
+### THE FINDING: §5-C DESCRIBES A FLOW WITH NO ROUTE
+
+`Order::TRANSITIONS` gives `cancelled` to a **`merchant_owner`** from `accepted`
+and from `preparing`. That is §5-C word for word — *"a restaurant cancels,
+including while cooking"* — and **the merchant API has no route for it.**
+`PRODUCT.md`'s restaurant screen offers accept, reject and ready; the state
+machine offers more than the app does.
+
+So today a shop that runs out mid-cook rings the office and an operator cancels
+from the console. **That is why an admin cancellation is counted against the
+shop** in this service rather than filtered out: excluding it would make the one
+case §5-C actually describes invisible, and after
+`status_transitions.admin_user_id` an operator's cancellation is distinguishable
+from a timeout rather than lumped in with it.
+
+**Whether the merchant app should get its own cancel button is Hamma9900's** —
+`HOW_WE_WORK.md` reserves *"product behaviour a user sees that isn't already
+specified"*. Recorded rather than assumed either way. If it is added, one line
+changes here: an operator's cancellation and the shop's own become two columns
+rather than one.
+
+### Two plants that came back green, and what each was missing
+
+1. **The actor filter on refusals.** Removing `by_merchant_owner` left every
+   example green, because a timeout writes `no_answer` — not one of the shop's
+   four reasons — so the REASON column alone happened to separate them. The
+   filter guards a different case the state machine already allows: an admin may
+   reject too, and an operator rejecting on the phone writes a MERCHANT reason
+   with an operator as the actor. Added that as the discriminating input; the
+   plant now fires.
+2. **"Leaves out a shop with too few orders."** Asserting only that a name is
+   ABSENT stayed green when the whole report section was deleted. **A negative
+   assertion on a page proves nothing on its own**, because the commonest reason
+   a name is missing is that nothing rendered. Now a shop that must be listed is
+   built alongside it, and the plant fires.
+
+Both are the same lesson in two costumes, and both were found by planting rather
+than by reading. Nothing here touches a payload the mobile app reads, so the
+handover manifest is unchanged at thirteen.
