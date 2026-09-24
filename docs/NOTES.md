@@ -6765,3 +6765,42 @@ walked through it this morning. Rebuilt:
 Three plants, each red: a new undeclared positional code (no_courier_profile's
 exact shape), `role_refusal` gaining an undeclared word, and this morning's
 `job_taken` sent through an expression.
+
+## THE CONSOLE'S POLICIES, COUNTED FROM THE ROUTES — 6 OF 108
+
+**24 Sept 2026.** The 18 Sept sweep enumerated POLICIES and asked which were
+called. `reimburse` credited a courier's wallet with no policy method at all, so
+it was invisible to that sweep. An instrument that starts from what is declared
+cannot see what was never declared, and those are the likeliest unprotected actions.
+
+`spec/requests/admin/every_action_consults_a_policy_spec.rb` starts from the
+route table instead. It drives all 108 console actions as a signed-in admin
+(excluding the 3 login/logout routes, which have no identity to ask about) and
+asks Pundit afterwards whether a policy was consulted.
+
+**6 do:** wallet `top_up` `adjust` `reimburse` `settle`; courier profile
+`approve` `reject`.
+
+**102 do not.** 87 are Administrate's generated CRUD on 21 dashboards, where
+`authorize_resource` is a no-op because `Administrate::Punditize` is not
+included. 15 are hand-written interventions with no `authorize` line: orders
+`reassign cancel fail redispatch`; merchants `open_merchant close_merchant
+approve suspend restore`; courier profiles `ask_for_more take_off_shift`; users
+`suspend reinstate restore revoke_sessions`.
+
+**Not exploitable today, and that is a coincidence of who has accounts.** Every
+console user is an admin with every power, so a missing policy and `= admin?`
+behave the same. The first limited account (a cashier who records deposits, a
+support agent who reads orders) gets yes from all 102.
+
+What would close it, not built: include `Administrate::Punditize` with a policy
+per dashboard, and `authorize` in the 15 interventions. What each limited role
+may do is the owner's decision, and nothing should be built before a second
+access level is actually wanted. The spec keeps the list honest in both directions:
+a new unprotected action fails, and a listed action that gains a policy fails
+until it is removed from the list.
+
+**The double-submit question, answered by reading the bundle:** every console
+form carries `data: { turbo: false }`, and Administrate 1.0's bundle has no
+rails-ujs, so `data-disable-with` has no reader. A double click on
+"Top up" sends two POSTs. One click away, not hard to hit.
