@@ -6240,3 +6240,49 @@ with one person is §5-E's fraud shape and not a rate at all. `.for` and
 `.ranked` read the same two definitions; three grouped queries whatever the
 fleet size, asserted by count. Six plants, each asserted to have landed, all
 red — including an N+1 planted in the loop.
+
+
+---
+
+## THE MACHINE WAS WRITING 84% OF THE AUDIT LOG
+
+**24 Sept 2026.** Found while reading `MONEY_AND_SETTLEMENT.md` §9 (*"ask,
+wait, then reassign"*) against `Dispatch::JobTimeoutsJob`. Past-pickup jobs
+are never moved by the machine — they are flagged for a human, which is right
+— but `#flag!` wrote its `*.overdue` audit row on **every run**, and the job
+runs **every minute**. Nothing deduplicated it and nothing reads the action;
+the board uses the `overdue` SQL scope.
+
+Measured, not estimated: on the dev database **784 of 935 audit rows** were
+these flags, over 391 jobs — at most two each, because dev only runs the job
+now and then. In production an order stuck three hours in `picked_up` would
+write ~180. The audit log is one-way door 5's page — *who reassigned, who
+cancelled, who credited a wallet* — and the machine's repeats bury exactly
+those rows.
+
+**Now once per job per stuck state**: a row is written unless one already
+exists for this job since it entered its current state. The same job stuck
+again after moving on is flagged again, because that is a new fact.
+
+### Three plants came back green, and each said something different
+
+1. **Deleting the state comparison** and **deleting the entered-since window**
+   were each green alone: either one separates two stuck episodes, because
+   states never re-enter. Two conditions where one suffices is a check that
+   cannot fail, so the status comparison is gone and the window stays — it is
+   the one that stays right if a state ever could re-enter.
+2. **Deleting the per-job condition** was green because the example paired an
+   order with a trip, and the ACTION name (`order.overdue` / `trip.overdue`)
+   already told them apart. Two orders now; the plant fires.
+
+The spec was run against the unfixed code first: 3 examples, 3 failures, the
+first reporting 4 rows for 4 runs.
+
+### Still open from §9, and not built here
+
+*"Before a timeout takes a job away, the platform contacts the courier."* No
+timeout takes a job away past pickup, so nothing is taken silently — but
+nothing contacts the courier either; the operator sees the flag and phones.
+A push to the courier on first flag is the natural next step, and it is
+**copy a courier sees and a notification type the app must handle** — a mobile
+change, recorded for that session rather than half-built from here.

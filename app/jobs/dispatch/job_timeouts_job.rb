@@ -82,7 +82,25 @@ module Dispatch
 
     # Flagged, not moved. An audit row is what surfaces it on the admin board
     # without a machine making a decision that costs somebody money.
+    #
+    # ── ONCE PER STUCK STATE, NOT ONCE A MINUTE ───────────────────────────
+    #
+    # This job runs every minute, and this used to write a row on every run
+    # for every job still past its timeout — 784 of 935 audit rows on the dev
+    # database, and ~180 for one order stuck three hours in production. The
+    # audit log is where a human looks for who reassigned, cancelled or
+    # credited; the machine's repeats buried them. The board itself reads the
+    # `overdue` SQL scope, not these rows, so nothing is lost by writing one.
+    #
+    # "Already flagged" is THIS job, since it ENTERED its current state. The
+    # same job stuck again after moving on is a new fact and is flagged again.
+    # The window alone does that — no status comparison as well: states never
+    # re-enter today, so a second condition could not remove a row the first
+    # had kept, and a check that cannot fail is worse than none. The window is
+    # also the one that stays right if a job ever could re-enter a state.
     def flag!(job)
+      return if already_flagged?(job)
+
       AuditLog.record!(
         action: "#{job.class.name.downcase}.overdue", actor: nil, target: job,
         details: {
@@ -91,6 +109,11 @@ module Dispatch
           note: "needs a human: money or goods are already committed"
         }
       )
+    end
+
+    def already_flagged?(job)
+      AuditLog.where(action: "#{job.class.name.downcase}.overdue", target: job,
+                     created_at: job.state_entered_at..).exists?
     end
   end
 end
