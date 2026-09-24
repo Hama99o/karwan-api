@@ -117,6 +117,14 @@ class Api::V1::Merchants::OrdersController < Api::V1::Merchants::BaseController
 
     yield if block_given?
 
+    # ANY ACTION ON THE BOARD IS PROOF SOMEBODY SAW IT. The new-order alarm
+    # calls `acknowledge`, but a cook may tap Accept (or Reject) straight from
+    # it, and before this an order moved that way kept `merchant_acknowledged_at`
+    # empty forever — "when did a human first see it" had no answer for the
+    # very orders somebody acted on fastest. First acknowledgement still wins:
+    # an order already acknowledged keeps its earlier time.
+    @order.acknowledge_by_merchant!(current_user)
+
     # Accepting is what makes an order dispatchable, so dispatch starts here
     # rather than on a timer. Offering inline keeps the courier's phone ringing
     # while the kitchen is still putting the lid on.

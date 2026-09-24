@@ -100,4 +100,41 @@ RSpec.describe "A merchant acknowledges an incoming order", type: :request do
       expect(Order.awaiting_acknowledgement).not_to include(order)
     end
   end
+
+  # ── ACTING ON IT IS SEEING IT ────────────────────────────────────────────
+  #
+  # The alarm panel offers Accept on the panel itself, so a busy kitchen acts
+  # in one tap. That tap must answer "when did a human first see this" too —
+  # before, an order accepted without the separate acknowledge call kept
+  # `merchant_acknowledged_at` empty forever.
+  describe "a board action without the acknowledge call" do
+    %w[accept reject].each do |action|
+      it "records the acknowledgement when the shop taps #{action.capitalize} straight away" do
+        params = action == "reject" ? { reason: "too_busy" } : {}
+        post "/api/v1/merchant/orders/#{order.id}/#{action}", params: params, headers: auth
+
+        expect(order.reload.merchant_acknowledged_at).to be_present
+        expect(order.merchant_acknowledged_by).to eq(owner)
+      end
+    end
+
+    it "keeps an earlier acknowledgement's time rather than replacing it with the accept's" do
+      post "/api/v1/merchant/orders/#{order.id}/acknowledge", headers: auth
+      first = order.reload.merchant_acknowledged_at
+
+      travel 3.minutes do
+        post "/api/v1/merchant/orders/#{order.id}/accept", headers: auth
+      end
+
+      expect(order.reload.merchant_acknowledged_at).to eq(first)
+    end
+
+    it "does not record one when the action is refused" do
+      order.update_columns(status: Order.statuses[:cancelled])
+
+      post "/api/v1/merchant/orders/#{order.id}/accept", headers: auth
+
+      expect(order.reload.merchant_acknowledged_at).to be_nil
+    end
+  end
 end
