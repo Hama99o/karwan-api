@@ -9,6 +9,16 @@
 <section class="karwan-actions">
   <h2>Shop — <%= merchant.status.humanize %>, <%= merchant.is_open? ? "OPEN" : "closed" %><%= ", deleted" if merchant.discarded? %></h2>
 
+  <%# RUNBOOK step 5: approve, then open. A shop that is open and not approved
+      is open to nobody — `Merchant.listed` is active shops only — and the
+      page used to show the Open button with no hint of that. %>
+  <% unless merchant.discarded? || merchant.status_active? %>
+    <p class="karwan-actions__why">
+      Not shown to customers: this shop is <%= merchant.status.humanize.downcase %>.
+      Approve it first<%= " — opening it alone changes nothing a customer sees" if merchant.is_open? %>.
+    </p>
+  <% end %>
+
   <% if merchant.discarded? %>
     <%= button_to "Restore", restore_admin_merchant_path(merchant), method: :patch,
                   form: { data: { turbo: false } }, class: "button" %>

@@ -179,6 +179,16 @@ RSpec.describe "every intervention can be pressed", type: :request do
     expect(runbook).to include("**Open now**").and include("**Close now**")
   end
 
+  it "says on an unapproved shop's page that customers cannot see it" do
+    pending_shop = create(:merchant, status: :pending, is_open: true)
+    get "/admin/merchants/#{pending_shop.id}"
+    pending_page = CGI.unescapeHTML(response.body)
+    get "/admin/merchants/#{merchant.id}"
+
+    expect(pending_page).to include("Not shown to customers").and include("opening it alone changes nothing")
+    expect(CGI.unescapeHTML(response.body)).not_to include("Not shown to customers")
+  end
+
   describe "a shop" do
     it "is closed on its behalf, and opened again" do
       merchant.update!(is_open: true)
