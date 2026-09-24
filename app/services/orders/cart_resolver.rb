@@ -24,7 +24,21 @@ module Orders
     def resolve
       raise PlaceService::EmptyCart, "an order needs at least one item" if @lines.empty?
 
-      @lines.map { |line| resolve_line(line) }
+      # EVERY unavailable line, not the first: a cart with two sold-out dishes
+      # used to name one, so the customer removed it and was refused again.
+      unavailable = []
+      resolved = @lines.filter_map do |line|
+        resolve_line(line)
+      rescue PlaceService::ItemUnavailable => e
+        unavailable << e
+        nil
+      end
+      if unavailable.any?
+        raise PlaceService::ItemUnavailable.new(unavailable.map(&:message).join("; "),
+                                                catalog_item_ids: unavailable.flat_map(&:catalog_item_ids).uniq)
+      end
+
+      resolved
     end
 
     def items_total(resolved = resolve)
@@ -35,8 +49,11 @@ module Orders
 
     def resolve_line(line)
       item = @merchant.catalog_items.kept.find_by(id: line[:catalog_item_id])
-      raise PlaceService::ItemUnavailable, "item #{line[:catalog_item_id]} is not on this menu" if item.nil?
-      raise PlaceService::ItemUnavailable, "#{item.name} is sold out" unless item.is_available?
+      if item.nil?
+        raise PlaceService::ItemUnavailable.new("item #{line[:catalog_item_id]} is not on this menu",
+                                                catalog_item_ids: [ line[:catalog_item_id].to_i ])
+      end
+      raise PlaceService::ItemUnavailable.new("#{item.name} is sold out", catalog_item_ids: [ item.id ]) unless item.is_available?
 
       quantity = line[:quantity].to_i
       raise PlaceService::InvalidOptions, "quantity must be at least 1" if quantity < 1
@@ -65,7 +82,10 @@ module Orders
       raise PlaceService::InvalidOptions, "options #{unknown.join(', ')} do not belong to #{item.name}" if unknown.any?
 
       sold_out = values.reject(&:is_available?)
-      raise PlaceService::ItemUnavailable, "#{sold_out.map(&:name).join(', ')} unavailable" if sold_out.any?
+      if sold_out.any?
+        raise PlaceService::ItemUnavailable.new("#{sold_out.map(&:name).join(', ')} unavailable",
+                                                catalog_item_ids: [ item.id ])
+      end
 
       item.options.each { |option| validate_selection(option, values) }
 

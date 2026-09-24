@@ -282,6 +282,13 @@ follows within seconds; and `invalid_expected_amount`, a client bug (its sibling
 > cosmetic error. It is now asserted in `spec/config/api_vocabulary_spec.rb`,
 > which is what caught it.
 
+**`item_unavailable` names its lines (24 Sept 2026).** The 422 from
+`/customer/orders/quote` and `/customer/orders` carries `catalog_item_ids`:
+every cart line that can't be ordered (sold out, a chosen option sold out, or
+no longer on the menu), not only the first one met. The cart can mark the
+dishes by id. `error` is still English prose for logs, and a client must not
+parse it.
+
 ## E · PLACING AN ORDER AT MOST ONCE — the `Idempotency-Key` contract
 
 **24 Sept 2026.** The phone blocks a double tap, but it cannot know whether a

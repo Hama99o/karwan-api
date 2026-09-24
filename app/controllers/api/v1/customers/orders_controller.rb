@@ -60,7 +60,7 @@ class Api::V1::Customers::OrdersController < Api::V1::BaseController
 
     render_blue(Customers::QuoteSerializer, result)
   rescue Orders::PlaceService::Error, Pricing::DeliveryQuote::Error => e
-    render_unprocessable_entity(e.message, code: error_code_for(e))
+    render_unprocessable_entity(e.message, code: error_code_for(e), details: error_details_for(e))
   end
 
   # ── PLACED AT MOST ONCE, HOWEVER MANY TIMES IT IS SENT ──────────────────
@@ -144,7 +144,7 @@ class Api::V1::Customers::OrdersController < Api::V1::BaseController
 
     answer_repeat(existing, fingerprint)
   rescue Orders::PlaceService::Error, Pricing::DeliveryQuote::Error => e
-    render_unprocessable_entity(e.message, code: error_code_for(e))
+    render_unprocessable_entity(e.message, code: error_code_for(e), details: error_details_for(e))
   end
 
   # Where the order is, for the map: the merchant's pin, their own pin, and the
@@ -323,6 +323,12 @@ class Api::V1::Customers::OrdersController < Api::V1::BaseController
     return nil if id.blank?
 
     current_user.addresses.kept.find_by(id: id)
+  end
+
+  def error_details_for(error)
+    return {} unless error.is_a?(Orders::PlaceService::ItemUnavailable)
+
+    { catalog_item_ids: error.catalog_item_ids }
   end
 
   def error_code_for(error)

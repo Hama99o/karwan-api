@@ -108,7 +108,9 @@ class ApplicationController < ActionController::API
   # it, and an English sentence is still the right thing for a developer and for
   # an Administrate flash. Nothing has to change on the client for it to keep
   # working; the new key is there when the screens want it.
-  def render_unprocessable_entity(record_or_message, code: nil)
+  # `details:` — machine-readable fields beside the code (e.g. which cart lines
+  # were unavailable), so no client ever parses the English `error`.
+  def render_unprocessable_entity(record_or_message, code: nil, details: {})
     body = if record_or_message.respond_to?(:errors)
              {
                errors: record_or_message.errors.full_messages,
@@ -120,6 +122,7 @@ class ApplicationController < ActionController::API
              { error: record_or_message.to_s }
     end
     body[:code] = code if code.present?
+    body.merge!(details) if details.present?
 
     render json: body, status: :unprocessable_content
   end

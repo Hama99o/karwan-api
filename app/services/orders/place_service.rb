@@ -16,7 +16,17 @@ module Orders
   class PlaceService
     Error = Class.new(StandardError)
     MerchantUnavailable = Class.new(Error)
-    ItemUnavailable = Class.new(Error)
+    # Carries WHICH lines, as ids, so the cart can mark the sold-out dish rather
+    # than the customer being told "something here is unavailable" and left to
+    # find which of six it was — or the app parsing an English sentence.
+    class ItemUnavailable < Error
+      attr_reader :catalog_item_ids
+
+      def initialize(message = nil, catalog_item_ids: [])
+        super(message)
+        @catalog_item_ids = catalog_item_ids
+      end
+    end
     InvalidOptions = Class.new(Error)
     EmptyCart = Class.new(Error)
     # NOBODY ON THE PLATFORM OWNS A VEHICLE THAT COULD CARRY THIS. A permanent
