@@ -182,15 +182,33 @@ module Dispatchable
     return false unless can_transition_to?(to_status, actor_role: actor_role)
 
     from = status
+    moved = false
     transaction do
+      # ── TWO MOVES AT ONCE: THE SECOND ONE SEES THE FIRST ──────────────────
+      #
+      # `can_transition_to?` reads THIS copy's status, so two requests that
+      # loaded the job together both passed it. Reproduced 2026-09-24: a
+      # shop's accept pressed twice wrote two `accepted` rows, and the second
+      # request died on the offers' unique sequence index — a 500 on the
+      # tablet for an order that had in fact been accepted. The courier's
+      # "delivered" did the same until 3c731d3.
+      #
+      # So the row is locked and its STORED status compared with ours. The
+      # second request waits here for the first to commit, then finds the
+      # status moved and is refused like any stale client. Read with `pick`,
+      # not `lock!`: `lock!` reloads, and would throw away anything the caller
+      # set on this record before asking to move it.
+      next unless self.class.lock.where(id: id).pick(:status) == from
+
       update!(status: to_status, "#{to_status}_at": Time.current)
       transitions.create!(
         from_status: from, to_status: to_status.to_s,
         actor: actor, admin_user: admin_user, actor_role: actor_role, reason: reason,
         **courier_position_at_the_moment(actor, actor_role)
       )
+      moved = true
     end
-    true
+    moved
   end
   private
 
