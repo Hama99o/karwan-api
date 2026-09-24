@@ -210,6 +210,10 @@ class Setting < ApplicationRecord
     "top_up_bank_name"       => { type: :string, default: "", description: "Bank shown in a courier's top-up instructions" },
     "top_up_account_number"  => { type: :string, default: "", description: "Account number shown in a courier's top-up instructions" },
 
+    # Off until karwan-mobile labels `fake_note` in ps, fa and en. The reason is
+    # stored and counted either way; this only decides whether the courier's
+    # problem sheet OFFERS it. See `Dispatchable.offered_failure_reasons`.
+    "fake_note_reason_offered" => { type: :boolean, default: "false", description: "Whether the courier app's problem sheet offers 'fake note' (a counterfeit refused at the door). Switch on in the same release as the app's labels for it." },
     "support_phone"          => { type: :string,  default: "", description: "Shown in all three apps. Delivery is an ops business with an app attached." },
 
     # THE OTP MESSAGE, per locale. Settings rather than Ruby constants for two

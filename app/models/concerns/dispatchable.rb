@@ -94,6 +94,23 @@ module Dispatchable
       self::JOB_KIND
     end
 
+    # ── THE PROBLEM REASONS THE COURIER APP IS OFFERED ────────────────────
+    #
+    # All of them except the ones the app cannot yet LABEL. `problem_reasons`
+    # is a list of bare keys the app translates itself, so a new key reaches a
+    # courier as the raw string `fake_note` on his problem sheet until the app
+    # ships its words. So a new reason is recorded and counted from day one,
+    # and OFFERED only once `fake_note_reason_offered` is switched on — which
+    # the mobile side does in the same release as its labels.
+    #
+    # The serializer and `couriers/jobs#problem` both read this, so the sheet
+    # and the endpoint cannot disagree. The console's "mark failed" offers every
+    # reason: an operator hearing it on the phone is not waiting for a label.
+    def offered_failure_reasons
+      held_back = Setting.fetch("fake_note_reason_offered") ? [] : %w[fake_note]
+      failure_reasons.keys - held_back
+    end
+
     def terminal_status_values
       self::STATUSES.values_at(*self::TERMINAL)
     end

@@ -166,7 +166,7 @@ module Couriers
       # reaching admin. Sent as keys so the app renders them in the right
       # language.
       field :problem_reasons do |job|
-        (job.is_a?(Order) ? Order.failure_reasons : Trip.failure_reasons).keys
+        job.class.offered_failure_reasons
       end
     end
   end

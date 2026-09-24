@@ -5274,6 +5274,7 @@ section becomes another true sentence nothing enforces.
 | 12 | **`bring_change_for` and `suggested_notes` are STRINGS** (`"500.0"`) | **type change** — were bare numbers |
 | 13 | **a ride's `complete_and_collect` carries `bring_change_for`** | new field on an existing step |
 | 14 | **`POST /courier/offers/:id/accept` can answer 422 `job_taken`** — the job was given to someone else by hand while the offer was live | new error code; same sentence as `offer_expired` |
+| 15 | **problem reason `fake_note`** on deliveries and rides — held back from `problem_reasons` until the `fake_note_reason_offered` Setting is on | new value in an existing list, **dormant until the app switches it on** |
 
 **11, 12 and 13 are the newest and 12 is the one that breaks silently**: a client
 comparing or formatting those two fields with a numeric helper was already
@@ -6532,3 +6533,38 @@ a rule removed, a stray stylesheet, a button removed, a new route with no form
 **Still true by name only, and not gated here:** the error-code gate accounts
 for `code:` EXPRESSIONS by name (`"conflict.to_s" => "Eligibility::REASONS"`)
 without checking their values — recorded in the redispatch entry above.
+
+
+---
+
+## `fake_note` — THE API HALF BUILT, THE MOBILE HALF SPECIFIED
+
+**24 Sept 2026.** `TRUST_AND_REPUTATION.md` §4 (decided): *"A `fake_note`
+reason code on the customer (§2) is how a pattern gets spotted; a customer who
+passes two is not making mistakes."* It existed nowhere.
+
+**Built (API):** `fake_note` = 5 on `Order.failure_reason` and
+`Trip.failure_reason` — the customer's only money was a counterfeit the courier
+refused. It fails the job like any problem report, reaches admin, and lands on
+the customer's `delivery_failures_summary` line (`fake note ×1`). The console's
+"mark failed" offers it now. `Dispatchable.offered_failure_reasons` is the one
+list the courier's `problem_reasons` and `couriers/jobs#problem` both read, and
+it **holds `fake_note` back** until `fake_note_reason_offered` is on — because
+`problem_reasons` is bare keys the app labels itself, and an unlabelled key
+reaches a courier as the raw string `fake_note`.
+
+**The mobile half, exactly — implementing, not deciding:**
+
+1. Wherever the courier problem sheet labels `nobody_home` / `passenger_no_show`
+   today, add a label for **`fake_note`**, in **en, ps and fa**. No new screen,
+   no new endpoint, no new field: it arrives in the same `problem_reasons`
+   array and is sent back as the same `reason` param to
+   `POST /courier/jobs/:kind/:id/problem`.
+2. The English meaning is *"the customer paid with a fake note and had no other
+   money."* The Pashto and Dari are **Hamma9900's words** — the house rule on
+   copy a user sees — not a translation guessed here.
+3. In the same release: switch **`fake_note_reason_offered`** to true in the
+   console (Config). Until then nothing changes on any phone.
+
+No error code is new (a reason not offered answers the existing
+`reason_required`), and no payload shape changes — manifest item 15.

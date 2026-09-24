@@ -91,8 +91,12 @@ class Order < ApplicationRecord
   MERCHANT_REJECTION_REASONS = %w[out_of_stock too_busy closing other].freeze
   enum :cancellation_reason, { customer_changed_mind: 0, merchant_unavailable: 1,
                                no_courier_available: 2, duplicate: 3, other: 4 }, prefix: :cancelled_for
+  # `fake_note` (5): the customer's only money was a counterfeit the courier
+  # refused — `TRUST_AND_REPUTATION.md` §4: *"A `fake_note` reason code on the
+  # customer (§2) is how a pattern gets spotted."* Offered to the courier app
+  # only behind a Setting — see `Dispatchable.offered_failure_reasons`.
   enum :failure_reason,      { customer_refused: 0, nobody_home: 1, customer_unreachable: 2,
-                               wrong_address: 3, other: 4 }, prefix: :failed_for
+                               wrong_address: 3, other: 4, fake_note: 5 }, prefix: :failed_for
   enum :cancelled_by_role,   Roles::ALL, prefix: :cancelled_by
 
   belongs_to :customer,   class_name: User.name, inverse_of: :orders

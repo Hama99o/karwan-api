@@ -71,9 +71,9 @@ class Api::V1::Couriers::JobsController < Api::V1::Couriers::BaseController
     authorize @job, :show?
 
     reason = params[:reason].to_s
-    reasons = @job.class.failure_reasons
-    unless reasons.key?(reason)
-      return render_unprocessable_entity("reason must be one of: #{reasons.keys.join(', ')}",
+    reasons = @job.class.offered_failure_reasons
+    unless reasons.include?(reason)
+      return render_unprocessable_entity("reason must be one of: #{reasons.join(', ')}",
                                          code: "reason_required")
     end
 

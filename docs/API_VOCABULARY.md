@@ -39,6 +39,13 @@ For a delivery the list is `customer_refused` `nobody_home`
 `passenger_no_show` `passenger_unreachable` `passenger_refused` `unsafe`
 `other`.
 
+**Both also carry `fake_note`** (24 Sept 2026, `TRUST_AND_REPUTATION.md` §4) —
+the customer's only money was a counterfeit the courier refused. It is
+**held back from `problem_reasons`** until the `fake_note_reason_offered`
+Setting is on, because the app would otherwise show the raw key: switch it on
+in the same release that adds the label (`Dispatchable.offered_failure_reasons`
+is the one source for the sheet and the endpoint).
+
 **The values are written here even though the client never declares them**,
 because sending the vocabulary removes the *branching* problem and not the
 *translation* one: each reason still needs a Pashto string, and a screen

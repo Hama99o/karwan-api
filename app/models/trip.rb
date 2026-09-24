@@ -55,8 +55,9 @@ class Trip < ApplicationRecord
 
   enum :cancellation_reason, { passenger_changed_mind: 0, courier_unavailable: 1,
                                no_courier_available: 2, duplicate: 3, other: 4 }, prefix: :cancelled_for
+  # `fake_note` (5): the fare is cash at the end too — see Order.
   enum :failure_reason,      { passenger_no_show: 0, passenger_unreachable: 1,
-                               passenger_refused: 2, unsafe: 3, other: 4 }, prefix: :failed_for
+                               passenger_refused: 2, unsafe: 3, other: 4, fake_note: 5 }, prefix: :failed_for
   enum :cancelled_by_role,   Roles::ALL, prefix: :cancelled_by
 
   belongs_to :passenger, class_name: User.name, inverse_of: :trips

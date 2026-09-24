@@ -21,7 +21,7 @@ RSpec.describe "docs/API_VOCABULARY.md" do
     "Roles::MOBILE" => %w[customer courier merchant_owner],
     "Order.statuses" => %w[placed accepted preparing ready picked_up delivered rejected cancelled failed],
     "Trip.statuses" => %w[requested accepted arrived in_progress completed cancelled failed],
-    "Order.failure_reasons" => %w[customer_refused nobody_home customer_unreachable wrong_address other],
+    "Order.failure_reasons" => %w[customer_refused nobody_home customer_unreachable wrong_address other fake_note],
     "Order.cancellation_reasons" => %w[customer_changed_mind merchant_unavailable no_courier_available duplicate other],
     # TWO LISTS, AND THE DIFFERENCE IS THE POINT. The column carries
     # `no_answer`, which the timeout job writes about a shop that never replied;
