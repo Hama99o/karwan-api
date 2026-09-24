@@ -63,8 +63,29 @@ class Api::V1::Customers::OrdersController < Api::V1::BaseController
     render_unprocessable_entity(e.message, code: error_code_for(e))
   end
 
+  # ── PLACED AT MOST ONCE, HOWEVER MANY TIMES IT IS SENT ──────────────────
+  #
+  # A lost answer followed by a retry placed a second order: the phone blocks a
+  # double tap, but it cannot know whether a request whose response never came
+  # back had landed. So the app sends an `Idempotency-Key` it made when
+  # checkout opened, and this answers a repeat instead of acting on it. The
+  # contract karwan-mobile builds against is docs/API_VOCABULARY.md §E.
+  #
+  # Checked BEFORE the merchant is looked up: a shop that closed a minute after
+  # the first attempt landed must not turn the retry into "merchant
+  # unavailable" for an order that exists.
   def create
     authorize Order, :create?
+
+    key = request.headers["Idempotency-Key"].presence
+    if key && !key.match?(IDEMPOTENCY_KEY)
+      return render_unprocessable_entity("Idempotency-Key must be 8 to 64 letters, digits, - or _",
+                                         code: "invalid_idempotency_key")
+    end
+
+    fingerprint = key && request_fingerprint
+    existing = key && current_user.orders.find_by(idempotency_key: key)
+    return answer_repeat(existing, fingerprint) if existing
 
     merchant = Merchant.kept.status_active.find(order_params[:merchant_id])
     order = Orders::PlaceService.new(
@@ -75,10 +96,18 @@ class Api::V1::Customers::OrdersController < Api::V1::BaseController
       delivery_landmark_note: order_params[:delivery_landmark_note],
       customer_phone: order_params[:customer_phone],
       notes: order_params[:notes],
-      service_tier: tier_param
+      service_tier: tier_param,
+      idempotency_key: key, request_fingerprint: fingerprint
     ).call
 
     render_blue(Customers::OrderSerializer, order, view: :detailed, status: :created)
+  rescue ActiveRecord::RecordNotUnique
+    # Two attempts at once: both found nothing, and the index let one insert.
+    # The other is a repeat of it, answered like any other.
+    existing = key && current_user.orders.find_by(idempotency_key: key)
+    raise unless existing
+
+    answer_repeat(existing, fingerprint)
   rescue Orders::PlaceService::Error, Pricing::DeliveryQuote::Error => e
     render_unprocessable_entity(e.message, code: error_code_for(e))
   end
@@ -126,6 +155,39 @@ class Api::V1::Customers::OrdersController < Api::V1::BaseController
     @order = policy_scope(Order)
              .includes(:transitions, order_items: [ :catalog_item, :selected_options ])
              .find(params[:id])
+  end
+
+  # A UUID fits; so does anything else a client can generate without a
+  # library. Bounded so a key cannot be used to store an essay per order.
+  IDEMPOTENCY_KEY = /\A[A-Za-z0-9_-]{8,64}\z/
+
+  # The same request: the order it placed, exactly as a first success returns
+  # it, so the app cannot tell the two apart — the order as it now stands.
+  #
+  # A DIFFERENT request under the same key is refused, and the existing order
+  # comes with the refusal: the customer changed his basket while unsure
+  # whether the first attempt landed. It did. Replaying it would show him food
+  # he no longer wants as though it were coming; placing the new one would
+  # give him two. Only he can choose, so the app shows him the order that
+  # exists, and placing the changed basket too is a deliberate act under a
+  # NEW key.
+  def answer_repeat(existing, fingerprint)
+    if existing.request_fingerprint == fingerprint
+      return render_blue(Customers::OrderSerializer, existing, view: :detailed, status: :created)
+    end
+
+    render json: {
+      error: "this key already placed #{existing.code}, for a different basket",
+      code: "idempotency_key_reused",
+      order: Customers::OrderSerializer.render_as_hash(existing, view: :detailed)
+    }, status: :conflict
+  end
+
+  def request_fingerprint
+    Orders::RequestFingerprint.new(
+      order_params: order_params, lines: cart_lines,
+      delivery_address_id: own_delivery_address&.id, service_tier: tier_param
+    ).digest
   end
 
   def order_params

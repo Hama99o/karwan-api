@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_24_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_24_190000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -416,6 +416,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_24_120000) do
     t.integer "duration_minutes"
     t.datetime "failed_at"
     t.integer "failure_reason"
+    t.string "idempotency_key"
     t.decimal "items_total", precision: 12, scale: 2, default: "0.0", null: false
     t.datetime "merchant_acknowledged_at"
     t.bigint "merchant_acknowledged_by_id"
@@ -432,6 +433,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_24_120000) do
     t.datetime "ready_at"
     t.datetime "rejected_at"
     t.integer "rejection_reason"
+    t.string "request_fingerprint"
     t.integer "required_size_class", default: 0, null: false
     t.jsonb "route_geometry"
     t.integer "service_tier", default: 0, null: false
@@ -445,6 +447,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_24_120000) do
     t.index ["courier_id"], name: "index_orders_on_courier_id"
     t.index ["created_at"], name: "index_orders_on_created_at"
     t.index ["created_at"], name: "index_orders_unacknowledged", where: "(merchant_acknowledged_at IS NULL)"
+    t.index ["customer_id", "idempotency_key"], name: "index_orders_on_customer_and_idempotency_key", unique: true, where: "(idempotency_key IS NOT NULL)"
     t.index ["customer_id"], name: "index_orders_on_customer_id"
     t.index ["distance_source"], name: "index_orders_on_distance_source"
     t.index ["merchant_acknowledged_by_id"], name: "index_orders_on_merchant_acknowledged_by_id"

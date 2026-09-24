@@ -260,13 +260,72 @@ after the countdown — the job went to somebody else and another will come),
 `not_cancellable` (a customer cancels as the merchant accepts — the restaurant
 has started cooking), and `outside_service_area`.
 
-`ErrorCodes.reachable_in_normal_use` returns the **55** that are not OTP,
-malformed requests or server state. The ten it excludes are `otp_*` (switched
-off), `bad_request`, `bad_platform`, `not_found`, `registration_invalid` and
-`pending_migration`.
+`ErrorCodes.reachable_in_normal_use` returns the **56** that are not OTP,
+malformed requests or server state. The eleven it excludes are `otp_*` (switched
+off), `bad_request`, `bad_platform`, `not_found`, `registration_invalid`,
+`pending_migration` and `invalid_idempotency_key` (a client bug, like
+`bad_request`; its sibling `idempotency_key_reused` is a customer's real
+situation and is counted).
 
 > **This number said 25 for an hour**, written when the vocabulary was 35 and
 > not revisited when twenty-five dynamic codes were folded in. It is the count
 > the mobile session sizes its translation work from, so a stale one is not a
 > cosmetic error. It is now asserted in `spec/config/api_vocabulary_spec.rb`,
 > which is what caught it.
+
+## E · PLACING AN ORDER AT MOST ONCE — the `Idempotency-Key` contract
+
+**24 Sept 2026.** The phone blocks a double tap, but it cannot know whether a
+`POST /customer/orders` whose answer never came back had landed, and a retry
+placed a second order. This is the contract karwan-mobile builds against.
+Server: `Api::V1::Customers::OrdersController#create`,
+`Orders::RequestFingerprint`.
+
+**Send:** header `Idempotency-Key`, 8–64 characters of `A–Z a–z 0–9 - _` (a
+UUID fits). Optional: no header behaves exactly as before.
+
+**When to make one:** when checkout OPENS, not when the button is pressed. A
+key made per press gives every retry a fresh key and protects nothing. Keep it
+across retries. Drop it after a success (a 201) or after a 409 (below). Make a
+new one the next time checkout opens.
+
+| Request | Status | Body | App does next |
+|---|---|---|---|
+| New key | **201** | `{ order: … }` | as today |
+| Same key, same request | **201** | `{ order: … }`, same serializer and view, **the order as it now stands** | treat it exactly as a first success; it cannot tell the two apart and should not try |
+| Same key, different request | **409** | `{ error, code: "idempotency_key_reused", order: … }`, with `order` the one that EXISTS | show him that order ("you already placed KQA…"). Placing the changed basket too is his choice, made under a **new key**: that is the one moment the protection is deliberately dropped, so it must be a deliberate act and never an automatic retry |
+| Malformed key | **422** | `{ error, code: "invalid_idempotency_key" }` | a client bug; nothing was placed |
+
+**What "the same request" means.** A SHA-256 over every field the client
+SENDS that the server reads, and nothing the server computes:
+`merchant_id`, `delivery_address_id` (as resolved to one of his own addresses),
+`delivery_latitude`, `delivery_longitude`, `delivery_landmark_note`,
+`customer_phone`, `notes`, `service_tier` (as resolved), and each line's
+`catalog_item_id`, `quantity`, `notes`, `option_value_ids`.
+- **No amount is in it**, because the client sends none. A menu price that
+  changes between two attempts does not turn a real retry into a conflict: the
+  existing order keeps the price it was placed at.
+- **Canonical**, so a harmless difference is not a conflict:
+  - blank and missing are the same;
+  - coordinates are compared at the column's six decimal places;
+  - integers are compared as integers (`"2"` equals `2`);
+  - the lines are a basket, so their order does not matter;
+  - neither does the order of a line's options.
+- **Not merged:** one line with quantity 2 and two lines with quantity 1 are
+  different requests.
+
+**Scope and lifetime.**
+- Keys are **per customer**. The same key from another customer places their
+  own order, and never returns anyone else's.
+- A key **never expires**: it is stored on the order it placed, so it
+  identifies that order for good. A client that reuses a key days later gets
+  that order back (201) or a 409. It never gets a silent second order.
+- **A retry is answered even if the shop has closed since.** The key is looked
+  up before the merchant is.
+
+**Two attempts at the same moment** both find nothing under the key. A unique
+index on (customer, key) lets one insert, and the other is answered as a
+repeat: 201 with the same order, or 409 if its body differed.
+
+**Error codes** `idempotency_key_reused` and `invalid_idempotency_key` are in
+`ErrorCodes::ORDERING`.

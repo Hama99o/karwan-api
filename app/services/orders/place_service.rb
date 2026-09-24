@@ -37,7 +37,7 @@ module Orders
     def initialize(customer:, merchant:, lines:, delivery_latitude:, delivery_longitude:,
                    delivery_address: nil,
                    delivery_landmark_note: nil, customer_phone: nil, notes: nil,
-                   service_tier: :normal)
+                   service_tier: :normal, idempotency_key: nil, request_fingerprint: nil)
       @customer = customer
       @merchant = merchant
       @lines = Array(lines)
@@ -56,6 +56,10 @@ module Orders
       # nobody can ask a past customer whether their completed order could have
       # been shared.
       @service_tier = service_tier.presence || :normal
+      # Written in the SAME insert as the order, so the unique index can turn
+      # two simultaneous attempts into one order. See `RequestFingerprint`.
+      @idempotency_key = idempotency_key
+      @request_fingerprint = request_fingerprint
     end
 
     def call
@@ -136,6 +140,8 @@ module Orders
           delivery_landmark_note: @delivery_landmark_note,
           customer_phone: @customer_phone,
           notes: @notes,
+          idempotency_key: @idempotency_key,
+          request_fingerprint: @request_fingerprint,
           placed_at: Time.current
         )
       )

@@ -42,6 +42,7 @@ module ErrorCodes
     invalid_transition reason_required
     item_unavailable invalid_options empty_cart no_vehicle_for_this_order
     cannot_price_order merchant_unavailable
+    idempotency_key_reused invalid_idempotency_key
   ].freeze
 
   # A courier and the job in front of them. `offer_expired` is the one an
@@ -114,6 +115,7 @@ module ErrorCodes
   # malformed request or a switched-off feature. These are the ones that most
   # need a sentence in every locale.
   def self.reachable_in_normal_use
-    ALL - OTP - %w[bad_request bad_platform not_found pending_migration registration_invalid]
+    ALL - OTP - %w[bad_request bad_platform not_found pending_migration registration_invalid
+                   invalid_idempotency_key]
   end
 end
