@@ -41,7 +41,9 @@ Phone + OTP, and *good* means the parts people skip:
 - Short TTL (5 min) and a **max attempt count** — 6 digits is 10^6 guesses, so
   the attempt counter is the actual protection, not the digest
 - **Send throttling** per phone, so the endpoint is not an SMS bill or a way to
-  harass a number — NOT YET BUILT, see docs/NOTES.md
+  harass a number — ~~NOT YET BUILT~~ **built**: `OtpVerification.send_allowance`
+  counts per phone, per window and per day from the rows themselves (all three
+  limits are `Setting`s), plus a per-IP throttle on the endpoint
 - Session tokens 256-bit random, HMAC-SHA256 digested (deterministic, therefore
   indexable; bcrypt cannot be looked up by digest at all)
 - Sessions listable and individually revocable; rotating `secret_key_base`
@@ -381,7 +383,8 @@ understood before it is switched on. The schema already accommodates this:
 `payment_status` is payment-method-neutral and `payment_method` is an integer
 enum, so adding a method needs no migration.
 
-**Recommendation, not yet built:** statements should be SNAPSHOT when issued,
+**Recommendation — ~~not yet built~~ built as `MerchantStatement`**, whose
+figures are written at issue and never recomputed: statements should be SNAPSHOT when issued,
 not recomputed on demand. They are financial records shown to a partner, and a
 later change to the calculation would silently rewrite what someone was shown
 last month — the same argument that makes `order_items` a snapshot. `settlements`
