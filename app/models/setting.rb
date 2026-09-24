@@ -210,6 +210,9 @@ class Setting < ApplicationRecord
     "top_up_bank_name"       => { type: :string, default: "", description: "Bank shown in a courier's top-up instructions" },
     "top_up_account_number"  => { type: :string, default: "", description: "Account number shown in a courier's top-up instructions" },
 
+    # Off until karwan-mobile handles the `courier.check_in.*` push. See
+    # Notifications::CourierCheckIn and docs/NOTES.md.
+    "courier_check_in_enabled" => { type: :boolean, default: "false", description: "Whether a courier whose job goes overdue in his hands is sent one push asking if anything has happened (MONEY_AND_SETTLEMENT §9: ask, wait, then reassign). Switch on in the same release as the app's handling of it." },
     # Off until karwan-mobile labels `fake_note` in ps, fa and en. The reason is
     # stored and counted either way; this only decides whether the courier's
     # problem sheet OFFERS it. See `Dispatchable.offered_failure_reasons`.

@@ -109,6 +109,16 @@ module Dispatch
           note: "needs a human: money or goods are already committed"
         }
       )
+      check_in_with_the_courier(job)
+    end
+
+    # `MONEY_AND_SETTLEMENT.md` §9: ask the courier before anybody decides —
+    # once, because `flag!` only reaches here the first time a state is stuck.
+    def check_in_with_the_courier(job)
+      return unless Setting.fetch("courier_check_in_enabled")
+      return unless Notifications::CourierCheckIn.applies_to?(job)
+
+      Notifications::CourierCheckInJob.perform_later(job.class.name, job.id)
     end
 
     def already_flagged?(job)

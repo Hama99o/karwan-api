@@ -5275,6 +5275,7 @@ section becomes another true sentence nothing enforces.
 | 13 | **a ride's `complete_and_collect` carries `bring_change_for`** | new field on an existing step |
 | 14 | **`POST /courier/offers/:id/accept` can answer 422 `job_taken`** — the job was given to someone else by hand while the offer was live | new error code; same sentence as `offer_expired` |
 | 15 | **problem reason `fake_note`** on deliveries and rides — held back from `problem_reasons` until the `fake_note_reason_offered` Setting is on | new value in an existing list, **dormant until the app switches it on** |
+| 16 | **push `courier.check_in.*`** to a courier whose job goes overdue in his hands — sent only when the `courier_check_in_enabled` Setting is on | **new notification type, dormant until the app switches it on** |
 
 **11, 12 and 13 are the newest and 12 is the one that breaks silently**: a client
 comparing or formatting those two fields with a numeric helper was already
@@ -6280,14 +6281,12 @@ again after moving on is flagged again, because that is a new fact.
 The spec was run against the unfixed code first: 3 examples, 3 failures, the
 first reporting 4 rows for 4 runs.
 
-### Still open from §9, and not built here
+### ~~Still open from §9, and not built here~~ — API half built, see below
 
-*"Before a timeout takes a job away, the platform contacts the courier."* No
-timeout takes a job away past pickup, so nothing is taken silently — but
-nothing contacts the courier either; the operator sees the flag and phones.
-A push to the courier on first flag is the natural next step, and it is
-**copy a courier sees and a notification type the app must handle** — a mobile
-change, recorded for that session rather than half-built from here.
+*"Before a timeout takes a job away, the platform contacts the courier."* ~~A
+push to the courier on first flag is the natural next step... recorded for that
+session rather than half-built from here.~~ The API half is built and dormant:
+see "THE COURIER IS ASKED FIRST" below.
 
 
 ---
@@ -6568,3 +6567,38 @@ reaches a courier as the raw string `fake_note`.
 
 No error code is new (a reason not offered answers the existing
 `reason_required`), and no payload shape changes — manifest item 15.
+
+
+---
+
+## THE COURIER IS ASKED FIRST — §9's API HALF, AND THE MOBILE HALF SPECIFIED
+
+**24 Sept 2026.** `MONEY_AND_SETTLEMENT.md` §9, Hamma9900: *"Tell him: if there
+is any emergency tell us, if there is anything tell us, if the charge is
+finished."* — ask, wait, then reassign.
+
+**Built (API), behind `courier_check_in_enabled` (off):** when
+`Dispatch::JobTimeoutsJob` first flags a job overdue in a state the COURIER
+owns — an order `ready` with him assigned or `picked_up`; a ride `accepted`,
+`arrived` or `in_progress` — it enqueues `Notifications::CourierCheckInJob`,
+which sends one push and writes `courier.checked_in` to the audit log (devices,
+delivered, reached). Once per stuck state, because it rides on the flag's
+dedup. Never for a job stuck in the kitchen. The job is still flagged for a
+human either way; nothing is decided by the push. Four plants, each red.
+
+**The mobile half, exactly:**
+
+1. Handle a data-only FCM message whose `title_key` is
+   **`courier.check_in.title`** and `body_key` **`courier.check_in.body`** —
+   the same mechanism as `customer.arrival.*` and `courier.review.*`. Keys
+   needed in **en, ps, fa**; the meaning is §9's sentence above, and the
+   Pashto and Dari are **Hamma9900's words**.
+2. The data carries `kind` (`delivery` / `ride`), `job_id`, `code`, `status`,
+   **`support_phone`**, and `deep_link: "karwan://courier/job"`. The phone
+   number is the point — show it tappable, so a courier with no data left can
+   ring. Tapping the notification opens the courier's active-job screen.
+3. Nothing to send back: the courier answers by ringing, or by carrying on
+   with the job, which the operator sees on the board.
+4. In the same release: switch **`courier_check_in_enabled`** on in Config.
+
+Manifest item 16.
