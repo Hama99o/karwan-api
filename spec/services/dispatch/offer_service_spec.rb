@@ -30,6 +30,23 @@ RSpec.describe Dispatch::OfferService do
         .of(Setting.fetch("dispatch_offer_ttl_sec").seconds.from_now)
     end
 
+    # WHAT THE CHOICE WAS MADE FROM. Dispatch picks the nearest by a fix that
+    # may be minutes old, and nothing recorded how old — so "is nearest
+    # routinely chosen on stale positions?" had no answer. The offer keeps the
+    # fix's time and the distance it produced.
+    it "records the fix it chose on, and the distance that fix gave" do
+      courier = courier_at(34.5600, 69.2075)
+      fixed_at = 3.minutes.ago.change(usec: 0)
+      courier.courier_profile.update!(location_updated_at: fixed_at)
+
+      offer = described_class.new(order).call
+
+      expect(offer.courier_located_at).to eq(fixed_at)
+      expect(offer.distance_km.to_f).to be_within(0.01).of(
+        Geo::Distance.km(from_lat: 34.5600, from_lng: 69.2075, to_lat: 34.5553, to_lng: 69.2075)
+      )
+    end
+
     # Nearest first. Not an optimisation — it is the difference between food
     # arriving warm and not.
     it "picks the nearest courier" do

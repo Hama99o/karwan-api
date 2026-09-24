@@ -17,12 +17,17 @@ class OfferDashboard < Administrate::BaseDashboard
     status: Field::String,
     offered_at: Field::DateTime,
     expires_at: Field::DateTime,
-    responded_at: Field::DateTime
+    responded_at: Field::DateTime,
+    # What dispatch chose him by: the time of his fix, and the straight-line
+    # distance to the pickup it gave. Fix age = offered_at - courier_located_at.
+    courier_located_at: Field::DateTime,
+    distance_km: Field::Number.with_options(decimals: 3)
   }.freeze
 
   COLLECTION_ATTRIBUTES = %i[sequence courier status offered_at responded_at].freeze
   SHOW_PAGE_ATTRIBUTES = %i[
     offerable courier sequence status offered_at expires_at responded_at
+    courier_located_at distance_km
   ].freeze
   FORM_ATTRIBUTES = [].freeze
 

@@ -67,15 +67,21 @@ module Dispatch
       return nil if exhausted?
       return nil if pending_offer?
 
-      courier = next_courier
-      return nil if courier.nil?
+      chosen = nearest_candidate
+      return nil if chosen.nil?
 
+      # WHAT THE CHOICE WAS MADE FROM, kept on the offer: the fix's time and
+      # the distance computed from it. Nothing recorded either before, so "how
+      # stale is the position dispatch picks the nearest courier by?" had no
+      # answer even in principle.
       @job.offers.create!(
-        courier: courier,
+        courier: chosen[:courier],
         sequence: next_sequence,
         status: :offered,
         offered_at: Time.current,
-        expires_at: Setting.fetch("dispatch_offer_ttl_sec").seconds.from_now
+        expires_at: Setting.fetch("dispatch_offer_ttl_sec").seconds.from_now,
+        courier_located_at: chosen[:courier].courier_profile&.location_updated_at,
+        distance_km: chosen[:distance]
       )
     end
 
@@ -101,9 +107,13 @@ module Dispatch
     # asked. Distance is straight-line — v0 has no router, and for choosing
     # between couriers in one neighbourhood the ordering is the same either way.
     def next_courier
-      return @next_courier if defined?(@next_courier)
+      nearest_candidate&.fetch(:courier)
+    end
 
-      @next_courier = candidates.min_by { |candidate| candidate[:distance] }&.fetch(:courier)
+    def nearest_candidate
+      return @nearest_candidate if defined?(@nearest_candidate)
+
+      @nearest_candidate = candidates.min_by { |candidate| candidate[:distance] }
     end
 
     def candidates
