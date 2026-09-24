@@ -7013,3 +7013,51 @@ against the code, and each one is marked in place, not rewritten.
 - whether anyone else will hold a console login;
 - the ride fare rule;
 - what a push may carry out of the country (§F).
+
+## WHAT THE POLLING PATHS COST THE DATABASE — measured 24 Sept 2026
+
+The real SQL was captured by driving each hot path as a signed-in request
+against the dev DB (2,024 orders, 95 dispatchable couriers), then each
+distinct query was run through `EXPLAIN (ANALYZE, BUFFERS)` with its real
+binds.
+
+| path | queries per call | client polls every |
+|---|---|---|
+| merchant board | 13 | 10 s per open shop |
+| courier offer | 6 | 5 s per on-shift courier |
+| courier job | 19 | 20 s |
+| customer track | 13 | 15 s |
+| courier shift | 11 | on open, not polled |
+| **dispatch: who is nearest** | **171** (2 per candidate courier) | every accept, decline and expiry |
+
+**Indexes: nothing missing.** All 42 distinct query shapes on these paths have
+a usable index. The sequential scans in the dev plans are the planner correctly
+preferring a scan on tables of a few hundred rows. Re-planned with
+`enable_seqscan = off`, every one of them uses an index. So an index added here
+would be a write cost with no read it serves.
+
+**The one real scale problem is dispatch's N+1.** `Eligibility#carrying_another_job?`
+asks, per candidate, whether he holds a live order and then a live trip: two
+indexed `exists?` of about 0.4–0.5 ms each. That's 171 queries (about 80 ms)
+at 95 couriers, and about 400 (about 200 ms) at 200. It runs inside the job's
+row lock (`OfferService`) and inside the shop's Accept request, and again on
+every decline and expiry. The fix is one query per demand type ("which of these
+couriers hold a live job") before the loop: 2 queries in place of 2N. That
+changes a query's shape, so it is proposed, not built.
+
+**Measured but NOT attributed:** a whole dispatch decision took 330–1,000 ms
+wall time over 95 couriers. The queries explain only about 80 ms of it. The box
+was at load 9–19, shared with other sessions, and the remainder could not be
+pinned to a cause under that noise. It wants a quiet re-measurement before
+anyone claims one.
+
+**Projection** at 50 open shops, 200 couriers on shift and 100 live deliveries
+(assumptions: today's poll intervals, one tab per role):
+- about 57 requests a second, and about 490 queries a second, every one an
+  indexed lookup of under a millisecond. That's comfortable for Postgres.
+- **The courier offer poll is the largest single share: 40 req/s at 5-second
+  polling.** It's the lever if Rails workers become the bottleneck. That's a
+  product and battery question, not a database one.
+
+**Not measurable here:** real data volumes, concurrent load, and connection-pool
+behaviour.
