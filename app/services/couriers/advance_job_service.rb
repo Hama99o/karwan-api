@@ -23,16 +23,27 @@ module Couriers
     end
 
     def call
-      raise NotYourJob, "this job is not assigned to you" unless @job.courier_id == @courier.id
-
-      step = current_step
-      raise NothingToDo, "there is nothing left to do on this job" if step.nil?
-      # An explicit step key is optional, but when the app sends one it must
-      # match — otherwise a stale screen advances a step the courier is not
-      # actually standing at.
-      raise WrongStep, "the current step is #{step[:key]}" if @step_key.present? && @step_key.to_s != step[:key]
-
       ApplicationRecord.transaction do
+        # THE STEP IS DECIDED UNDER THE ROW LOCK, not before it. A courier on
+        # bad signal whose app retries lands two requests at once; both loaded
+        # the job at `picked_up`, both passed the step check against their own
+        # copy, and the order was delivered twice — two `delivered` rows in the
+        # transition log, the evidence a dispute is settled from. (The
+        # commission was NOT charged twice: the first request's UPDATE held the
+        # row, so the second's `exists?` ran after the first had committed.
+        # That was an accident of ordering; this lock makes it the rule.)
+        # `lock!` reloads, so the second request sees what the first committed
+        # and is refused.
+        @job.lock!
+        raise NotYourJob, "this job is not assigned to you" unless @job.courier_id == @courier.id
+
+        step = current_step
+        raise NothingToDo, "there is nothing left to do on this job" if step.nil?
+        # An explicit step key is optional, but when the app sends one it must
+        # match — otherwise a stale screen advances a step the courier is not
+        # actually standing at.
+        raise WrongStep, "the current step is #{step[:key]}" if @step_key.present? && @step_key.to_s != step[:key]
+
         @job.transition_to!(step[:status_after], actor: @courier, actor_role: :courier) ||
           raise(Error, "cannot move this job from #{@job.status}")
 
