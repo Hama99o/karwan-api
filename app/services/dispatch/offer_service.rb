@@ -18,6 +18,40 @@ module Dispatch
     end
 
     def call
+      # ── ONE DISPATCH OF A JOB AT A TIME ──────────────────────────────────
+      #
+      # A decline and the expiry sweep can re-run dispatch for the same job in
+      # the same second, and everything below is check-then-create. Reproduced
+      # 2026-09-24: one call heard "no live offer", the other created offer 1
+      # and committed, the first then read the highest sequence AFTER that and
+      # created offer 2 — two live offers, two couriers sent to one shop.
+      #
+      # The job's row is the lock, and `lock!` reloads it, so every question
+      # below — terminal? taken? live offer? — is asked of the job as it now
+      # is. Every caller has already saved what it changed, so nothing is lost
+      # to the reload.
+      @job.class.transaction do
+        @job.lock!
+        offer!
+      end
+    end
+
+    # Why this job could not be offered, for the admin board. Distinguishing
+    # "we have asked five people" from "nobody is on shift" is the difference
+    # between waiting and phoning someone.
+    def blocked_reason
+      return :terminal if @job.terminal?
+      return :already_taken if taken?
+      return :offers_exhausted if exhausted?
+      return :awaiting_response if pending_offer?
+      return :no_eligible_courier if next_courier.nil?
+
+      nil
+    end
+
+    private
+
+    def offer!
       return nil if @job.terminal?
       # ── A JOB THAT HAS A COURIER IS NOT DISPATCHED AGAIN ────────────────
       #
@@ -44,21 +78,6 @@ module Dispatch
         expires_at: Setting.fetch("dispatch_offer_ttl_sec").seconds.from_now
       )
     end
-
-    # Why this job could not be offered, for the admin board. Distinguishing
-    # "we have asked five people" from "nobody is on shift" is the difference
-    # between waiting and phoning someone.
-    def blocked_reason
-      return :terminal if @job.terminal?
-      return :already_taken if taken?
-      return :offers_exhausted if exhausted?
-      return :awaiting_response if pending_offer?
-      return :no_eligible_courier if next_courier.nil?
-
-      nil
-    end
-
-    private
 
     def taken?
       @job.courier_id.present?
