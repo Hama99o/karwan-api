@@ -62,6 +62,82 @@ RSpec.describe "order lines are snapshots" do
                          "month's orders, and nothing would report it if it did."
   end
 
+  # ── WHAT THE TWO EXAMPLES ABOVE COULD NOT SEE ──────────────────────────
+  #
+  # Audited 2026-09-24, when a console change started relying on this gate
+  # ("a hard delete of an option is safe because the order line kept a
+  # snapshot"). It had three blind spots:
+  #   1. SNAPSHOT_COLUMNS is typed. A NEW table pointing at the catalog — a
+  #      batch's lines, a ride's extras — would need no snapshot to pass.
+  #   2. The scan covers five globs. A job, a controller, a view or a
+  #      notification reading `catalog_item.name` for an order was invisible.
+  #   3. It asserts the columns EXIST. The schema makes them NOT NULL, but
+  #      filled with the RIGHT value at placement was asserted nowhere.
+
+  it "has a snapshot declared for every table that points into the catalog" do
+    conn = ActiveRecord::Base.connection
+    pointing = conn.tables.reject { |t| t.start_with?("catalog_") }.select do |table|
+      conn.foreign_keys(table).any? { |fk| fk.to_table.start_with?("catalog_") }
+    end
+
+    expect(pointing).to include("order_items", "order_item_options")
+    expect(pointing - SNAPSHOT_COLUMNS.keys).to be_empty,
+                                            "#{(pointing - SNAPSHOT_COLUMNS.keys).join(', ')} point at the live catalog " \
+                                            "with no snapshot declared — what it recorded can change when the menu does"
+  end
+
+  # Anywhere in app/, not only where an order is expected to be rendered. The
+  # two places that legitimately read a live name: the moment the snapshot is
+  # TAKEN, and the catalog's own console page, which must say what an option
+  # is called now.
+  LIVE_CATALOG_READS_ALLOWED = {
+    "app/services/orders/place_service.rb" => "where the snapshot is taken — the one read door 1 depends on",
+    "app/dashboards/catalog_item_option_dashboard.rb" => "the catalog's own page, naming a live option",
+    "app/models/catalog_item.rb" => "the catalog's own search, over its own column"
+  }.freeze
+
+  it "reads no live catalog name or price anywhere else in app/" do
+    offenders = Dir[Rails.root.join("app/**/*.{rb,erb}")].flat_map do |file|
+      rel = file.sub("#{Rails.root}/", "")
+      next [] if LIVE_CATALOG_READS_ALLOWED.key?(rel)
+
+      File.readlines(file).each_with_index.filter_map do |line, i|
+        next if line =~ /\A\s*(#|<%#)/
+        next unless line =~ /catalog_item(_option_value|_option)?s?&?\.\s*(name|price|price_delta|unit_price)\b/
+
+        "#{rel}:#{i + 1}"
+      end
+    end
+
+    expect(offenders).to be_empty, "a live catalog name or price is read at: #{offenders.join(', ')}"
+  end
+
+  it "fills every snapshot with what the menu said at the moment of placing" do
+    merchant = create(:merchant, latitude: 34.5553, longitude: 69.2075)
+    item = create(:catalog_item, catalog_category: create(:catalog_category, merchant: merchant),
+                                 name: "Qabuli Palaw", price: 350)
+    option = create(:catalog_item_option, catalog_item: item, name: "Portion")
+    large = create(:catalog_item_option_value, catalog_item_option: option, name: "Large", price_delta: 120)
+
+    order = Orders::PlaceService.new(
+      customer: create(:user, :customer), merchant: merchant,
+      lines: [ { catalog_item_id: item.id, quantity: 2, option_value_ids: [ large.id ] } ],
+      delivery_latitude: 34.54, delivery_longitude: 69.175
+    ).call
+    line = order.order_items.first
+    chosen = line.selected_options.first
+
+    expect(line).to have_attributes(name: "Qabuli Palaw", unit_price: 350, options_total: 120, currency: "AFN")
+    expect(chosen).to have_attributes(option_name: "Portion", value_name: "Large", price_delta: 120, currency: "AFN")
+
+    item.update!(name: "Palaw (new recipe)", price: 500)
+    option.update!(name: "Size")
+    large.update!(name: "XL", price_delta: 300)
+
+    expect(line.reload).to have_attributes(name: "Qabuli Palaw", unit_price: 350)
+    expect(chosen.reload).to have_attributes(option_name: "Portion", value_name: "Large", price_delta: 120)
+  end
+
   # Guards the guard: if the glob stopped matching, `offenders` would be empty
   # and the example above would pass while reading nothing.
   it "is actually reading the order-rendering code" do

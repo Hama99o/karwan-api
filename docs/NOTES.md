@@ -6897,6 +6897,6 @@ construction, and whether that blind spot hid anything.
 - Gates that already derive from `descendants`, the dashboards or the schema:
   `fresh_deploy_is_operable`, `every_newest_first_is_a_total_order`,
   `every_console_filter_runs`, `no_console_page_shows_a_credential`.
-- Still to read with this question: `order_lines_are_snapshots`
-  (`SNAPSHOT_COLUMNS` is typed), `every_setting_is_read`,
+- `order_lines_are_snapshots`: done after the table above (see its commit). It had three blind spots, now covered: a typed table list, a five-glob scan, and "exists" in place of "filled correctly". None was hiding a bug.
+- Still to read with this question: `every_setting_is_read`,
   `served_images_are_resized`, `config_reachability` (`TODAYS_KNOBS`).
