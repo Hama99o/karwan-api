@@ -572,10 +572,18 @@ drinks*. Then **Catalog items → New** for each dish.
 - **Sold out** is the toggle the shop will use most. Show them where it is
   before you leave.
 
-## 5 · Open the shop
+## 5 · Approve it, then open the shop
 
-On the merchant's page, **Open now**. Until this, nothing the customer sees
-includes it.
+On the merchant's page, **Approve**, then **Open now**. Until both, nothing the
+customer sees includes it.
+
+**Approve is not optional, and it is not the Status dropdown.** A new shop is
+*pending*, and customers are only ever shown *approved* shops — so a shop that
+is opened but never approved is open to nobody. (Before 24 Sept 2026 this step
+said only "Open now", and a shop set up exactly as written here never appeared.)
+Press the button rather than choosing "active" in the form: the button records
+that **you** signed this shop, and "who signed this one?" is the first question
+when a deal is disputed.
 
 Check it yourself: the shop should now appear on the customer app's browse
 screen, and under the category you picked.
@@ -614,8 +622,9 @@ If it does not arrive:
 
 - **Nothing on the board** — the owner link in step 6 is missing or points at
   the wrong account.
-- **The shop is not in the app at all** — it was never opened (step 5), or it
-  has no category and you were looking at a filtered list (step 2).
+- **The shop is not in the app at all** — it was never **approved** or never
+  opened (step 5; the shop's page says which), or it has no category and you
+  were looking at a filtered list (step 2).
 - **The board is silent but the order is there** — the alert did not reach
   them. The console's front page counts *shops to ring*; that is this, and the
   remedy is a telephone.

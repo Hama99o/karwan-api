@@ -52,8 +52,12 @@ RSpec.describe "the first restaurant, from console to customer", type: :request 
     # ── 1 · THE SHOP ───────────────────────────────────────────────────────
     post "/admin/merchants", params: {
       merchant: {
+        # NO `status` — RUNBOOK step 1 does not tell the operator to set one.
+        # This spec used to post `status: "active"`, which is how it passed
+        # while the RUNBOOK, followed to the letter, produced an open PENDING
+        # shop no customer could see (reproduced 24 Sept 2026).
         name: "Kabab House", merchant_kind_id: kind.id, phone: "+93780000111",
-        status: "active", prep_time_minutes: 20, commission_rate: "0.125",
+        prep_time_minutes: 20, commission_rate: "0.125",
         latitude: "34.5553", longitude: "69.2075",
         landmark_note: "Opposite the Shar-e-Naw mosque",
         owner_name: "Haji Naim", owner_phone: "+93790000111",
@@ -92,7 +96,13 @@ RSpec.describe "the first restaurant, from console to customer", type: :request 
     expect(item).to be_present
     expect(item.photo).to be_attached, "the menu item has no photo — AFGHAN_UX makes that the LABEL"
 
-    # ── 4 · OPEN FOR BUSINESS ──────────────────────────────────────────────
+    # ── 4 · APPROVE, THEN OPEN FOR BUSINESS ────────────────────────────────
+    # RUNBOOK step 5. A new shop is `pending`, and `Merchant.listed` is active
+    # shops only — so opening an unapproved shop shows nothing to anybody.
+    # Approve rather than a status dropdown: it records WHO signed the shop.
+    expect(merchant.reload.status).to eq("pending")
+    patch "/admin/merchants/#{merchant.id}/approve"
+    expect(merchant.reload.verified_by_admin_user).to eq(admin), "the shop was approved by nobody"
     patch "/admin/merchants/#{merchant.id}/open_merchant"
     expect(merchant.reload.is_open).to be(true), "the shop cannot be opened for business"
 
