@@ -57,6 +57,52 @@ RSpec.describe "every state transition is recorded" do
                              "CLAUDE.md's door 3 says it cannot be backfilled."
   end
 
+  # ── THE SPELLINGS THE LINE PATTERN CANNOT READ ─────────────────────────
+  #
+  # Audited 2026-09-24. The pattern above wants `status` as the FIRST
+  # argument on ONE line, so `update!(failed_at: now, status: :failed)`, a
+  # call split across lines, `assign_attributes(status:)`, `self.status =`
+  # and `write_attribute(:status, …)` all pass it. So does the one Rails
+  # hands out for free: an enum with no prefix generates `order.delivered!`,
+  # which writes the status and leaves no transition row. None exist today;
+  # this is the net for the day one is written.
+  def lifecycle_bangs
+    @lifecycle_bangs ||= (Order.statuses.keys | Trip.statuses.keys).join("|")
+  end
+
+  def whole_file_status_writes
+    call = /
+      ([A-Za-z_][\w.\[\]]*)\.(?:update!?|update_all|update_columns?|assign_attributes)\s*\(
+      (?:[^()]|\([^()]*\))*?(?<![\w])status:(?:[^()]|\([^()]*\))*\)
+    /mx
+    bare = /\bself\.status\s*=[^=]|\[:status\]\s*=[^=]|write_attribute\(\s*:status\b/
+    bang = /\.(?:#{lifecycle_bangs})!/
+
+    Dir[Rails.root.join("app/**/*.rb")].flat_map do |file|
+      rel = file.sub(Rails.root.to_s + "/", "")
+      next [] if rel == sanctioned
+
+      text = File.read(file).gsub(/^\s*#.*$/, "")
+      line_of = ->(offset) { text[0...offset].count("\n") + 1 }
+      calls = text.to_enum(:scan, call).filter_map do
+        m = Regexp.last_match
+        next if m[1].split(".").any? { |part| not_a_lifecycle.include?(part) }
+
+        "#{rel}:#{line_of.call(m.begin(0))} (chain: #{m[1]})"
+      end
+      others = [ bare, bang ].flat_map do |pattern|
+        text.to_enum(:scan, pattern).map { "#{rel}:#{line_of.call(Regexp.last_match.begin(0))}" }
+      end
+      calls + others
+    end
+  end
+
+  it "writes no lifecycle status in a spelling the line pattern cannot read" do
+    expect(whole_file_status_writes).to be_empty,
+                                        "a lifecycle status may be written outside transition_to! at: " \
+                                        "#{whole_file_status_writes.join(', ')}"
+  end
+
   # Guards the guard: if the pattern stopped matching, the example above would
   # pass on an empty list while reading nothing.
   it "can still see the status writes it is classifying" do
