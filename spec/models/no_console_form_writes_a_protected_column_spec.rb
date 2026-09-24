@@ -89,6 +89,60 @@ RSpec.describe "no console form writes a protected column" do
     expect(offences).to be_empty, offences.join("\n")
   end
 
+  # ── AND FROM THE OTHER SIDE: EVERY COLUMN A FORM CAN WRITE, ARGUED FOR ───
+  #
+  # Audited 2026-09-24. The list above names what is PROTECTED, so a money
+  # column nobody thought to list — `delivery_fee`, `courier_fee`,
+  # `commission_topup`, `payment_status`, `merchant_paid_at`, a ledger row's
+  # `balance_after` — would become typeable by adding one symbol to a
+  # FORM_ATTRIBUTES array, and this file would stay green. A list of what is
+  # guarded cannot see what nobody guarded.
+  #
+  # So the writable side is enumerated too, from the dashboards themselves: a
+  # column any console form can type must appear here with the reason typing it
+  # is legitimate. A new one fails until somebody makes that argument; a listed
+  # one that stops being writable fails until it is removed.
+  let(:meant_to_be_typed) do
+    {
+      "CatalogCategory" => [ %w[merchant name position], "a live menu, not history — orders snapshot their lines" ],
+      "CatalogItem" => [ %w[merchant catalog_category name description price photo is_available prep_time_minutes position size_class],
+                         "a live menu; an order copies name, price and options at the moment it is placed (door 1)" ],
+      "CatalogItemOption" => [ %w[catalog_item name selection_type required min_selections max_selections position], "a live menu" ],
+      "CatalogItemOptionValue" => [ %w[catalog_item_option name price_delta is_available position],
+                                    "a live menu; ordered options are copied onto order_item_options" ],
+      "CourierProfile" => [ %w[full_name father_name national_id_number vehicle_type plate_number guarantor_name guarantor_phone guarantor_relation work_area],
+                            "an application an operator corrects on the phone; approval stays a named intervention" ],
+      "CourierWallet" => [ %w[credit_line], "a permission to go negative, not money that has moved (see above)" ],
+      "MerchantCategory" => [ %w[slug name_ps name_fa name_en position is_active], "the cuisine taxonomy" ],
+      "Merchant" => [ %w[name merchant_kind phone status prep_time_minutes commission_rate latitude longitude landmark_note owner owner_name
+                         owner_phone owner_national_id_number license_number contact_person_name contact_person_phone logo storefront_photo
+                         license_photo merchant_categories],
+                      "a shop's profile. commission_rate applies to the NEXT order, never to one placed; every edit is audited with before and after" ],
+      "MerchantKind" => [ %w[slug name_ps name_fa name_en position is_active], "a taxonomy" ],
+      "MerchantOpeningHour" => [ %w[merchant day_of_week opens_at closes_at], "a schedule" ],
+      "PricingRate" => [ %w[base per_km per_minute minimum is_selectable position], "tariffs he retunes without a deploy (correction 13); quotes freeze what they used" ],
+      "Setting" => [ %w[value], "the settings are there to be tuned; key, type and description are ours" ],
+      "User" => [ %w[name locale status], "status is read on every request (account_active?), so a form edit takes effect like the intervention" ]
+    }
+  end
+
+  it "lets a form write only columns somebody has argued may be typed" do
+    writable = dashboards.each_with_object({}) do |dashboard, found|
+      form = dashboard.const_defined?(:FORM_ATTRIBUTES) ? Array(dashboard::FORM_ATTRIBUTES).map(&:to_s) : []
+      found[dashboard.name.delete_suffix("Dashboard")] = form if form.any?
+    end
+
+    unargued = writable.flat_map do |model, columns|
+      (columns - Array(meant_to_be_typed.dig(model, 0))).map { |c| "#{model}##{c}" }
+    end
+    stale = meant_to_be_typed.flat_map do |model, (columns, _)|
+      (columns - Array(writable[model])).map { |c| "#{model}##{c}" }
+    end
+
+    expect(unargued).to be_empty, "a console form can type #{unargued.join(', ')} and nothing says why that is safe"
+    expect(stale).to be_empty, "listed as typeable but no form writes it any more: #{stale.join(', ')}"
+  end
+
   # So the list cannot quietly stop describing the schema — a protected column
   # that has been renamed protects nothing and reads as if it does.
   it "names only columns that exist" do
