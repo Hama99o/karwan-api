@@ -2108,3 +2108,46 @@ The finding itself was right, and was the largest single thing wrong with this
 checkout. **Correcting two numbers inside a true report is not the same as
 doubting the report**, and saying which you are doing matters when the report is
 on its way to somebody who will act on it.
+
+
+---
+
+## A PLANT THAT NEVER LANDED LOOKS EXACTLY LIKE A PLANT THAT PASSED
+
+Planting three reverts against the unanswered-cause split, the first came back
+**green** — every example passing with the feature supposedly removed. The
+obvious reading is the one this file is full of: a check that cannot fail.
+
+It was not. **The edit never happened.** The plant was a Python `.replace()`
+whose search string had sixteen spaces of indentation where the file had eight,
+so it matched nothing, wrote the file back unchanged, and the run measured the
+*working* code. Two other plants in the same batch landed and went red, which
+made the green one look like a real result about a weak assertion.
+
+```python
+s.replace(old, new)          # silent no-op on any mismatch
+assert s.count(old) == 1     # ← the line that turns it into a failure
+io.open(p, "w").write(s.replace(old, new))
+```
+
+**The asymmetry is what makes this dangerous.** A plant that lands and goes red
+tells you the truth. A plant that lands and stays green tells you the truth
+(your assertion is weak). A plant that never lands tells you **the same thing as
+the second case and means the opposite**, and there is nothing in the output to
+separate them — same command, same exit code, same "0 failures".
+
+So: **verify the plant before believing the run.** Either assert the edit
+matched, or print something derived from the file afterwards —
+
+```
+plant landed: True
+```
+
+— and treat a plant with no such confirmation as not yet run. The same applies
+to `sed -i` without `-n`/`p` confirmation, to an `Edit` whose `old_string`
+appears zero times, and to editing a file the running process already loaded.
+
+This is a different failure from the rest of this file. The others are
+instruments that report success while measuring nothing. This one is an
+instrument that was **never switched on**, reporting exactly what a working
+system reports.

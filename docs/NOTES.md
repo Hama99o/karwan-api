@@ -6018,3 +6018,65 @@ rather than one.
 Both are the same lesson in two costumes, and both were found by planting rather
 than by reading. Nothing here touches a payload the mobile app reads, so the
 handover manifest is unchanged at thirteen.
+
+
+---
+
+## WHY NOBODY ANSWERED: A FORGOTTEN SWITCH OR AN UNWATCHED TABLET
+
+**24 Sept 2026, an hour after `Merchants::Reliability` landed.** Reading
+`docs/NOTES.md` for the next piece of work turned up a measurement made *before*
+that column existed, and it was about that column:
+
+> *"active + toggled open + has posted hours **32** … and outside those hours
+> right now **23**. Not an edge case — it is what a shop looks like most
+> evenings, because the toggle is what people forget."*
+>
+> *"This is a manufacturer of exactly the `no_answer` rejections the reports
+> page now counts — so the number on that page will be dominated by it, and
+> reading it as 'shops are not watching their tablets' would be wrong for most
+> of the count."*
+
+A shop toggled open past its own closing time is orderable into an empty
+kitchen. The order sits in `placed`, `Dispatch::JobTimeoutsJob` closes it as
+`no_answer`, and it lands in `never_answered`. **The column I had shipped an
+hour earlier was about to blame forgotten switches on unwatched tablets** — the
+same mistake the whole service exists to prevent, one level down.
+
+So `never_answered` now splits, and the three are three different actions:
+
+```
+outside_posted_hours   the shop's own week says it was shut   → a toggle
+during_posted_hours    it said open and nobody answered       → a tablet
+no_hours_posted        it has never posted a week             → ask for them
+```
+
+The third is kept separate rather than folded into the second, for the reason
+the platform report keeps `unrecorded` separate: an order whose cause was never
+recorded is counted as itself rather than attributed to one.
+
+**NO POLICY IS TOUCHED.** The three costed options above — leave it, gate the
+toggle on hours, auto-close on schedule — are Hamma9900's and remain open. No
+order is blocked, no toggle is moved. This only stops the number lying about
+which problem it is.
+
+### The times in the spec ARE the timezone test
+
+21:30 Kabul is 17:00 UTC, which is **inside** the posted 09:00–21:00 window. So
+if `placed_at` ever came back as UTC rather than `Time.zone`, the example would
+report `during_posted_hours` and fail. The reports page already shipped one
+double-conversion bug of exactly this kind; planted by comparing `.utc` and it
+goes red, so this one cannot ship quietly.
+
+### Two things this pass got wrong first, both worth keeping
+
+1. **A spec that scraped `<td>(\d+)</td>` positionally.** It broke the moment
+   the never-answered cell gained a note explaining WHY. Markup acquired meaning
+   and a positional scrape cannot see meaning. Now read by column name from the
+   header row, which says what is being asserted and survives a column moving.
+2. **A plant that never landed.** A `.replace()` with the wrong indentation
+   matched nothing, wrote the file back unchanged, and the run measured the
+   working code — reported as "0 failures", indistinguishable from a weak
+   assertion. Recorded in `docs/TESTING.md` as its own shape: **an instrument
+   that was never switched on reports exactly what a working system reports.**
+   The fix is one line — assert the edit matched before trusting the run.
