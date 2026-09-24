@@ -162,6 +162,23 @@ RSpec.describe "every intervention can be pressed", type: :request do
     end
   end
 
+  # The launch RUNBOOK tells an operator what to press, in bold. Its words and
+  # the page's must be the same words — step 5 is "On the merchant's page,
+  # **Open now**", and the button said "Open it".
+  it "labels the shop's switch with the words the RUNBOOK tells an operator to press" do
+    runbook = Rails.root.join("docs/RUNBOOK.md").read
+    closed = create(:merchant, is_open: false)
+    open_shop = create(:merchant, is_open: true)
+
+    labels = [ closed, open_shop ].map do |shop|
+      get "/admin/merchants/#{shop.id}"
+      Nokogiri::HTML(response.body).css("form[action$='_merchant'] [type=submit]").map { |b| b["value"] || b.text.strip }
+    end
+
+    expect(labels).to eq([ [ "Open now" ], [ "Close now" ] ])
+    expect(runbook).to include("**Open now**").and include("**Close now**")
+  end
+
   describe "a shop" do
     it "is closed on its behalf, and opened again" do
       merchant.update!(is_open: true)

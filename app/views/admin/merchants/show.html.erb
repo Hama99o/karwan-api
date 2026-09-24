@@ -14,10 +14,12 @@
                   form: { data: { turbo: false } }, class: "button" %>
   <% else %>
     <% if merchant.is_open? %>
-      <%= button_to "Close it now", close_merchant_admin_merchant_path(merchant), method: :patch,
+      <%# The RUNBOOK's words — "On the merchant's page, Open now" — because it
+          is the script an operator follows at the restaurant. Asserted. %>
+      <%= button_to "Close now", close_merchant_admin_merchant_path(merchant), method: :patch,
                     form: { data: { turbo: false } }, class: "button button--danger" %>
     <% else %>
-      <%= button_to "Open it", open_merchant_admin_merchant_path(merchant), method: :patch,
+      <%= button_to "Open now", open_merchant_admin_merchant_path(merchant), method: :patch,
                     form: { data: { turbo: false } }, class: "button" %>
     <% end %>
 
