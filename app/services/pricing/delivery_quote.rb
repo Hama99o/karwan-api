@@ -17,6 +17,20 @@ module Pricing
   # never rewrite what somebody was charged today.
   class DeliveryQuote
     Error = Class.new(StandardError)
+    # ── A PIN WE CANNOT DELIVER TO IS NOT PRICED ──────────────────────────
+    #
+    # Found 2026-09-24: nothing here asked where the customer was. A (0, 0)
+    # pin — what a device with no fix reports, or a map that never moved off
+    # its default — was quoted AND PLACED at 8,117 km and a delivery fee of
+    # 162,396 AFN; a pin in Paris placed at 111,693. The shop was alerted and
+    # dispatch began. `"abc"` quoted 200 at that fee and then died unhandled
+    # on save. The drawn-route endpoint already refused all of these with
+    # `Geo::Bounds`, the box the router's graph covers; the path that charges
+    # money did not.
+    #
+    # Only the country is enforced. How far from the shop a delivery may be is
+    # a separate question, and Hamma9900's.
+    OutsideServiceArea = Class.new(Error)
 
     # `service_tier` is the customer's CONSENT, not a quality level: `normal`
     # is cheaper and agrees that the courier may combine this run with others,
@@ -31,6 +45,9 @@ module Pricing
     end
 
     def call
+      unless Geo::Bounds.contains?(lat: @delivery_latitude, lng: @delivery_longitude)
+        raise OutsideServiceArea, "that delivery location is outside the area we cover"
+      end
       raise Error, "merchant has no location, so a delivery cannot be priced" if route.nil?
 
       Quote.new(

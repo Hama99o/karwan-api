@@ -278,6 +278,8 @@ class Api::V1::Customers::OrdersController < Api::V1::BaseController
     # not "try again" but "we cannot carry this — order something else". The
     # customer has done nothing wrong and retrying will never work.
     when Orders::PlaceService::NoVehicleForOrder then "no_vehicle_for_this_order"
+    # The same word the drawn-route endpoint uses for the same fact.
+    when Pricing::DeliveryQuote::OutsideServiceArea then "outside_service_area"
     else "cannot_price_order"
     end
   end
