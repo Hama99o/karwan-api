@@ -6872,7 +6872,7 @@ lock. Read a single disputed decline with that in mind.
 
 ## WHAT EACH GATE CANNOT SEE — the instrument audit, 24 Sept 2026
 
-**The count: 20 gates examined, 14 blind by construction, 2 of those hiding real bugs, 8 widened.** Fourteen of twenty is a default, not an accident. The shapes repeat: a hand list, one folder, one column type, one line at a time. Each of them reports green.
+**The count, final: 24 gates examined, 17 blind by construction, 2 of those hiding real bugs, 11 widened, 7 sound.** (It stood at 20 / 14 / 2 / 8 when first reported; the four gates read afterwards are in the rows below.) Fourteen of twenty is a default, not an accident. The shapes repeat: a hand list, one folder, one column type, one line at a time. Each of them reports green.
 
 The rule the audit applied: **an instrument that enumerates what exists cannot
 find what is missing.** For each gate: what it enumerates, its blind spot by
@@ -6898,5 +6898,6 @@ construction, and whether that blind spot hid anything.
   `fresh_deploy_is_operable`, `every_newest_first_is_a_total_order`,
   `every_console_filter_runs`, `no_console_page_shows_a_credential`.
 - `order_lines_are_snapshots`: done after the table above (see its commit). It had three blind spots, now covered: a typed table list, a five-glob scan, and "exists" in place of "filled correctly". None was hiding a bug.
-- Still to read with this question: `every_setting_is_read`,
-  `served_images_are_resized`, `config_reachability` (`TODAYS_KNOBS`).
+- `every_setting_is_read`: it walked definitions to readers, so it was blind to a key read but never defined (which raises in production). The reverse check was added (all 45 literal reads are defined).
+- `served_images_are_resized`: it read serializers only, and its receiver regex could not start with `@`. It now reads all of `app/`, including `@` receivers. The one new site is audio.
+- `config_reachability`: sound. It seeds and checks a row for every definition. `TODAYS_KNOBS` is a redundant dated list, not the load-bearing check.
