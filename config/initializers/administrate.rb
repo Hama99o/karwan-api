@@ -11,6 +11,11 @@
 # Administrate links every registered stylesheet from its layout
 # (`Administrate::Engine.stylesheets`), which is how hatiwal-api's console is
 # styled too.
+#
+# The script beside it, `app/assets/javascripts/karwan_admin.js`, makes one
+# press send one request and asks the `data-confirm` questions the forms carry
+# — neither happened before, because nothing loaded rails-ujs (see its header).
 Rails.application.config.to_prepare do
   Administrate::Engine.add_stylesheet("karwan_admin") unless Administrate::Engine.stylesheets.include?("karwan_admin")
+  Administrate::Engine.add_javascript("karwan_admin") unless Administrate::Engine.javascripts.include?("karwan_admin")
 end
