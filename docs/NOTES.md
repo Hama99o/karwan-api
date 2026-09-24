@@ -6827,3 +6827,33 @@ measured.**
 
 The arrival columns now collect the first two on every delivery. Once there
 is a month of them, this is a measurement away rather than a guess.
+
+## AN ORDER TO PARIS WAS PLACED — THE MONEY PATH NEVER ASKED WHERE
+
+**24 Sept 2026, closed in `7a586e9`.** `/route` refused a pin outside
+Afghanistan with `Geo::Bounds`. The quote and the order, the path that
+charges money, never asked. What each person would have seen, measured
+through the real endpoints:
+
+- **The customer:** a cart quoting a delivery fee of **162,396 AFN** for a
+  (0, 0) pin. That's what a phone with no fix reports, or a map left on its
+  default. A Paris pin quoted 111,693 AFN. Pressing the button **placed**
+  both.
+- **The shop:** a new-order alarm, repeating until acknowledged, for a
+  delivery 8,117 km away.
+- **A courier:** an offer for it. Dispatch measures to the PICKUP, which was
+  the real shop, so an eligible courier near the shop would have been asked.
+- **An operator:** an order to unwind by hand. That means cancelling it,
+  calling the shop, and if a courier had accepted and paid the shop,
+  reimbursing him.
+
+`"abc"` quoted the same 162,396 and then failed unhandled on save.
+
+`DeliveryQuote`, which both paths go through, now refuses a pin outside
+`Geo::Bounds` as `outside_service_area`, the same word `/route` uses.
+
+**Still open, and the owner's:** how far a delivery may go. Only the
+country is enforced. A pin 171 km from a Kabul shop (Kunar) still quotes and
+places, at 3,470 AFN. The 8 km offer radius bounds the courier's ride to the
+PICKUP and says nothing about the drop. The system bounds one leg and not the
+other.
