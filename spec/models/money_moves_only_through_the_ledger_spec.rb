@@ -54,6 +54,61 @@ RSpec.describe "money moves only through the ledger" do
                                  "the books cannot be reconstructed afterwards."
   end
 
+  # ── THE SPELLINGS A LINE-BY-LINE PATTERN CANNOT SEE ─────────────────────
+  #
+  # Audited 2026-09-24: the pattern above reads ONE LINE at a time, so it
+  # misses a multi-line `update!(\n  balance: …)`, and it knows nothing of
+  # `update_all` (which also skips every callback), `assign_attributes`,
+  # `write_attribute`, `self[:balance] =`, `upsert`/`insert_all`, or a wallet
+  # CREATED with money in it. None exist today; this is the net for the day
+  # one is written. It reads each file whole, comments stripped.
+  #
+  # Creating a wallet at a literal zero is not a movement — nothing moved, and
+  # `CourierProfile` does exactly that when a courier is approved.
+  WHOLE_FILE_MUTATION = /
+    \b(?:update_all|update_columns?|update!?|assign_attributes|write_attribute|upsert(?:_all)?|insert_all!?|
+         increment!?|decrement!?|create!?|new)\s*\(
+    (?:[^()]|\([^()]*\))*?                       # the arguments, one level of nesting
+    (?<!_)\bbalance\b(?!_)
+    (?:[^()]|\([^()]*\))*\)
+    |
+    \[:balance\]\s*=[^=]
+  /mx
+
+  it "moves no balance in a spelling the line pattern cannot read" do
+    hits = Dir[*%w[app/**/*.rb lib/**/*.rb db/**/*.rb].map { |g| Rails.root.join(g) }].flat_map do |file|
+      relative = file.sub("#{Rails.root}/", "")
+      next [] if relative == THE_ENTRY_POINT || ALLOWED_ELSEWHERE.key?(relative)
+
+      text = File.read(file).gsub(/^\s*#.*$/, "")
+      text.to_enum(:scan, WHOLE_FILE_MUTATION).filter_map do
+        match = Regexp.last_match
+        call = match[0]
+        next if call.match?(/\A(?:create!?|new)\s*\(/) && call.match?(/\bbalance:\s*0\b(?![.\d])/)
+        # A log or a payload that merely READS the balance is not a write.
+        next if call.match?(/\bbalance:\s*(?:\(?\s*)?(?:wallet|courier_wallet|@wallet)\b/)
+
+        "#{relative}:#{text[0...match.begin(0)].count("\n") + 1}"
+      end
+    end
+
+    expect(hits).to be_empty,
+                    "money may be moved without a ledger row at: #{hits.join(', ')}. " \
+                    "Every balance change goes through CourierWallet#record_entry!."
+  end
+
+  it "can still see a multi-line and an update_all write, so the example above can fail" do
+    samples = [
+      "wallet.update!(\n  credit_line: 5,\n  balance: 900\n)",
+      "CourierWallet.where(id: 1).update_all(balance: 0)",
+      "CourierWallet.create!(user: u, balance: 500)",
+      "wallet[:balance] = 10"
+    ]
+
+    expect(samples.map { |text| text.match?(WHOLE_FILE_MUTATION) }).to all(be(true))
+    expect("CourierWallet.create!(user: u, balance: 0, credit_line: 500)".match?(/\bbalance:\s*0\b(?![.\d])/)).to be(true)
+  end
+
   # Guards the guard. If the pattern ever stopped matching — a rename, a
   # different mutation style — the example above would find nothing and pass
   # while checking nothing, which is the vacuous green this repo keeps meeting.
