@@ -121,11 +121,15 @@ module Dispatch
       pickup = @job.pickup_coordinates
       return [] if pickup.nil?
 
-      CourierProfile.dispatchable_for(@job.class.job_kind)
-                    .where.not(user_id: already_asked)
-                    .includes(user: :courier_wallet)
-                    .filter_map do |profile|
-        next unless Dispatch::Eligibility.new(courier: profile.user, job: @job).eligible?
+      pool = CourierProfile.dispatchable_for(@job.class.job_kind)
+                           .where.not(user_id: already_asked)
+                           .includes(user: :courier_wallet).to_a
+      # One question for the whole pool rather than two per courier — see
+      # `Dispatch::Eligibility.busy_courier_ids`.
+      busy = Dispatch::Eligibility.busy_courier_ids(pool.map(&:user_id), job: @job)
+
+      pool.filter_map do |profile|
+        next unless Dispatch::Eligibility.new(courier: profile.user, job: @job, busy_courier_ids: busy).eligible?
 
         distance = Geo::Distance.km(
           from_lat: profile.last_latitude, from_lng: profile.last_longitude,

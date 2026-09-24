@@ -7061,3 +7061,20 @@ anyone claims one.
 
 **Not measurable here:** real data volumes, concurrent load, and connection-pool
 behaviour.
+
+**Dispatch N+1, fixed the same night (see its commit).** The live-job check is
+now asked once for the pool. The dev-DB capture of one dispatch went from 171
+queries to 10, and the eligibility verdicts are identical per courier
+(`spec/services/dispatch/one_question_for_the_pool_spec.rb`).
+
+**But measured with ELIGIBLE couriers it was only 2 of about 6 queries per
+courier.** The dev capture hid the rest, because every dev courier stopped at an
+earlier check. Still per courier, and not changed:
+- the cash position: two `SUM(commission)` queries, over orders and trips, per
+  eligible courier;
+- about two `Setting.fetch` reads per courier. `Setting.fetch` goes to the
+  database on every call, with no request-level cache.
+
+Going from 2 to 8 eligible couriers, the total grew from 17 to 41. Batching the
+cash position (one grouped SUM for the pool), and memoising settings within a
+request, are the next two steps. Both are proposals, not built.

@@ -39,9 +39,29 @@ module Dispatch
       cash_in_hand: "courier is holding too much of our cash and must settle first"
     }.freeze
 
-    def initialize(courier:, job:)
+    # `busy_courier_ids:` — optional, and only a speed-up: the set of courier
+    # ids already holding a live job other than this one, computed ONCE by a
+    # caller asking about many couriers (see `Dispatch::OfferService`, and
+    # `.busy_courier_ids`). Without it the question is asked per courier, as it
+    # always was, which is right for the single-courier callers (accept, shift).
+    def initialize(courier:, job:, busy_courier_ids: nil)
       @courier = courier
       @job = job
+      @busy_courier_ids = busy_courier_ids
+    end
+
+    # WHO AMONG THESE ALREADY HOLDS A LIVE JOB — two queries for the whole
+    # pool, not two per courier. Measured 24 Sept 2026: dispatch asked it per
+    # candidate, 171 queries for 95 couriers (~400 at 200), inside the job's
+    # row lock and the shop's Accept request, and again on every decline and
+    # expiry. Same rule as `carrying_another_job?`, so the verdicts are
+    # identical — asserted in spec/services/dispatch/one_question_for_the_pool_spec.rb.
+    def self.busy_courier_ids(courier_ids, job:)
+      [ Order, Trip ].flat_map do |klass|
+        scope = klass.live.where(courier_id: courier_ids)
+        scope = scope.where.not(id: job.id) if job.is_a?(klass)
+        scope.distinct.pluck(:courier_id)
+      end.to_set
     end
 
     def eligible?
@@ -210,6 +230,8 @@ module Dispatch
     # refused as a conflict — that would make an admin reassignment of the same
     # job to the same courier impossible to explain.
     def carrying_another_job?
+      return @busy_courier_ids.include?(@courier.id) if @busy_courier_ids
+
       [ Order, Trip ].any? do |klass|
         scope = klass.live.for_courier(@courier)
         scope = scope.where.not(id: @job.id) if @job.is_a?(klass)
