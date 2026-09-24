@@ -1,0 +1,37 @@
+<%#
+  THE COURIER'S INTERVENTIONS, ABOVE THE DEFAULT PAGE. Approve, ask for more,
+  reject and take off shift existed only as routes until 24 Sept 2026, so an
+  application could be reviewed on this page and not decided on it.
+%>
+<% profile = page.resource %>
+<section class="karwan-actions">
+  <h2>Decide — <%= profile.verification_status.humanize %><%= ", on shift" if profile.is_available? %></h2>
+
+  <% unless profile.verification_approved? %>
+    <%= button_to "Approve", approve_admin_courier_profile_path(profile), method: :patch,
+                  form: { data: { turbo: false } }, class: "button",
+                  data: { confirm: "Approve #{profile.full_name.presence || 'this courier'}? They can take cash work." } %>
+  <% end %>
+
+  <% if profile.verification_pending? || profile.verification_needs_more? %>
+    <%= form_with url: ask_for_more_admin_courier_profile_path(profile), method: :patch, data: { turbo: false } do |f| %>
+      <%= f.text_field :note, placeholder: "What is missing (they are told)" %>
+      <%= f.submit "Ask for more", class: "button button--alt" %>
+    <% end %>
+  <% end %>
+
+  <% unless profile.verification_rejected? %>
+    <%= form_with url: reject_admin_courier_profile_path(profile), method: :patch, data: { turbo: false } do |f| %>
+      <%= f.text_field :reason, placeholder: "Reason" %>
+      <%= f.submit "Reject", class: "button button--danger",
+                   data: { confirm: "Reject this courier? Dispatch stops considering them." } %>
+    <% end %>
+  <% end %>
+
+  <% if profile.is_available? %>
+    <%= button_to "Take off shift", take_off_shift_admin_courier_profile_path(profile), method: :patch,
+                  form: { data: { turbo: false } }, class: "button button--alt" %>
+  <% end %>
+</section>
+
+<%= render template: "administrate/application/show", locals: { page: page } %>

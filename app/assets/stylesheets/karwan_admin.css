@@ -15,3 +15,15 @@
                                      border-bottom: 1px solid #e5e7eb; font-size: .9rem; }
 .karwan-row--warn { background: #fff6e5; }
 .karwan-row--alert { background: #fdecea; }
+/* The interventions panel on a record's page — the manual override the brief
+   says to build first. One look for every page, so an operator learns it once. */
+.karwan-actions { margin: 0 0 1.5rem; padding: 1rem 1.25rem; border: 1px solid #e5e7eb;
+                  border-radius: 10px; background: #f9fafb; }
+.karwan-actions h2 { margin: 0 0 .75rem; font-size: 1rem; }
+.karwan-actions form { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center;
+                       margin: 0 0 .6rem; }
+.karwan-actions input[type=text], .karwan-actions input[type=number],
+.karwan-actions input[type=datetime-local], .karwan-actions select {
+  padding: .45rem .6rem; border: 1px solid #cbd5e1; border-radius: 6px; min-width: 10rem; }
+.karwan-actions__why { margin: 0 0 .6rem; font-size: .85rem; color: #7a4a00; }
+.button--danger { background: #b42318; }

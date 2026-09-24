@@ -1,0 +1,40 @@
+<%#
+  THE SHOP'S INTERVENTIONS, ABOVE THE DEFAULT PAGE. PRODUCT.md: "open/close on
+  their behalf" — and approve, suspend and restore — existed only as routes
+  until 24 Sept 2026. A shop that rings to say its tablet died could not be
+  closed from here, and PRODUCT.md calls a shop marked open that isn't "the
+  most damaging state in the system".
+%>
+<% merchant = page.resource %>
+<section class="karwan-actions">
+  <h2>Shop — <%= merchant.status.humanize %>, <%= merchant.is_open? ? "OPEN" : "closed" %><%= ", deleted" if merchant.discarded? %></h2>
+
+  <% if merchant.discarded? %>
+    <%= button_to "Restore", restore_admin_merchant_path(merchant), method: :patch,
+                  form: { data: { turbo: false } }, class: "button" %>
+  <% else %>
+    <% if merchant.is_open? %>
+      <%= button_to "Close it now", close_merchant_admin_merchant_path(merchant), method: :patch,
+                    form: { data: { turbo: false } }, class: "button button--danger" %>
+    <% else %>
+      <%= button_to "Open it", open_merchant_admin_merchant_path(merchant), method: :patch,
+                    form: { data: { turbo: false } }, class: "button" %>
+    <% end %>
+
+    <% unless merchant.status_active? %>
+      <%= button_to "Approve", approve_admin_merchant_path(merchant), method: :patch,
+                    form: { data: { turbo: false } }, class: "button",
+                    data: { confirm: "Approve #{merchant.name}? It becomes orderable." } %>
+    <% end %>
+
+    <% unless merchant.status_suspended? %>
+      <%= form_with url: suspend_admin_merchant_path(merchant), method: :patch, data: { turbo: false } do |f| %>
+        <%= f.text_field :reason, placeholder: "Reason" %>
+        <%= f.submit "Suspend", class: "button button--danger",
+                     data: { confirm: "Suspend #{merchant.name}?" } %>
+      <% end %>
+    <% end %>
+  <% end %>
+</section>
+
+<%= render template: "administrate/application/show", locals: { page: page } %>

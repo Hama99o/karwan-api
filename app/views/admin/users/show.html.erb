@@ -1,0 +1,30 @@
+<%#
+  THE ACCOUNT'S INTERVENTIONS, ABOVE THE DEFAULT PAGE. Suspend, reinstate,
+  restore and revoke sessions existed only as routes until 24 Sept 2026 — so
+  the answer to "my phone was stolen" (revoke its sessions) could not be given
+  from here. See `revoking_a_lost_phone_spec.rb`.
+%>
+<% user = page.resource %>
+<section class="karwan-actions">
+  <h2>Account — <%= user.status.humanize %><%= ", deleted" if user.discarded? %>, <%= user.live_session_count %> signed-in devices</h2>
+
+  <% if user.discarded? %>
+    <%= button_to "Restore", restore_admin_user_path(user), method: :patch,
+                  form: { data: { turbo: false } }, class: "button" %>
+  <% elsif user.account_suspended? %>
+    <%= button_to "Reinstate", reinstate_admin_user_path(user), method: :patch,
+                  form: { data: { turbo: false } }, class: "button" %>
+  <% else %>
+    <%= form_with url: suspend_admin_user_path(user), method: :patch, data: { turbo: false } do |f| %>
+      <%= f.text_field :reason, placeholder: "Reason" %>
+      <%= f.submit "Suspend", class: "button button--danger",
+                   data: { confirm: "Suspend #{user.display_name}? They are signed out everywhere." } %>
+    <% end %>
+  <% end %>
+
+  <%= button_to "Sign out every device (lost or stolen phone)", revoke_sessions_admin_user_path(user),
+                method: :patch, form: { data: { turbo: false } }, class: "button button--alt",
+                data: { confirm: "Sign #{user.display_name} out of every device?" } %>
+</section>
+
+<%= render template: "administrate/application/show", locals: { page: page } %>

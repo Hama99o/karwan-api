@@ -6413,3 +6413,62 @@ examples "failed" for that reason instead of the bug; the control going red
 too is what showed it.
 
 **The operator cannot actually press this yet** — see the next entry.
+
+
+---
+
+## THE CONSOLE'S INTERVENTIONS COULD NOT BE PRESSED
+
+**24 Sept 2026 — the largest finding of the day, and every spec was green
+over it.** Rendered, not read: the board, an order, a courier's wallet, a
+courier, a user, a shop — every `<form>` on each page listed:
+
+```
+board    forms=["/admin/orders/1/redispatch"]
+order    forms=[]     wallet  forms=[]     courier  forms=[]     user  forms=[]
+merchant forms=[…Administrate's own delete buttons…]
+```
+
+Twenty interventions — reassign, cancel, fail; top up, adjust, reimburse,
+settle; approve, ask for more, reject, take off shift; open, close, approve,
+suspend, restore a shop; suspend, reinstate, restore, revoke sessions — were
+**routes with no form**. An operator at a laptop could press none of them.
+`CLAUDE.md`: *"Build the manual override FIRST — it is what makes the business
+operable while the automation is wrong."* `PRODUCT.md`: the console *"is the
+most important surface in v0."* `interventions_spec`, `operator_can_do_the_job`
+and the audit specs all drive the routes BY URL, so all of it was proven and
+none of it was usable. `bin/console_doors` answers which MODELS are reachable,
+not which ACTIONS.
+
+**And the one intervention that was pressable** was the board's Redispatch, on
+every live row — including a red, overdue `picked_up` one — which until
+`ae048b7` handed a carried, paid order to another courier.
+
+### Built
+
+A panel above the default page on orders, courier wallets, courier profiles,
+merchants and users, in `hatiwal-api`'s `admin/users/show.html.erb` shape
+(`form_with` panels, then `render template: "administrate/application/show"`).
+Each action is shown only when its state allows it — for orders, the same
+`can_transition_to?(…, actor_role: :admin)` the controller applies, so the page
+and the controller cannot disagree. Reassign is withheld once the shop is paid,
+with the reason. The settle form asks for the deposit's time. The board's
+Redispatch appears only on an order nobody has.
+
+`every_intervention_can_be_pressed_spec.rb` **never types a URL**: it opens the
+page, finds the form by the action it posts to, fills only fields the form
+names, and submits to the form's own action and method. Seven plants at the
+view layer — a form removed, one shown in the wrong state, the board's old
+button restored, the deposit field dropped, a button made a link, a button
+wired to the wrong action — each fails exactly one example.
+
+Two fixtures failed first and were the fixtures' fault, not the page's: a
+courier "applicant" trait that does not exist, and an undocumented applicant
+the controller rightly refused to approve (`:documented` is what approval is
+made against).
+
+### The general shape, for the next reader
+
+**A route with a green request spec is not a feature a person can use.** The
+test for an ops console action is the rendered page, and the existing specs
+never looked at one. Where a new console action is added, add it to this file.

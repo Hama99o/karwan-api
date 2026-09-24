@@ -1,0 +1,63 @@
+<%#
+  THE ORDER'S INTERVENTIONS, ABOVE THE DEFAULT PAGE.
+
+  Until 24 Sept 2026 reassign, cancel and fail existed only as routes: the page
+  rendered no form, so nobody at a laptop could press them — the specs drove
+  them by URL, which is why it never showed. CLAUDE.md: "Build the manual
+  override FIRST — it is what makes the business operable."
+
+  Each action is offered only when the state machine allows it for an
+  operator (`can_transition_to?(…, actor_role: :admin)`), the same test the
+  controller applies — so the page and the controller cannot disagree about
+  what is possible. Shape copied from hatiwal-api's admin/users/show.html.erb.
+%>
+<% order = page.resource %>
+<section class="karwan-actions">
+  <h2>Interventions — every one is logged with your name</h2>
+
+  <% if order.terminal? %>
+    <p class="karwan-actions__why">This order is <%= order.status %>. Nothing more can be done to it here.</p>
+  <% else %>
+    <% if order.merchant_paid_at.present? %>
+      <%# MONEY_AND_SETTLEMENT.md §8 — see Admin::OrdersController#reassign. %>
+      <p class="karwan-actions__why">
+        <%= order.courier&.display_name || "The courier" %> has already paid the shop and is holding
+        the food, so this order cannot be moved to another courier. Ring them, or mark it failed.
+      </p>
+    <% else %>
+      <%= form_with url: reassign_admin_order_path(order), method: :patch, data: { turbo: false } do |f| %>
+        <%= f.select :courier_id,
+                     options_from_collection_for_select(
+                       User.joins(:courier_profile).merge(CourierProfile.verification_approved)
+                           .where.not(id: order.courier_id).order(:name),
+                       :id, ->(u) { "#{u.display_name} — #{u.phone}" }),
+                     { prompt: "Choose a courier" }, required: true %>
+        <%= f.submit order.courier ? "Reassign" : "Assign", class: "button" %>
+      <% end %>
+    <% end %>
+
+    <% if order.courier_id.nil? %>
+      <%= button_to "Redispatch — offer it to the next courier", redispatch_admin_order_path(order),
+                    method: :patch, form: { data: { turbo: false } }, class: "button button--alt" %>
+    <% end %>
+
+    <% if order.can_transition_to?(:cancelled, actor_role: :admin) %>
+      <%= form_with url: cancel_admin_order_path(order), method: :patch, data: { turbo: false } do |f| %>
+        <%= f.text_field :reason, placeholder: "Why (the customer is told a person decided)" %>
+        <%= f.submit "Cancel order", class: "button button--danger",
+                     data: { confirm: "Cancel #{order.code}?" } %>
+      <% end %>
+    <% end %>
+
+    <% if order.can_transition_to?(:failed, actor_role: :admin) %>
+      <%= form_with url: fail_admin_order_path(order), method: :patch, data: { turbo: false } do |f| %>
+        <%= f.select :reason, Order.failure_reasons.keys.map { |r| [ r.humanize, r ] },
+                     { prompt: "What went wrong" }, required: true %>
+        <%= f.submit "Mark failed", class: "button button--danger",
+                     data: { confirm: "Mark #{order.code} failed? This is a money decision." } %>
+      <% end %>
+    <% end %>
+  <% end %>
+</section>
+
+<%= render template: "administrate/application/show", locals: { page: page } %>

@@ -1,0 +1,46 @@
+<%#
+  THE WALLET'S INTERVENTIONS, ABOVE THE DEFAULT PAGE.
+
+  Top up, adjust, reimburse and settle existed only as routes until 24 Sept
+  2026 — no form rendered them, so the one path by which money reaches this
+  business in v0 (a bank deposit matched by the 4-digit code) could not be
+  recorded by a person. Every one goes through `CourierWallet#record_entry!`
+  or the settlement, and is logged with the operator.
+%>
+<% wallet = page.resource %>
+<% held = Couriers::CashPosition.new(wallet.user).held(wallet.currency) %>
+<section class="karwan-actions">
+  <h2>Money — code <%= wallet.top_up_code %>, balance <%= wallet.balance %> <%= wallet.currency %>,
+      holding <%= held %> <%= wallet.currency %> of ours</h2>
+
+  <%= form_with url: top_up_admin_courier_wallet_path(wallet), method: :post, data: { turbo: false } do |f| %>
+    <%= f.number_field :amount, step: "0.01", min: "0.01", placeholder: "Amount", required: true %>
+    <%= f.text_field :note, placeholder: "Bank reference (optional)" %>
+    <%= f.submit "Record top-up", class: "button" %>
+  <% end %>
+
+  <%# SETTLE — the deposit's time from the statement, because the courier kept
+      working after he deposited (MONEY_AND_SETTLEMENT.md §4; blank = now). %>
+  <%= form_with url: settle_admin_courier_wallet_path(wallet), method: :post, data: { turbo: false } do |f| %>
+    <%= f.number_field :counted_amount, step: "0.01", placeholder: "Amount deposited", required: true %>
+    <%= f.datetime_local_field :deposited_at, title: "When the deposit was made, from the statement (Kabul time)" %>
+    <%= f.text_field :counted_by_name, placeholder: "Who counted / checked it", required: true %>
+    <%= f.text_field :note, placeholder: "Note (optional)" %>
+    <%= f.submit "Record settlement", class: "button" %>
+  <% end %>
+
+  <%= form_with url: reimburse_admin_courier_wallet_path(wallet), method: :post, data: { turbo: false } do |f| %>
+    <%= f.number_field :amount, step: "0.01", min: "0.01", placeholder: "Amount", required: true %>
+    <%= f.text_field :note, placeholder: "Which order, and why", required: true %>
+    <%= f.submit "Reimburse", class: "button button--alt" %>
+  <% end %>
+
+  <%= form_with url: adjust_admin_courier_wallet_path(wallet), method: :post, data: { turbo: false } do |f| %>
+    <%= f.number_field :amount, step: "0.01", placeholder: "± amount", required: true %>
+    <%= f.text_field :note, placeholder: "Reason (required)", required: true %>
+    <%= f.submit "Adjust", class: "button button--danger",
+                 data: { confirm: "Adjust this wallet by hand? The reason is kept forever." } %>
+  <% end %>
+</section>
+
+<%= render template: "administrate/application/show", locals: { page: page } %>
