@@ -6869,3 +6869,32 @@ and the console's "couriers to ring", can file a rare event as a decline he
 never made, or the reverse. Dispatch is unaffected: one live offer either way
 (`spec/services/dispatch/decline_while_the_sweep_expires_spec.rb`). Not worth a
 lock. Read a single disputed decline with that in mind.
+
+## WHAT EACH GATE CANNOT SEE — the instrument audit, 24 Sept 2026
+
+The rule the audit applied: **an instrument that enumerates what exists cannot
+find what is missing.** For each gate: what it enumerates, its blind spot by
+construction, and whether that blind spot hid anything.
+
+| gate | enumerates | blind spot | hid a bug? | now |
+|---|---|---|---|---|
+| `every_action_consults_a_policy` | routes | none of this kind | — (it replaced the policy-first sweep that hid `reimburse`) | rebuilt earlier today |
+| `delete_is_discard` | merchants only, plus a hand list of 6 | any other destroy route | **yes**: catalog items and categories hard-deleted | every routed destroy is driven, and each hard delete's protection is checked against the schema (`ab17091`) |
+| `api_vocabulary` | a hand list of 14 | any enum not typed | **yes**: `verification_status` and `selection_type`, both read by the app | every model enum is pinned or explained (`7cb25cc`) |
+| `money_moves_only_through_the_ledger` | single source lines | multi-line calls, `update_all`, `assign_attributes`, creation with money | no | whole-file scan added (`f9e923a`) |
+| `every_transition_is_recorded` | single lines, `status` first | status not first, multi-line, enum bangs (`order.delivered!`) | no | whole-file scan added (`d1400b9`) |
+| `no_console_form_writes_a_protected_column` | a hand list of protected columns | an unlisted money column | no | every writable column must be argued for (`ccbda62`) |
+| `currency_on_every_amount` | decimal columns | money in an integer or float column | no | integer and float money flagged (`8c16abe`) |
+| `recurring_schedule` | `app/jobs/dispatch/` | a sweep elsewhere | no (the one elsewhere was scheduled by memory) | every job enqueued or scheduled (`51525d6`) |
+| `index_is_gated_by_the_scope`, `authorization_boundary` | the base controller's `verify_*` callbacks, and routes | explicit `skip_authorization` opt-outs | no: all 14 opt-outs read `current_user`'s own data | recorded, not gated |
+| `every_intervention_is_audited`, `intervention_authorization`, `every_console_page_opens`, `every_console_action_has_a_button` | routes | none of this kind | — | sound |
+| `error_codes` | resolved values | — | — | rebuilt earlier today (`37dba0c`) |
+
+**Not audited in depth, and the reason:**
+- Single-fact config specs: port, test database, CI, entrypoint, deploy env.
+- Gates that already derive from `descendants`, the dashboards or the schema:
+  `fresh_deploy_is_operable`, `every_newest_first_is_a_total_order`,
+  `every_console_filter_runs`, `no_console_page_shows_a_credential`.
+- Still to read with this question: `order_lines_are_snapshots`
+  (`SNAPSHOT_COLUMNS` is typed), `every_setting_is_read`,
+  `served_images_are_resized`, `config_reachability` (`TODAYS_KNOBS`).
