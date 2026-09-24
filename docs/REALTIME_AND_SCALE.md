@@ -125,7 +125,12 @@ location_updated_at`, one row per courier, updated in place.
 
 ## 4. What is NOT built, and what has to be decided
 
-### Who may read a courier's position — **the important one**
+### Who may read a courier's position — **the important one** — BUILT
+
+*Struck as a gap 24 Sept 2026:* `OrderPolicy#track?` is the scope and
+`customers/orders#track` consults it; request specs cover the refusal (terminal
+order, somebody else's order, no token) and the legitimate path. Rides have no
+passenger endpoint yet, so there is no second reader to gate.
 
 Only the customer and the merchant of that courier's **currently active job**,
 and only while it is active. Never the fleet, never after delivery.
@@ -220,12 +225,13 @@ So a courier too short for a delivery can still earn on a ride. Refusing them
 both would take income from the side of the market whose supply is already
 scarce.
 
-**Two jobs that do not exist yet and must before launch:**
-- a recurring job that expires timed-out offers and moves to the next courier
-- a recurring job that acts on `Order::TIMEOUTS` / `Trip::TIMEOUTS`
-
-Until those exist, a job can sit in its first state forever. `docs/NOTES.md`
-carries this as an open gap.
+~~**Two jobs that do not exist yet and must before launch:**~~ **Both exist**
+(struck 24 Sept 2026), scheduled in `config/recurring.yml`:
+- `Dispatch::ExpireOffersJob`, every 20 seconds — expires timed-out offers and
+  moves to the next courier
+- `Dispatch::JobTimeoutsJob`, every minute — acts on `Order::TIMEOUTS` /
+  `Trip::TIMEOUTS`: closes a job nothing has been committed to, and flags the
+  rest for a human once per stuck state
 
 ---
 

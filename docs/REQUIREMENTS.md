@@ -190,11 +190,14 @@ Also found while doing it: **Active Storage was never installed**, though seven
 `has_one_attached` declarations already existed. Nothing caught it, because the
 macro does not touch the database and `zeitwerk:check` passes. Installed.
 
-Still open from that document, and not yet built: Solar Hijri (Shamsi) date
-rendering, Eastern Arabic numerals per locale (with phone numbers and order
-codes staying Latin and LTR), and cross-script search — trigram similarity
-cannot bridge `کباب` and `kabab`, so that needs a transliteration map or a
-normalised search column. Recorded in `docs/NOTES.md`.
+~~Still open from that document, and not yet built:~~ **All three since closed**
+(struck 24 Sept 2026): Solar Hijri (Shamsi) date rendering and Eastern Arabic
+numerals per locale (with phone numbers and order codes staying Latin and LTR)
+in karwan-mobile, `src/i18n/shamsi.ts` and `src/i18n/numerals.ts` — see
+`docs/NOTES.md`, "Shamsi dates and Eastern Arabic numerals — CLOSED"; and
+cross-script search — trigram similarity cannot bridge `کباب` and `kabab` — in
+this repo as `Search::Transliteration`, measured against the trigram threshold
+before it was designed.
 
 ### R13 — For Afghanistan, but not technically restricted to it
 > "remeber this app is only for afg but as we have done for hatiwal its open in
@@ -260,9 +263,13 @@ What that is enough for: live tracking in v0. The customer app polls the
 courier's current position while their job is active. **Foreground only, while
 a job is active** — background location is explicitly out of v0.
 
-What is NOT built, and needs deciding rather than assuming:
+What is NOT built, and needs deciding rather than assuming — **updated 24 Sept
+2026: 1 and 2 are built, 3 is still v1:**
 
-1. **Who may read a courier's position.** Only the customer and merchant of that
+1. **Who may read a courier's position.** *(Built: `OrderPolicy#track?` refuses a
+   terminal order and anyone but the customer, the shop's owner and admin, with
+   request specs on the refusals and the legitimate path —
+   `customers/orders_spec.rb`, "GET …/track".)* Only the customer and merchant of that
    courier's ACTIVE job, only while it is active, and never the whole fleet.
    This is an authorization rule, and the edu-safi lesson applies exactly:
    write the scope *and* use it, with a request spec proving both the refusal

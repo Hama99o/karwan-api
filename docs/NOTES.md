@@ -3632,7 +3632,7 @@ gross order value is what passed through and commission is what we earned. An
 owner shown the first labelled as income would think this business is roughly
 twenty times its size.
 
-### OPEN, AND HIS: rider utilisation has no honest denominator yet
+### ~~OPEN, AND HIS:~~ rider utilisation has no honest denominator yet — RECORDING BUILT 21 Sept (`courier_shifts`); the heading was left open after the body closed it
 
 The figure is **jobs ÷ riders who completed at least one job ÷ days**, and that
 denominator has a bias that runs the wrong way for the decision it will be used
@@ -6602,3 +6602,34 @@ human either way; nothing is decided by the push. Four plants, each red.
 4. In the same release: switch **`courier_check_in_enabled`** on in Config.
 
 Manifest item 16.
+
+
+---
+
+## THE GAP-SENTENCE SWEEP, 24 SEPT — WHAT EACH ONE TURNED OUT TO BE
+
+A stale gap sentence sends the next session to rebuild something; TRUST §2's
+nearly did this morning. Swept the binding docs (not the dated logs, whose
+"not built" is history) for sentences claiming something is missing:
+
+| Where | Sentence | Verdict |
+|---|---|---|
+| `REALTIME_AND_SCALE.md` §6 | *"Two jobs that do not exist yet and must before launch"* | **closed** — `ExpireOffersJob` (20 s) and `JobTimeoutsJob` (1 min) in `config/recurring.yml`; struck with pointers |
+| `REALTIME_AND_SCALE.md` §4, `REQUIREMENTS.md` R15 | *"Who may read a courier's position"* — not built | **closed** — `OrderPolicy#track?`, with request specs on refusal and legitimate path; noted that rides have no passenger endpoint to gate |
+| `REQUIREMENTS.md` | Shamsi dates, Eastern Arabic numerals, cross-script search *"not yet built"* | **closed** — the first two in karwan-mobile (`shamsi.ts`, `numerals.ts`, per the CLOSED entry above); search as `Search::Transliteration` |
+| `NOTES.md` heading | *"OPEN, AND HIS: rider utilisation…"* over a body saying BUILT | **now wrong** — heading corrected |
+| `REALTIME_AND_SCALE.md` §9 | payments not built | **open, v1** — correct |
+| `TRUST_AND_REPUTATION.md` §5 | the strike threshold; the courier-offer limit | **open, Hamma9900's** — correct |
+| `TRUST_AND_REPUTATION.md` §5-B | the merchant API has no cancel route | **open, Hamma9900's** — correct |
+| `MAP_AND_ROUTING.md` | *"What does NOT exist"* | **correct**, and already carries its own 19 Sept correction |
+| earlier today | TRUST §2 count, R15 disputed position, R-OTP throttling, R19 statements | **closed**, struck in earlier commits |
+
+**One spec line with no build and no decision:** `PRODUCT.md`'s console
+*"Intervene on any order — …, adjust an amount."* Wallets can be adjusted;
+nothing adjusts an ORDER's amount, and correction 13 freezes every amount at
+quote. Whether an operator may change a frozen order total — and what the
+customer, the shop and the ledger are told — is a money rule, so **Hamma9900's**.
+Recorded rather than built.
+
+`CLAUDE.md` was read but not edited: nothing in it was stale by this test, and
+a peer's queue is not a reason to change it.
