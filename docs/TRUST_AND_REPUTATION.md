@@ -41,8 +41,12 @@ Instead the courier reports a **reason**, and reasons accumulate.
 
 **Half of this already exists.** The courier's job screen has problem buttons — *customer not
 answering*, *customer refused*, *restaurant not ready*, *call support* — each recording a reason
-and reaching admin. **What is missing is that those reports should accumulate against the
-customer** and feed the strike threshold in `MONEY_AND_SETTLEMENT.md` §5.
+and reaching admin. ~~**What is missing is that those reports should accumulate against the
+customer**~~ — **built 21 Sept 2026** as `User#delivery_failures_summary` and the console's
+`had_a_failure` filter, and **extended to rides on 24 Sept**: a passenger's failed pickups
+count on the same line, because it is the same person (`docs/NOTES.md`). The strike
+*threshold* in `MONEY_AND_SETTLEMENT.md` §5 is still not built — it is a policy, and §5 below
+is open. Counting is decided; what happens at four is not.
 
 **This is stronger than a rating because it protects the side that cannot be replaced.** A
 courier who is sent to four wrong addresses in a month stops working. And *"four wrong

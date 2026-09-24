@@ -150,26 +150,44 @@ class User < ApplicationRecord
   # DERIVED, never stored: the orders already carry the reasons, and a cached
   # tally would be a second answer that can disagree with them.
   def delivery_failures
-    orders.where(status: :failed).where.not(failure_reason: nil)
-          .group(:failure_reason).count
+    failures_recorded_on(orders)
   end
 
   # The same question over the window the document's own example uses — *"four
   # wrong addresses in a month"*. A display window, not a threshold: it decides
   # what the operator is shown, not what happens to anybody.
   def recent_delivery_failures(since: 30.days.ago)
-    orders.where(status: :failed, failed_at: since..).where.not(failure_reason: nil)
-          .group(:failure_reason).count
+    failures_recorded_on(orders, since: since)
+  end
+
+  # ── AND AT THE KERB, FOR A RIDE ───────────────────────────────────────────
+  #
+  # `MONEY_AND_SETTLEMENT.md` §7, a passenger who ends a ride early: *"The
+  # passenger gets a strike."* A driver who waits at a pickup for somebody who
+  # never comes is the ride's wrong address, and is standing in the street
+  # unpaid in exactly the same way. The count above read `orders` alone, so a
+  # passenger who no-showed four drivers in a month had a clean record.
+  #
+  # The same person — correction 18: one identity — so both land on the same
+  # line rather than on two pages. The reason names cannot collide
+  # (`nobody_home` on an order, `passenger_no_show` on a trip), so the combined
+  # line still says which kind of job each one was.
+  def ride_failures
+    failures_recorded_on(trips)
+  end
+
+  def recent_ride_failures(since: 30.days.ago)
+    failures_recorded_on(trips, since: since)
   end
 
   # For the console, in the shape `registered_devices_summary` established: one
   # readable line, the counts in it, and nothing to click through to work out
   # what it means.
   def delivery_failures_summary
-    all_time = delivery_failures
+    all_time = delivery_failures.merge(ride_failures) { |_reason, a, b| a + b }
     return "none" if all_time.empty?
 
-    recent = recent_delivery_failures
+    recent = recent_delivery_failures.merge(recent_ride_failures) { |_reason, a, b| a + b }
     ranked = all_time.sort_by { |_reason, n| -n }
                      .map { |reason, n| "#{reason.to_s.humanize.downcase} ×#{n}" }
     "#{ranked.join(', ')} — #{recent.values.sum} in the last 30 days"
@@ -251,6 +269,15 @@ class User < ApplicationRecord
   end
 
   private
+
+  # One definition for both job types, so a food failure and a ride failure
+  # cannot come to be counted by two different rules. A failure with no reason
+  # is left out on both — it says nothing about the person.
+  def failures_recorded_on(jobs, since: nil)
+    scope = jobs.where(status: :failed).where.not(failure_reason: nil)
+    scope = scope.where(failed_at: since..) if since
+    scope.group(:failure_reason).count
+  end
 
   def canonicalise_identifiers
     self.email = email.to_s.strip.downcase.presence

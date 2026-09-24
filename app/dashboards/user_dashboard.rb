@@ -66,7 +66,13 @@ class UserDashboard < Administrate::BaseDashboard
       # filter broken this way is indistinguishable from one that matched
       # nothing. Measured: this returned 0 while a customer with a recorded
       # failure was on the very next page.
+      #
+      # And `::Trip` beside it: a passenger who no-showed four drivers is the
+      # same conversation, and `User#delivery_failures_summary` counts both.
+      # A filter that listed fewer people than the summary lines flag would be
+      # two answers to one question.
       resources.where(id: ::Order.where(status: :failed).where.not(failure_reason: nil).select(:customer_id))
+               .or(resources.where(id: ::Trip.where(status: :failed).where.not(failure_reason: nil).select(:passenger_id)))
     }
   }.freeze
 

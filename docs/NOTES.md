@@ -6141,3 +6141,44 @@ apart is a courier who is also a customer (correction 18: one identity)
 cancelling his own order. Added; the plant now fires. Same lesson as §5-B's
 actor filter: the guard's discriminating case was a DIFFERENT path the model
 already allows, not the one the example was named after.
+
+
+---
+
+## A PASSENGER WHO NO-SHOWED FOUR DRIVERS HAD A CLEAN RECORD
+
+**24 Sept 2026.** Found by reading `TRUST_AND_REPUTATION.md` §2 for work: its
+gap sentence — *"What is missing is that those reports should accumulate
+against the customer"* — was still standing, though `User#delivery_failures`
+had closed it on 21 Sept. **A stale gap sentence is a work item that sends the
+next session to rebuild something**; this one nearly did. Struck, with a
+pointer.
+
+Checking what had been built against the doc that asked for it found the real
+gap: the count read **`orders` only**. `MONEY_AND_SETTLEMENT.md` §7 gives the
+ride its own strike — *"The passenger gets a strike"* — and a driver waiting at
+a kerb for somebody who never comes is the ride's wrong address. So a passenger
+who no-showed four drivers in a month showed `none`, and was absent from the
+console's `had_a_failure` list.
+
+Now `ride_failures` / `recent_ride_failures` beside the delivery pair, one
+private `failures_recorded_on` for both so the two cannot drift, the summary
+line merging both (reason names cannot collide, so the line still says which
+kind of job each was), and the filter taking `::Trip` beside `::Order` so the
+list and the line agree about who has a record. Still **a count, never a
+score, and no threshold** — that is §5 and it is open.
+
+**The original shipped with no spec of its own** — correction 11 says every
+method. It now has one, whose discriminating input is a person who is also a
+courier with a failed trip he DROVE: `trips` and `courier_trips` differ by one
+word, and counting the second would put a driver's bad night on his record as
+a passenger. Six plants, each asserted to have landed, all red.
+
+### And the gate that caught my previous commit
+
+`currency_on_every_amount_spec` refused `status_transitions.courier_latitude`:
+a decimal in a table with no currency is presumed money until named. My
+targeted run before that commit covered the courier and admin folders and not
+`spec/models`, which is **where this repo keeps its schema gates**. A migration
+needs `spec/models` in its targeted run, not only the folder the feature lives
+in.
