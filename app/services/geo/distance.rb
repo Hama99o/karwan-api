@@ -1,18 +1,24 @@
 module Geo
   # Straight-line (great-circle) distance between two pins.
   #
-  # DELIBERATELY not a routed distance. v0 has no routing engine — CLAUDE.md is
-  # explicit that ETA is "straight-line distance / average speed, calibrated
-  # from real deliveries", and that OSRM comes later only if it ever becomes the
-  # bottleneck. A router would also be a third consumer of the map extract and a
-  # service to run, against a per-order marginal cost that must stay at zero.
+  # Written when v0 had no router, and the header said so — it said "OSRM comes
+  # later", that a route runs "20-40%" longer, and that lowering the speed
+  # setting stretched "any distance-based fee". None of that is true now:
   #
-  # The systematic error is known and accounted for rather than ignored: a real
-  # route through a city is longer than the crow flies, typically by 20-40%.
-  # That factor is absorbed into `eta_average_speed_kmh`, which is a tunable
-  # setting precisely so it can be calibrated against real deliveries instead of
-  # guessed. Lower the speed and both the ETA and any distance-based fee
-  # stretch to match reality.
+  #   * OSRM is on, by Hamma9900's decision (`748c135`), and a fee's distance is
+  #     the ROAD distance from `Routing::DistanceResolver`. This module is its
+  #     fallback when the router is off or unreachable.
+  #   * Measured over 600 realistic Kabul pairs on 24 Sept 2026, a road runs a
+  #     median 1.60x the straight line, p99 3.6x — not 20-40%.
+  #   * `eta_average_speed_kmh` divides a distance into minutes. It has never
+  #     touched a fee.
+  #
+  # What stays straight-line on purpose: dispatch's "who is nearest" and its
+  # radius, the distance to the shop printed on a courier's offer, the courier
+  # top-up's dead leg, and the live leg from a courier's reported position to
+  # the customer — each a comparison or an estimate on a hot path, where a
+  # routing round trip per candidate would cost more than the precision is
+  # worth. Nothing here is what a customer is charged for.
   class Distance
     # Mean Earth radius (IUGG). At Kabul's scale the difference between this and
     # a proper ellipsoid is centimetres — far below the error already introduced

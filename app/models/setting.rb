@@ -47,7 +47,7 @@ class Setting < ApplicationRecord
     # now would pay couriers less than the customer already believes, and
     # courier supply is the scarce side.
     "delivery_base_fee"      => { type: :decimal, default: "50.0", currency: "AFN", description: "Charged on every delivery before distance" },
-    "delivery_fee_per_km"    => { type: :decimal, default: "20.0", currency: "AFN", description: "Added per straight-line kilometre" },
+    "delivery_fee_per_km"    => { type: :decimal, default: "20.0", currency: "AFN", description: "Added per kilometre from the shop to the customer — by ROAD while routing_distance_source is osrm (the default), by straight line when it is straight_line or the router cannot be reached. Each order records which it used (distance_source). Road distance runs about 1.6x the straight line across Kabul, so this rate means more per trip than a straight-line rate would." },
     "delivery_minimum_fee"   => { type: :decimal, default: "80.0", currency: "AFN", description: "Floor, so a very short delivery is still worth taking" },
     # ── THE TIERS ─────────────────────────────────────────────────────────────
     #
@@ -106,7 +106,7 @@ class Setting < ApplicationRecord
     "batch_max_jobs"         => { type: :integer, default: "1", description: "Jobs a courier may hold at once, including the current one. 1 = no batching. Raise to 3 when there is enough demand to combine runs." },
     "cash_in_hand_limit"     => { type: :decimal, default: "3000.0", currency: "AFN", description: "Above this a rider must settle before taking more work" },
     "default_credit_line"    => { type: :decimal, default: "500.0", currency: "AFN", description: "How far a new rider's wallet may go below zero" },
-    "eta_average_speed_kmh"  => { type: :decimal, default: "18.0", description: "Straight-line distance / this = ETA. Calibrate from real deliveries." },
+    "eta_average_speed_kmh"  => { type: :decimal, default: "18.0", description: "Distance / this = travel minutes, for every ETA we show. The distance is the same one the fee uses (by road while routing is on), except the live leg from a courier's reported position, which is a straight line. OSRM's own durations are deliberately not used. Calibrate from real deliveries." },
     # ── THE ARRIVAL WINDOW THE TRACKING SCREEN SHOWS ─────────────────────────
     #
     # A RANGE, never a single minute — the order-tracking SPEC's first decision.
