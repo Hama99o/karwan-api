@@ -99,6 +99,12 @@ That is normal behaviour, another rider picks it up, and the platform should not
 **But it needs a limit** — a rider who cancels half his offers is gaming the queue, and that is
 a reason code, not a strike.
 
+**VISIBLE SINCE 24 SEPT 2026 — `Couriers::Reliability`, on each courier's console page.** There
+is no route for a courier to cancel after accepting, so what can happen is the two ways of
+saying no: **declined** (looked and chose) and **let run out** (not looking — every one is a
+minute a customer waited). Kept apart, with his answered offers as the denominator. **The
+limit itself is not built** — this section does not say what it is or what happens at it.
+
 **B. The restaurant cancels. THE DAMAGING ONE.** The customer has already committed. The
 **sold-out toggle already exists** — endpoint and board control — and prevents most of it: a
 restaurant that marks the qabuli palaw gone never takes the order. ~~What is missing is that
@@ -234,7 +240,9 @@ the courier must ride back to be paid, so a faked cancellation costs him a waste
 **The leak that remains cannot be fixed by rules:** a driver saying *"cancel in the app and pay
 me directly, we both save."* Two defences, and only one is buildable. **Detection** — an
 unusually high cancellation rate for one driver, or the same driver-passenger pair cancelling
-repeatedly, both visible in data already collected. And the real one: **be worth more than the
+repeatedly, both visible in data already collected. *(Read since 24 Sept 2026: the courier's console
+page counts rides that started and did not finish, and names any passenger who recurs among
+them. Detection only; nothing acts on it.)* And the real one: **be worth more than the
 commission.** A driver receiving ten rides a day will not risk that flow to save 12.5% on one
 fare. **Off-app leakage is a symptom of too little work being sent, not of poor discipline.**
 
