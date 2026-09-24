@@ -5,6 +5,9 @@
 # `value_type` exists so no reader has to guess: a decimal read as a string is
 # how "0.125" becomes zero.
 class Setting < ApplicationRecord
+  # A write must be visible to the rest of the request that made it.
+  after_commit { RequestCache.clear }
+  after_rollback { RequestCache.clear }
   enum :value_type, { string: 0, integer: 1, decimal: 2, boolean: 3 }, prefix: :type
 
   belongs_to :updated_by, class_name: User.name, optional: true
@@ -306,8 +309,10 @@ class Setting < ApplicationRecord
       raise KeyError, "unknown setting #{key.inspect} — add it to Setting::DEFINITIONS"
     end
 
-    record = find_by(key: key.to_s)
-    cast(record&.value || definition[:default], definition[:type])
+    RequestCache.fetch(key.to_s) do
+      record = find_by(key: key.to_s)
+      cast(record&.value || definition[:default], definition[:type])
+    end
   end
 
   def self.cast(raw, type)

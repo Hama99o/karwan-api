@@ -388,6 +388,12 @@ RSpec.describe "Admin interventions", type: :request do
       setting = Setting.find_by!(key: "delivery_fee_per_km")
       patch "/admin/settings/#{setting.id}", params: { setting: { value: "60.0" } }
 
+      # "The next quote" is a NEW request in production, and a new request
+      # starts with an empty Setting::RequestCache. This example prices both
+      # quotes in its own context, which is not a request, so it starts the
+      # second one the way a request would.
+      Setting::RequestCache.reset
+
       after = Pricing::DeliveryQuote.new(merchant: merchant, items_total: 400,
                                          delivery_latitude: 34.5400,
                                          delivery_longitude: 69.1750).call
