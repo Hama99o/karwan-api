@@ -217,6 +217,13 @@ class Setting < ApplicationRecord
     # stored and counted either way; this only decides whether the courier's
     # problem sheet OFFERS it. See `Dispatchable.offered_failure_reasons`.
     "fake_note_reason_offered" => { type: :boolean, default: "false", description: "Whether the courier app's problem sheet offers 'fake note' (a counterfeit refused at the door). Switch on in the same release as the app's labels for it." },
+    # WHICH STYLES THE APP DRAWS WITH. `hatiwal` = the live shared styles
+    # (z0–14, one look for everybody). `karwan` = street level in all 31 cities
+    # and the courier's high-contrast map (karwan-map `8a8673d`, `0233788`) —
+    # which exist only once the map service serves them. Pointing the app at a
+    # style that is not served gives a PERMANENTLY BLANK map, so this stays
+    # `hatiwal` until the deploy, and flipping it then needs no app release.
+    "map_style_family"       => { type: :string, default: "hatiwal", description: "Which map styles the app uses: hatiwal (live today, z0–14) or karwan (street level in every city + the courier's high-contrast map). Switch to karwan ONLY after the map service serves /styles/karwan-*.json and /cities/ — before that the map would be blank." },
     # RE-ROUTING a courier who has left the drawn line (map queue item 1). The
     # APP compares his fix to the line and asks `/route` again from where he
     # is; these two numbers decide when, and they are Settings because they

@@ -31,7 +31,10 @@ class Api::V1::Public::AppConfigController < Api::V1::PublicController
     # When the courier app re-asks for a route: operational thresholds, not the
     # business's numbers — they say nothing about money or margin.
     reroute_off_route_metres: "reroute_off_route_metres",
-    reroute_min_interval_seconds: "reroute_min_interval_seconds"
+    reroute_min_interval_seconds: "reroute_min_interval_seconds",
+    # Which map styles to draw with — a name, and flipping it after the map
+    # deploy is how every installed app changes maps with no release.
+    map_style_family: "map_style_family"
   }.freeze
 
   def show

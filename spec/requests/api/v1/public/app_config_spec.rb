@@ -51,7 +51,7 @@ RSpec.describe "Api::V1::Public::AppConfig", type: :request do
   it "NEVER leaks the business's own numbers" do
     get "/api/v1/public/app_config"
 
-    expect(json["app_config"].keys).to eq(%w[support_phone reroute_off_route_metres reroute_min_interval_seconds])
+    expect(json["app_config"].keys).to eq(%w[support_phone reroute_off_route_metres reroute_min_interval_seconds map_style_family])
     expect(json["app_config"].keys).not_to include(
       "commission_rate", "default_credit_line", "cash_in_hand_limit",
       "delivery_base_fee", "trip_commission_rate", "dispatch_max_offers"
@@ -74,5 +74,13 @@ RSpec.describe "Api::V1::Public::AppConfig", type: :request do
 
     expect(json.dig("app_config", "reroute_off_route_metres")).to eq(120)
     expect(json.dig("app_config", "reroute_min_interval_seconds")).to eq(30)
+  end
+
+  # Until the map deploy, the app must keep drawing the styles that are served
+  # today — a style that is not served is a blank map, not a fallback.
+  it "serves the map style family, hatiwal until the map deploy" do
+    get "/api/v1/public/app_config"
+
+    expect(json.dig("app_config", "map_style_family")).to eq("hatiwal")
   end
 end
