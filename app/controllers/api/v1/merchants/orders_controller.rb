@@ -13,6 +13,26 @@ class Api::V1::Merchants::OrdersController < Api::V1::Merchants::BaseController
     orders = params[:status].present? ? orders.where(status: params[:status]) : orders.live
     orders = orders.order(:created_at)
 
+    # ── "NOTHING CHANGED" COSTS TWO QUERIES, NOT THIRTEEN ─────────────────
+    #
+    # The board polls every 10 s per open shop, and almost every poll finds
+    # the same board. `fresh_when` answers 304 BEFORE the thirteen queries
+    # run; `Rack::ETag` would only have hashed the finished body, saving bytes
+    # and none of the work.
+    #
+    # THE KEY CARRIES A MINUTE. `minutes_in_state` and `is_overdue` are
+    # computed from the clock, so a key on the orders alone would answer 304
+    # while "waiting 3 min" froze and an order went overdue unseen. The minute
+    # bucket matches the granularity the card already has (`minutes_in_state`
+    # is floored to whole minutes); the overdue flag, and a courier's name or
+    # phone (read from `users`, not the order), can be up to 59 s late —
+    # Hamma9901's decision, 24 Sept 2026. At most one full recompute per shop
+    # per minute, instead of six.
+    freshness = [ current_merchant&.id, params[:status], params[:page], params[:per_page],
+                  orders.unscope(:includes, :order).count, orders.unscope(:includes, :order).maximum(:updated_at)&.to_f,
+                  Time.current.to_i / 60 ]
+    return unless stale?(etag: freshness, public: false)
+
     paginate_blue(Merchants::OrderSerializer, orders, extra: { view: :board })
   end
 
