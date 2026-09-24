@@ -169,12 +169,39 @@ module Dispatchable
       update!(status: to_status, "#{to_status}_at": Time.current)
       transitions.create!(
         from_status: from, to_status: to_status.to_s,
-        actor: actor, admin_user: admin_user, actor_role: actor_role, reason: reason
+        actor: actor, admin_user: admin_user, actor_role: actor_role, reason: reason,
+        **courier_position_at_the_moment(actor, actor_role)
       )
     end
     true
   end
   private
+
+  # ── WHERE THE COURIER WAS WHEN THEY SAID SO ───────────────────────────────
+  #
+  # `REALTIME_AND_SCALE.md` §4: the position at picked up and delivered *"is
+  # the only evidence when a customer says the food never arrived"* — and
+  # `courier_profiles` overwrites it seconds later, by design. So it is copied
+  # here, at the moment, for every move the COURIER makes.
+  #
+  # Only the courier's own moves. An operator failing an order on the phone, or
+  # a timeout, is not a claim the courier made at a place; putting his position
+  # on it would read as though he had.
+  #
+  # The fix is recorded WITH ITS OWN TIME, even when it is older than
+  # `CourierProfile::STALE_AFTER`. Staleness is a dispatch rule — never offer
+  # work from where somebody was an hour ago — and not an evidence rule: an old
+  # fix with its age attached is still the last thing known, and dropping it
+  # would make "no fix at all" and "an old fix" the same nil.
+  def courier_position_at_the_moment(actor, actor_role)
+    return {} unless actor_role.to_s == "courier"
+
+    profile = actor&.courier_profile
+    return {} unless profile&.coordinates
+
+    { courier_latitude: profile.last_latitude, courier_longitude: profile.last_longitude,
+      courier_located_at: profile.location_updated_at }
+  end
 
   # One million codes and a retry loop against the unique index. At Kabul
   # volumes a second attempt is rare and a third will not happen; the index is

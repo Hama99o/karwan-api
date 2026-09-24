@@ -6080,3 +6080,64 @@ goes red, so this one cannot ship quietly.
    assertion. Recorded in `docs/TESTING.md` as its own shape: **an instrument
    that was never switched on reports exactly what a working system reports.**
    The fix is one line — assert the edit matched before trusting the run.
+
+
+---
+
+## WHERE THE COURIER WAS WHEN HE SAID "DELIVERED"
+
+**24 Sept 2026.** `REALTIME_AND_SCALE.md` §4 and `REQUIREMENTS.md` R15 named
+the gap in the same words: *"Position at the moments that get disputed... the
+only evidence when a customer says the food never arrived. Recommended; not
+built."* `courier_profiles` keeps ONE position, overwritten a few seconds later
+by design, so the point at the moment of the tap survived only until the next
+fix. One-way-door shape: not written at the moment, never recoverable.
+
+### On the transition row, not on the job
+
+The doc proposed two columns per job. Built instead as three nullable columns
+on `status_transitions` — `courier_latitude`, `courier_longitude`,
+`courier_located_at` — filled by `Dispatchable#transition_to!` whenever
+`actor_role` is `courier`. Reasons:
+
+- **Every** courier move gets it, for orders and trips alike, from one line.
+  *"Nobody was home"* is a `failed`, and a pickup/delivery column pair would
+  have missed the most disputed moment of all.
+- The row is already append-only and already carries who and when; the where
+  belongs beside them.
+
+**The fix is recorded with its own time, stale or not.** `STALE_AFTER` is a
+dispatch rule (never offer work from an hour-old position), not an evidence
+rule. Dropping a stale fix would make *"no fix at all"* and *"an old fix"* the
+same nil, which is the shape this file has recorded twice already. The console
+shows `34.531200, 69.166100 — fix 40s before` on the order's and the trip's
+transition list, so the gap is visible to the operator.
+
+**Only the courier's own moves.** An operator's or a timeout's row carries
+nothing, and neither does a move by a courier acting in a different role —
+cancelling his own lunch as a customer is not a claim made at a place.
+
+### What it is NOT, stated so nobody over-reads it
+
+It is the **last fix the server had** when the tap arrived, not a fix taken at
+the tap. How close those are depends on how often the courier app sends
+position while a job is active (`POST` to the shifts location endpoint). A
+fresher answer needs the app to send `latitude`/`longitude` WITH the advance
+request — **a mobile change, not made here; recorded for the next mobile
+session.** Until then `courier_located_at` says exactly how old each point is.
+
+Rows written before this migration keep nil. That is the truth: nothing was
+captured and nothing can be invented. No payload the mobile app reads changed
+— the customer timeline lists its fields explicitly and does not include these
+— so the handover manifest is unchanged.
+
+### The plant that would have stayed green
+
+Five plants, each asserted to have matched before its run, all red. One of
+them needed an example added first: removing the `actor_role == courier` guard
+passed every operator and timeout example, because those moves have **no
+actor at all** and so no profile to copy from. The input that tells the guard
+apart is a courier who is also a customer (correction 18: one identity)
+cancelling his own order. Added; the plant now fires. Same lesson as §5-B's
+actor filter: the guard's discriminating case was a DIFFERENT path the model
+already allows, not the one the example was named after.

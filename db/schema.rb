@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_23_002000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_24_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -520,6 +520,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_23_002000) do
     t.bigint "actor_id"
     t.integer "actor_role"
     t.bigint "admin_user_id"
+    t.decimal "courier_latitude", precision: 10, scale: 6
+    t.datetime "courier_located_at"
+    t.decimal "courier_longitude", precision: 10, scale: 6
     t.datetime "created_at", null: false
     t.string "from_status"
     t.text "reason"

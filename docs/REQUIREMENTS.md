@@ -267,7 +267,9 @@ What is NOT built, and needs deciding rather than assuming:
    and the legitimate path.
 2. **Position at the moments that get disputed.** Where the courier was when
    they marked picked up and delivered. Cheap to store, and it is the only
-   evidence when a customer says the food never arrived. Recommended; not built.
+   evidence when a customer says the food never arrived. ~~Recommended; not
+   built.~~ **Built 24 Sept 2026**, on every courier transition — see
+   `REALTIME_AND_SCALE.md` §4.
 3. **Breadcrumbs / route replay.** A position history per job. Genuinely useful
    for calibrating the ETA speed setting from real deliveries, which CLAUDE.md
    already calls for. v1 — it is a table and a retention policy, not a v0

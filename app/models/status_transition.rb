@@ -47,6 +47,22 @@ class StatusTransition < ApplicationRecord
     admin_user&.to_s || actor&.display_name || "system"
   end
 
+  # Where the courier was when they made this move, for the console, in one
+  # readable line. The fix's AGE relative to the move is part of the answer:
+  # "delivered" with a fix four minutes older than the tap is a different piece
+  # of evidence from one taken at the door, and the operator settling the
+  # dispute has to be able to see which.
+  #
+  # nil when no position was captured — a system or operator move, a courier
+  # who never sent a fix, or a row written before the columns existed.
+  def courier_position
+    return nil unless courier_latitude && courier_longitude && courier_located_at
+
+    age = (created_at - courier_located_at).round
+    when_taken = age <= 0 ? "fix at the moment" : "fix #{age}s before"
+    "#{format('%.6f', courier_latitude)}, #{format('%.6f', courier_longitude)} — #{when_taken}"
+  end
+
   private
 
   # Integrity without an enum. The subject class already declares its own

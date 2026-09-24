@@ -24,12 +24,16 @@ class StatusTransitionDashboard < Administrate::BaseDashboard
     # identically in the audit log and in the job's own history.
     author: Field::String,
     reason: Field::Text,
+    # Where the courier was when they made the move, with the fix's age — the
+    # evidence `REALTIME_AND_SCALE.md` §4 says settles "the food never
+    # arrived". Blank for moves the courier did not make.
+    courier_position: Field::String,
     created_at: Field::DateTime
   }.freeze
 
-  COLLECTION_ATTRIBUTES = %i[from_status to_status author actor_role created_at].freeze
+  COLLECTION_ATTRIBUTES = %i[from_status to_status author actor_role courier_position created_at].freeze
   SHOW_PAGE_ATTRIBUTES = %i[subject from_status to_status actor admin_user actor_role
-                            reason created_at].freeze
+                            reason courier_position created_at].freeze
   # An editable history is not a history.
   FORM_ATTRIBUTES = [].freeze
 

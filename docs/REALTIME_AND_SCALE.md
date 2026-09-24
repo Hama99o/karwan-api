@@ -136,11 +136,20 @@ So: write the scope *and* use it, with a request spec proving **both** the
 refusal and the legitimate path. A policy spec alone passes on all five of those
 endpoints.
 
-### Position at the moments that get disputed — recommended
+### Position at the moments that get disputed — **BUILT, 24 Sept 2026**
 
-Where the courier was when they marked **picked up** and **delivered**. Two
-columns per job, written once. It is the only evidence that exists when a
-customer says the food never arrived, and it cannot be reconstructed later.
+Where the courier was when they marked **picked up** and **delivered**. It is
+the only evidence that exists when a customer says the food never arrived, and
+it cannot be reconstructed later.
+
+~~Two columns per job, written once.~~ Built instead on **`status_transitions`**
+(`courier_latitude`, `courier_longitude`, `courier_located_at`), written by
+`Dispatchable#transition_to!` on **every move the courier makes**, both demand
+types. A per-job pair would have missed the most disputed moment of all —
+*"nobody was home"* is a `failed`, not a `delivered`. The fix is copied from
+`courier_profiles` with **its own time**, so a four-minute-old fix cannot pass
+for one taken at the door; the console shows it as
+`34.531200, 69.166100 — fix 40s before`. Full account in `docs/NOTES.md`.
 
 ### Breadcrumbs — v1, and they have a purpose
 
