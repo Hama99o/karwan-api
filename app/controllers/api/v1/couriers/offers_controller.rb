@@ -11,9 +11,12 @@ class Api::V1::Couriers::OffersController < Api::V1::Couriers::BaseController
     offer = current_offer
 
     # Nothing to authorise when there is no offer — see jobs#show.
+    # With no live offer, say why the last one ended, if it ended in the last
+    # two minutes (Couriers::LastOffer, true by construction). Nil otherwise.
     if offer.nil?
       skip_authorization
-      return render_ok({ offer: nil })
+      last = Couriers::LastOffer.new(current_user).call
+      return render_ok({ offer: nil, last_offer: last && { job_code: last.job_code, ended: last.ended, at: last.at } })
     end
 
     authorize offer, :show?
@@ -89,7 +92,7 @@ class Api::V1::Couriers::OffersController < Api::V1::Couriers::BaseController
 
       # Everyone else's offer on this job is now moot. Left `offered`, the
       # expiry sweep would re-offer work that is already taken.
-      job.offers.status_offered.where.not(id: @offer.id).update_all(status: :superseded)
+      job.offers.status_offered.where.not(id: @offer.id).update_all(status: :superseded, updated_at: Time.current)
     end
 
     return render_unprocessable_entity("this job has already been given to another courier", code: "job_taken") if taken

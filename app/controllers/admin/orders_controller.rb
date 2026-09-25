@@ -68,7 +68,7 @@ module Admin
       order.update!(courier: courier)
       # Any live offer is now moot; left alone the expiry sweep would re-offer
       # work an operator has just assigned by hand.
-      order.offers.status_offered.update_all(status: :superseded)
+      order.offers.status_offered.update_all(status: :superseded, updated_at: Time.current)
 
       log_intervention("order.reassigned", target: order,
                                            before: { courier_id: before },

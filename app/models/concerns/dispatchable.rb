@@ -206,6 +206,12 @@ module Dispatchable
         actor: actor, admin_user: admin_user, actor_role: actor_role, reason: reason,
         **courier_position_at_the_moment(actor, actor_role)
       )
+      # A job that has ENDED can't still be on offer. Until 25 Sept 2026 a
+      # console cancel (or a timeout, or a failure) left the live offer
+      # pending, so the courier's poll showed an offer for a dead job until it
+      # ran out. Withdrawn here, whoever ended it, with a real time on it
+      # (a bulk update skips updated_at) so Couriers::LastOffer can say so.
+      offers.status_offered.update_all(status: Offer.statuses[:superseded], updated_at: Time.current) if terminal?
       moved = true
     end
     moved

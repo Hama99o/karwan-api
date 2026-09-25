@@ -1,5 +1,17 @@
 # Deny by default. Every predicate is false until a subclass says otherwise, so
 # a policy that forgets an action refuses it rather than allowing it.
+#
+# ── A POLICY ANSWERS "MAY THIS PERSON ACT ON THIS", NOT "IS IT TOO LATE" ──────
+#
+# Whose thing it is, and which role may touch it, belong here. Whether its
+# STATE still allows the act belongs to the state machine (`transition_to!`),
+# and the endpoint turns that into a refusal a person can read, such as
+# `not_cancellable`. A policy that also checks state turns an explanation into
+# a bare 403 at the worst moment: a customer tapping cancel a second too late is
+# told "forbidden" instead of "the order has moved on". Found 25 Sept 2026:
+# the food door's cancel did exactly that, while the ride door's cancel,
+# designed first from "what does the person see when it's too late?", did not
+# (docs/NOTES.md).
 class ApplicationPolicy
   attr_reader :user, :record
 

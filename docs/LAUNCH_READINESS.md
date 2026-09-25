@@ -32,7 +32,7 @@ is blank, and there is no VPS.
 |---|---|---|---|
 | B1 | **OSRM image pinned**: **DONE `f6322a8`** in this repo, by digest (v26.9.0). **karwan-map's build scripts still say `:latest`**, and they build the data. Was: `osrm-backend:latest`. The `.osrm` files are built by one version's `osrm-extract` and must be served by the same version. A pull of a newer `latest` can refuse them, and every fare then falls back to straight line (visible since `6ae3009`, but priced wrong until someone looks) | **Ours** |
 | B2 | **OSRM data on the host** | `/var/karwan/osrm` must be built before the accessory starts (RUNBOOK) | **Both** |
-| B3 | **SMTP** | secrets are declared; no provider chosen. Email reset and mail depend on it | **His** |
+| B3 | **SMTP** | secrets are declared (`deploy.yml`); no provider chosen. Email reset and mail depend on it. **What keeps the email channel honest on a real box:** `bin/preflight` FAILS a deployed box with no `SMTP_ADDRESS`. But preflight is run BY HAND (the RUNBOOK says "run it first"); no Kamal pre-deploy hook calls it. So the guard holds only if somebody runs it. A `.kamal/hooks/pre-deploy` running it would make that automatic, and is deploy config: his. Since `58b8b31` the API itself never claims an email was sent through an unconfigured SMTP, whatever the box | **His** |
 | B4 | ~~**Cable database**~~ **DONE**: `db/cable_schema.rb` (the gem's template, identical to hatiwal-api's). A production `db:prepare` now builds `solid_cable_messages`. A gate enumerates every production database in database.yml and requires a schema for each | **Ours** |
 | B5 | **Correction 3 in `CLAUDE.md`** | now TRUE: cache, queue and cable all run on Postgres with their schemas | **His** (I don't edit CLAUDE.md on a peer's word) |
 

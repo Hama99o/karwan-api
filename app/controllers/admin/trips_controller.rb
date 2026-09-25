@@ -46,7 +46,7 @@ module Admin
                                                  actor_role: :admin, reason: "assigned by operator")
           raise ActiveRecord::Rollback unless moved
         end
-        trip.offers.status_offered.update_all(status: :superseded)
+        trip.offers.status_offered.update_all(status: :superseded, updated_at: Time.current)
       end
 
       unless moved
