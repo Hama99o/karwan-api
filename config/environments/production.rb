@@ -21,14 +21,23 @@ Rails.application.configure do
   # Store uploaded files on the local file system (see config/storage.yml for options).
   config.active_storage.service = :local
 
-  # Assume all access to the app is happening through a SSL-terminating reverse proxy.
-  # config.assume_ssl = true
-
-  # Force all access to the app over SSL, use Strict-Transport-Security, and use secure cookies.
-  # config.force_ssl = true
-
-  # Skip http-to-https redirect for the default health check endpoint.
-  # config.ssl_options = { redirect: { exclude: ->(request) { request.path == "/up" } } }
+  # ── TLS, AS HATIWAL-API RUNS IT ON THE SAME KAMAL-PROXY (25 Sept 2026) ────
+  #
+  # All three were commented out, so Rails never knew the app sat behind TLS:
+  # the console's session cookie wasn't marked Secure, and there was no HSTS.
+  # The three belong together:
+  #   assume_ssl  TLS terminates at kamal-proxy (deploy.yml `ssl: true`) and
+  #               the app sees plain HTTP. Without this, force_ssl redirects
+  #               every request the proxy forwards.
+  #   force_ssl   secure cookies, HSTS, and a redirect for a plain-HTTP client
+  #               (301 for GET, 307 otherwise). Android release builds refuse
+  #               cleartext anyway.
+  #   /up exempt  kamal-proxy health-checks over plain HTTP inside the
+  #               network. A redirect there would fail every deploy's health
+  #               check.
+  config.assume_ssl = true
+  config.force_ssl = true
+  config.ssl_options = { redirect: { exclude: ->(request) { request.path == "/up" } } }
 
   # Log to STDOUT with the current request id as a default log tag.
   config.log_tags = [ :request_id ]
