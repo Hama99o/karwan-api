@@ -412,6 +412,10 @@ class Merchant < ApplicationRecord
   end
 
   def normalise_phones
+    # A cleared contact phone is ABSENT, not an empty string: "" and nil were
+    # two spellings of one fact, and any writer (the console) could leave
+    # either (karwan-42, 25 Sept 2026).
+    self.contact_person_phone = nil if contact_person_phone.blank?
     %i[phone contact_person_phone].each do |attr|
       normalised = PhoneNumbers.normalise(self[attr])
       self[attr] = normalised if normalised.present? && PhoneNumbers.plausible?(normalised)

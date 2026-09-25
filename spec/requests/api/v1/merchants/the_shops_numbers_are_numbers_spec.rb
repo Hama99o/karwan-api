@@ -37,10 +37,12 @@ RSpec.describe "A shop's numbers are numbers", type: :request do
     expect(json["field_errors"]).to eq("contact_person_phone" => [ "invalid" ])
   end
 
-  it "allows no contact phone at all" do
+  it "allows no contact phone at all, stored as absent however it was cleared" do
+    merchant.update!(contact_person_phone: "+93799111222")
     save(contact_person_phone: "")
 
     expect(response).to have_http_status(:ok)
+    expect(merchant.reload.contact_person_phone).to be_nil
   end
 
   it "serves the description it lets the shop write, so a form can prefill it" do
