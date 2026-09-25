@@ -122,7 +122,7 @@ here, so it cannot resolve that** — publish the port and override the URL:
 ```bash
 docker run -d --name karwan_osrm -p 127.0.0.1:5000:5000 \
   -v $HOME/Apps/Personal/Karwan/karwan-map/tmp/osrm:/data:ro \
-  ghcr.io/project-osrm/osrm-backend:latest \
+  ghcr.io/project-osrm/osrm-backend@sha256:8a1b1bc938412f15f9b5b32d794c4ec6bf4a85dfbbabfa0a014b70b187edb53b \
   osrm-routed --algorithm ch --mmap=1 /data/afghanistan.osrm
 
 OSRM_BASE_URL=http://localhost:5000 bin/rails s      # or runner, or console

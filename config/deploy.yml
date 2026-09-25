@@ -187,7 +187,13 @@ accessories:
   # Read-only mount: a router that can write to its own dataset is a router
   # that can corrupt it.
   osrm:
-    image: ghcr.io/project-osrm/osrm-backend:latest
+    # PINNED BY DIGEST (v26.9.0), not `:latest` (25 Sept 2026). The .osrm files
+    # are made by one version's osrm-extract and must be served by the same
+    # version; a newer `latest` pulled on some future boot can refuse them,
+    # and then every fare falls back to straight line (visible on the reports
+    # page, but priced low until someone looks). Build the data with this same
+    # image (docs/RUNBOOK.md), and move both together.
+    image: ghcr.io/project-osrm/osrm-backend@sha256:8a1b1bc938412f15f9b5b32d794c4ec6bf4a85dfbbabfa0a014b70b187edb53b
     host: <%= ENV.fetch("KAMAL_HOST") %>
     # Bound to 127.0.0.1: nothing outside the box has any business routing.
     port: "127.0.0.1:5000:5000"
