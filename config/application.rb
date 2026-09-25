@@ -90,6 +90,12 @@ module KarwanApi
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
 
+    # Outermost, so it sees what Rack::Runtime and RequestId add on the way
+    # out. Strips browser-only and debugging headers from /api JSON answers
+    # only; the console keeps them. See lib/middleware/api_header_diet.rb.
+    require Rails.root.join("lib/middleware/api_header_diet")
+    config.middleware.insert_before 0, ApiHeaderDiet
+
     # ---- Middleware Administrate needs, which api_only strips out ----------
     #
     # All four of these are lifted from hatiwal-api, where each one was added

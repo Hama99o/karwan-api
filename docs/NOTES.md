@@ -7261,3 +7261,28 @@ closed:** OtpVerification's window slides from the first send, and this one
 is anchored to the clock. Just after this window rolls over, OTP can still
 refuse a REAL account with `reset_throttled`, which implies the account.
 Before, that was every fourth request.
+
+## AN INSTRUMENT WHOSE OWN COST DOMINATES WHAT IT MEASURES — 25 Sept 2026
+
+The blind gates catalogued above answer a question they cannot ask. This one
+is the inverse, and just as dangerous: it asks the right question and gets a
+confident WRONG answer, because the measuring costs more than the thing
+measured.
+
+**The dated instance.** Timing a dispatch decision, every
+`Dispatch::Eligibility` method was wrapped to attribute the time: about
+20,000 wrapped calls per ten decisions. The decision read **278 ms**. With
+only three coarse wrappers it reads **130 ms**, and every number in the
+first run looked legitimate. The same session then found its harness's own
+bulk position update costing about 32 ms of the 130, and subtracted it. A
+realistic decision is about 100 ms.
+
+**The rule:** fine-grained instrumentation at this scale measures itself.
+Time the coarse parts first, then time the pieces SEPARATELY and check that
+they add up to the whole. If they don't, the gap is the instrument until
+shown otherwise.
+
+**And the sentence that matters to the owner about dispatch cost isn't
+latency.** 21 of 25 ride cancellations in the rig were "nobody available".
+The path the ride side runs most is the one with an empty pool. That path
+is cheap by construction, and its real cost is the passenger told "no".
