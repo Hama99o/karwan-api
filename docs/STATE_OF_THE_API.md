@@ -1,4 +1,67 @@
-# The state of karwan-api — handoff, 24 Sept 2026 (late)
+# The state of karwan-api — handoff, 24 Sept 2026 (late); START HERE refreshed 25 Sept 2026
+
+## START HERE — 25 Sept 2026, paused on Hamma9900's instruction
+
+Work stopped at `f4f598c` with the tree clean, on his word ("finish your
+current work, then pause until he says start"). Nothing is pushed: `main` is
+189 commits ahead of `origin/main`.
+
+**Take first, when he says start:**
+1. **The whole suite, at HEAD, in two detached halves.** The last COMPLETE
+   coverage is `0cfaafd` (1,711 + 1,498 = 3,209, exactly the `--dry-run`
+   count, both EXIT 0). Every commit since has broad targeted runs, the
+   widest 3,128 examples at `bfa69cf`, and no whole run. Halves, because a
+   single 19-minute run keeps outliving the box's memory-quiet windows, and
+   a tool background task is killed at about 14 min 22 s (NOTES). A pass is
+   an exit code plus the dry-run count.
+2. **The courier identity-document item** (LAUNCH_READINESS A10). It's the
+   most serious open item in Karwan, and it's recorded there by requirement
+   only.
+
+**A BRANCH YOU WILL FIND, AND MUST NOT MERGE: `ride-door` (`53f5af9`).** The
+passenger's ride API (quote, request, read, cancel), built, planted and
+green, and **blocked on a product instruction, not on anything technical**:
+`docs/PRODUCT.md:12` says "Do not build the ride product yet", and
+`spec/integration/full_delivery_flow_spec.rb` guards that sentence. It was
+built on a supervisor's relay that turned out not to be his word; Hamma9901
+put the question to him. Don't merge it, rebase it, or carry pieces of it
+into main until he lifts the instruction. Its design is on main as
+`docs/RIDE_DOOR_API.md`.
+
+**Landed on 25 Sept, since the `92d5e2d` baseline** (each commit message holds
+its plants and counts):
+- Suite and CI: detached halves and the "0 failures" rule (`d9a5216`); the
+  Kabul clock enforced by rubocop, plus a second-zone CI run (`4bf41b4`).
+- Launch readiness: the inventory (`6d1fe83`); rate limits in solid_cache,
+  proven to survive a restart (`b5ab84b`); TLS (`616daac`); OSRM pinned by
+  digest, in this repo and karwan-map (`f6322a8`); cable schema, with every
+  declared database required to have one (`9075a7b`); every error Rails
+  reports logged, then kept, redacted, on the console (`8ddd25c`); personal
+  data filtered from the logs (`f4f598c`).
+- Throttles per identifier (`93e4f66`, `6703d8b`); a password reset claims
+  `sent` only if the channel can reach someone (`58b8b31`).
+- Shops: phones validated, contact person writable, description served
+  (`fbe57b5`, `0cfaafd`); hours past midnight with overlaps refused across
+  the week (`675e599`); the answer deadline and missed orders (`8572abe`).
+- Couriers: vehicle type required (`b796ad8`); why an offer went, and a job
+  that ends stops being offered (`844213e`).
+- Customers: told when an order dies (`5114445`), with the reason written
+  IN the transition, so no timer is involved (`bfa69cf`); a too-late cancel
+  is `not_cancellable`, not 403 (`6ceaf4c`).
+- Corrections: the seed artefact reported as a supply problem (`eed48d1`).
+
+**Queued, not started** (each routed by Hamma9901):
+- a review of karwan-mobile's draft privacy policy, sentence by sentence
+  against this code;
+- audit logs copy personal data with no retention;
+- the ride door's merge, which is his;
+- A5's token-refresh code half, which waits on Firebase existing.
+
+**The order-death push timing, resolved:** it used to wait 5 s for callers
+to write the reason. Since `bfa69cf` the reason is written IN the
+transition (`transition_to!(..., with:)`), so there's no wait, and a plant
+proves a caller writing afterwards goes red.
+
 
 For whoever picks this up cold. **It's a state, not a changelog:** what is
 true of the API tonight, how sure we are of each thing, and what is waiting on

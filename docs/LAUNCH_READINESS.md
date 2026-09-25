@@ -25,6 +25,7 @@ is blank, and there is no VPS.
 | A7 | **Settings only he can fill** | `top_up_bank_name` and `top_up_account_number` are **empty**; `support_phone` is set in dev and must be the real number | `bin/preflight` "Settings only he can fill" | **His** |
 | A8 | **One rehearsal on the real box** | never done: `db:prepare` building four databases, the reference seed with `ADMIN_PASSWORD`, OSRM data present, and `/up` healthy | nothing has been deployed | **Both**: his box, our runbook |
 | A9 | **One order with real cash, end to end** | every step is covered by request specs (place → accept → pickup → deliver → commission → settle → reimburse), but no human has ever done it on the console with a real wallet | the specs | **Both**: the ops rehearsal. It is also the only test of the settlement screens as a person uses them |
+| A10 | **A courier's identity documents** (national ID, selfie) | **do not yet meet the requirement below.** Found 25 Sept 2026 by karwan-42's privacy pass and confirmed by Hamma9901. The details are deliberately NOT recorded in this public repository until it's fixed; they are in karwan-mobile's private `docs/PRIVACY.draft.md` notes. **The requirement:** only an authorised office person may see a courier's documents, each view must require their signed-in session, any link must expire in minutes, and the app should not need a document URL at all (an authenticated endpoint can serve the bytes). Nobody is exposed today (there is no production); it must not ship as it is. **Take first when work resumes.** | **Ours** to design and build. **His** to answer who, beyond himself, may ever see these (downstream of the console-logins question) |
 
 ## B · Should be true, and cheap
 
@@ -35,6 +36,8 @@ is blank, and there is no VPS.
 | B3 | **SMTP** | secrets are declared (`deploy.yml`); no provider chosen. Email reset and mail depend on it. **What keeps the email channel honest on a real box:** `bin/preflight` FAILS a deployed box with no `SMTP_ADDRESS`. But preflight is run BY HAND (the RUNBOOK says "run it first"); no Kamal pre-deploy hook calls it. So the guard holds only if somebody runs it. A `.kamal/hooks/pre-deploy` running it would make that automatic, and is deploy config: his. Since `58b8b31` the API itself never claims an email was sent through an unconfigured SMTP, whatever the box | **His** |
 | B4 | ~~**Cable database**~~ **DONE**: `db/cable_schema.rb` (the gem's template, identical to hatiwal-api's). A production `db:prepare` now builds `solid_cable_messages`. A gate enumerates every production database in database.yml and requires a schema for each | **Ours** |
 | B5 | **Correction 3 in `CLAUDE.md`** | now TRUE: cache, queue and cable all run on Postgres with their schemas | **His** (I don't edit CLAUDE.md on a peer's word) |
+| B6 | **Audit logs copy personal data** (full before/after values, so ID numbers and guarantor phones land in `audit_logs`), and the table has no retention | recorded, not built (queued) | **Ours** |
+| B7 | **"Deleting" an account is a soft delete, deliberately** (one-way door 6: records with live history are kept) | correct as built; so the privacy policy and Play's data-safety form must not say data is deleted | **His** wording, karwan-42's draft |
 
 ## C · Decisions still open that touch real money (his; recorded, not built)
 
@@ -59,8 +62,10 @@ is blank, and there is no VPS.
   raises without `ADMIN_PASSWORD`.
 - **Router outages are visible** on the reports page (`6ae3009`).
 
-## The order I would take these in
+## The order I would take these in (refreshed 25 Sept 2026, at the pause)
 
-A3, B1 and B4 are ours, small, and need nothing from anyone. Then A5's and
-A6's code halves once he says yes to their shape. A1 as soon as he says go.
-A2, A7, A8 and A9 are the launch itself.
+Done since this was written: A3 (TLS), B1 (OSRM pinned, in both repos), B4
+(cable schema), and our half of A6 (errors kept on the console). **Ours,
+next: A10** (courier identity documents, by the requirement above), then B6
+(audit-log retention). A5's code half waits on Firebase existing; A1 (backups)
+waits on his go. A2, A7, A8 and A9 are the launch itself, and are his.

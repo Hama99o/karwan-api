@@ -7506,3 +7506,11 @@ the same family as a design board's stale ✓ and a runbook's stale step, and
 the most trusted of the three, because a comment sits inside the file the
 reader is already in. Treat a comment as a claim to check against the
 code, never as a description of it.
+
+## PAUSED, 25 Sept 2026, on Hamma9900's instruction
+
+Work stopped at `f4f598c` with the tree clean. The handover is at the top of
+`docs/STATE_OF_THE_API.md` ("START HERE"): what landed, what's queued, what
+waits on him, and what to take first (a whole-suite run in halves, then
+LAUNCH_READINESS A10). **The `ride-door` branch is blocked on his product
+instruction, not on anything technical; don't merge it.**
