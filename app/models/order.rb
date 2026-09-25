@@ -337,7 +337,7 @@ class Order < ApplicationRecord
     expected = items_total - commission
     return if (merchant_payout - expected).abs <= Monetary::ROUNDING_TOLERANCE
 
-    errors.add(:merchant_payout, "must equal items_total minus commission (#{expected})")
+    errors.add(:merchant_payout, :mismatch, message: "must equal items_total minus commission (#{expected})")
   end
 
   # The parts must sum to the whole. This is the check that stops a discount, a
@@ -349,6 +349,6 @@ class Order < ApplicationRecord
     expected = items_total + delivery_fee
     return if (customer_total - expected).abs <= Monetary::ROUNDING_TOLERANCE
 
-    errors.add(:customer_total, "must equal items_total + delivery_fee (#{expected})")
+    errors.add(:customer_total, :mismatch, message: "must equal items_total + delivery_fee (#{expected})")
   end
 end

@@ -106,6 +106,6 @@ class CourierShift < ApplicationRecord
     return if ended_at.blank? || started_at.blank?
     return if ended_at >= started_at
 
-    errors.add(:ended_at, "cannot be before started_at")
+    errors.add(:ended_at, :before_start, message: "cannot be before started_at")
   end
 end

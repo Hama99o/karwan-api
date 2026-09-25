@@ -76,7 +76,7 @@ class StatusTransition < ApplicationRecord
       next if value.blank?
       next if known.include?(value.to_s)
 
-      errors.add(field, "#{value.inspect} is not a status of #{subject_type}")
+      errors.add(field, :inclusion, message: "#{value.inspect} is not a status of #{subject_type}")
     end
   end
 

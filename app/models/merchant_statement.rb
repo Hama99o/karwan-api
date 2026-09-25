@@ -45,6 +45,6 @@ class MerchantStatement < ApplicationRecord
     return if period_start.blank? || period_end.blank?
     return if period_end >= period_start
 
-    errors.add(:period_end, "cannot be before period_start")
+    errors.add(:period_end, :before_start, message: "cannot be before period_start")
   end
 end

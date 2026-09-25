@@ -34,13 +34,13 @@ class CatalogItemOption < ApplicationRecord
     return if max_selections.blank? || min_selections.blank?
     return if max_selections >= min_selections
 
-    errors.add(:max_selections, "cannot be below min_selections")
+    errors.add(:max_selections, :greater_than_or_equal_to, message: "cannot be below min_selections")
   end
 
   def single_select_picks_one
     return unless select_single?
     return if max_selections.blank? || max_selections == 1
 
-    errors.add(:max_selections, "must be 1 for a single-select option")
+    errors.add(:max_selections, :equal_to, message: "must be 1 for a single-select option")
   end
 end

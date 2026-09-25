@@ -133,6 +133,6 @@ class Trip < ApplicationRecord
     return if [ fare, commission, courier_earnings ].any?(&:blank?)
     return if (fare - (commission + courier_earnings)).abs <= Monetary::ROUNDING_TOLERANCE
 
-    errors.add(:courier_earnings, "plus commission must equal the fare (#{fare})")
+    errors.add(:courier_earnings, :mismatch, message: "plus commission must equal the fare (#{fare})")
   end
 end

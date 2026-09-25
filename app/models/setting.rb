@@ -34,7 +34,7 @@ class Setting < ApplicationRecord
   private def map_style_family_is_known
     return if MAP_STYLE_FAMILIES.include?(value.to_s)
 
-    errors.add(:value, "must be one of: #{MAP_STYLE_FAMILIES.join(', ')}")
+    errors.add(:value, :inclusion, message: "must be one of: #{MAP_STYLE_FAMILIES.join(', ')}")
   end
 
   DEFINITIONS = {

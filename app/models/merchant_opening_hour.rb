@@ -18,6 +18,6 @@ class MerchantOpeningHour < ApplicationRecord
     return if opens_at.blank? || closes_at.blank?
     return if closes_at > opens_at
 
-    errors.add(:closes_at, "must be after opens_at")
+    errors.add(:closes_at, :before_start, message: "must be after opens_at")
   end
 end

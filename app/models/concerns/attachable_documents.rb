@@ -42,18 +42,27 @@ module AttachableDocuments
     # abandoned. Completeness is checked at APPROVAL, by a human, which is
     # where it belongs.
     def validates_attached(*names, as: :image)
-      types, max = as == :audio ? [ AUDIO_TYPES, MAX_AUDIO_BYTES ] : [ IMAGE_TYPES, MAX_IMAGE_BYTES ]
-
+      # Read when VALIDATING, not when the class loads: a limit captured at load
+      # is whatever the constant was at that moment, for the life of the
+      # process. (A spec's stubbed 10-byte limit, present when CourierProfile
+      # first autoloaded, once made every later upload "too large".)
       validate do
+        types, max = as == :audio ? [ AUDIO_TYPES, MAX_AUDIO_BYTES ] : [ IMAGE_TYPES, MAX_IMAGE_BYTES ]
         names.each do |name|
           file = public_send(name)
           next unless file.attached?
 
+          # SYMBOL KINDS, so `field_errors` carries `content_type` / `too_large`
+          # and the app can say "the photo is too big" in Pashto and Dari. With
+          # an English sentence as the kind, it could only say "check this one".
+          # The sentence stays as the message, for the console and full_messages.
           unless types.include?(file.content_type)
-            errors.add(name, "must be one of: #{types.join(', ')}")
+            errors.add(name, :content_type, message: "must be one of: #{types.join(', ')}")
           end
 
-          errors.add(name, "must be smaller than #{max / 1.megabyte} MB") if file.byte_size > max
+          if file.byte_size > max
+            errors.add(name, :too_large, message: "must be smaller than #{max / 1.megabyte} MB")
+          end
         end
       end
     end

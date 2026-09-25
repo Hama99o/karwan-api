@@ -360,7 +360,7 @@ class CourierProfile < ApplicationRecord
   def accepts_at_least_one_demand_type
     return if accepted_job_kinds.present?
 
-    errors.add(:accepted_job_kinds, "an approved courier must accept at least one kind of job")
+    errors.add(:accepted_job_kinds, :blank, message: "an approved courier must accept at least one kind of job")
   end
 
   # An unknown kind in this array is a typo that silently makes the courier
@@ -369,6 +369,6 @@ class CourierProfile < ApplicationRecord
   def accepted_job_kinds_are_known
     unknown = accepted_job_kinds.to_a.map(&:to_s) - JOB_KINDS
 
-    errors.add(:accepted_job_kinds, "unknown job kinds: #{unknown.join(', ')}") if unknown.any?
+    errors.add(:accepted_job_kinds, :inclusion, message: "unknown job kinds: #{unknown.join(', ')}") if unknown.any?
   end
 end
