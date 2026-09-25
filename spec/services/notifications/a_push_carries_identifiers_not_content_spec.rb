@@ -35,7 +35,10 @@ RSpec.describe "a push carries identifiers, not content" do
     courier_check_in: { kind: "delivery or ride", job_id: "the record", code: "the job's code", status: "a state code",
                         deep_link: "event + record" },
     courier_review_alert: { status: "a state code", missing: "document CODES still needed, never their contents",
-                            deep_link: "where to go" }
+                            deep_link: "where to go" },
+    customer_order_ended: { kind: "delivery", order_id: "the record", code: "the order's code",
+                            ended: "rejected, cancelled or failed", reason: "a reason CODE, never words",
+                            deep_link: "event + record" }
   }.freeze
 
   def keys_of(data) = data.keys.map(&:to_sym)
@@ -74,6 +77,17 @@ RSpec.describe "a push carries identifiers, not content" do
     Notifications::CourierReviewAlert.new(profile.reload, client: client).deliver!
 
     expect(keys_of(sent.last) - ALLOWED_PUSH_DATA[:courier_review_alert].keys).to be_empty
+  end
+
+  # No shop name, no amounts, no courier: that it ended, and the reason code.
+  it "tells a customer their order ended with identifiers only" do
+    customer = create(:user, :customer)
+    create(:device_token, user: customer, token: "customer-phone")
+    order = create(:order, :with_items, customer: customer, merchant: merchant, status: :rejected,
+                                        rejection_reason: :out_of_stock)
+    Notifications::CustomerOrderEnded.new(order, client: client).deliver!
+
+    expect(keys_of(sent.last) - ALLOWED_PUSH_DATA[:customer_order_ended].keys).to be_empty
   end
 
   it "has an entry for every notifier, so a fifth cannot arrive unchecked" do

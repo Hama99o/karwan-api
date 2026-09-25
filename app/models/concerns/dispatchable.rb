@@ -214,8 +214,13 @@ module Dispatchable
       offers.status_offered.update_all(status: Offer.statuses[:superseded], updated_at: Time.current) if terminal?
       moved = true
     end
+    announce_ending(actor_role) if moved && terminal?
     moved
   end
+
+  # Called once a job has ENDED, outside the transaction. A job type that
+  # tells somebody about it overrides this (Order tells its customer).
+  def announce_ending(_actor_role) = nil
   private
 
   # ── WHERE THE COURIER WAS WHEN THEY SAID SO ───────────────────────────────

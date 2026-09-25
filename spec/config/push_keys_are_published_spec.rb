@@ -18,6 +18,18 @@ RSpec.describe "push notification keys are published" do
     expect(sent_keys.size).to be >= 12
   end
 
+  # THE SCAN ABOVE SEES ONLY LITERAL KEYS. A key built with interpolation
+  # ("customer.order_#{status}.title") is invisible to it, so that notifier's
+  # keys would go unpublished while every example stayed green. A plant
+  # proved it on 25 Sept 2026. So a key must never be interpolated.
+  it "builds no key by interpolation, so the scan above can see every one" do
+    interpolated = Dir[Rails.root.join("app/services/notifications/*.rb")].flat_map do |file|
+      File.read(file).gsub(/^\s*#.*$/, "").scan(/"[^"\n]*#\{[^"\n]*\.(?:title|body)"/).map { "#{File.basename(file)}: #{_1}" }
+    end
+
+    expect(interpolated).to be_empty, "write each key out literally (a constant is fine): #{interpolated.join('; ')}"
+  end
+
   it "lists every one of them in §F" do
     missing = sent_keys.reject { |key| section_f.include?("`#{key}`") }
 

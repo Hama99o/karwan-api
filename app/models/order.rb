@@ -351,4 +351,17 @@ class Order < ApplicationRecord
 
     errors.add(:customer_total, :mismatch, message: "must equal items_total + delivery_fee (#{expected})")
   end
+
+  # ── THE CUSTOMER IS TOLD WHEN AN ORDER DIES (25 Sept 2026) ─────────────────
+  #
+  # Their only push used to be "the courier is at your door". A shop that never
+  # answered, a cancellation, a failure at the gate: they learned of it only by
+  # opening the app, possibly twenty minutes later, believing food was coming.
+  # Not for an ending THEY caused (they just did it). See
+  # Notifications::CustomerOrderEnded.
+  def announce_ending(actor_role)
+    return if actor_role.to_s == "customer" || delivered?
+
+    Notifications::CustomerOrderEndedJob.set(wait: Notifications::CustomerOrderEndedJob::SETTLE).perform_later(id)
+  end
 end

@@ -383,6 +383,7 @@ half, derived from the send sites and held to the code by
 |---|---|---|---|---|---|
 | shop: new order | an order is placed (`Orders::PlaceService`) | `merchant.alert.new_order.title` `merchant.alert.new_order.body` | `order_id` `order_code` `item_count` `merchant_payout` `currency` | `karwan://open/new-order/:order_id` | **yes**, the only one; and the only one in words (below) |
 | customer: courier at the gate | the courier taps "I am here" (`Couriers::AnnounceArrivalService`) | `customer.arrival.title` `customer.arrival.body`; for a RIDE, `customer.arrival.ride.title` `customer.arrival.ride.body` (the delivery copy says "with order … go to the door") | `kind` `job_id` `code` `courier_phone` | `karwan://open/arrival/:kind/:job_id` | no |
+| customer: your order ended | an order is rejected (including the 2-minute no-answer timeout), cancelled by anyone but the customer, or fails at the door (`Order#announce_ending`, via `CustomerOrderEndedJob`, 5 s after, so the reason is written first), since 25 Sept 2026 | `customer.order_rejected.title` `customer.order_rejected.body` `customer.order_cancelled.title` `customer.order_cancelled.body` `customer.order_failed.title` `customer.order_failed.body` | `kind` `order_id` `code` `ended` `reason` (a code: `no_answer`, `out_of_stock`, `nobody_home`, …) | `karwan://open/order-ended/delivery/:order_id` | no |
 | courier: are you all right? | a job sits past its timeout (`Dispatch::JobTimeoutsJob`), once per stuck state | `courier.check_in.title` `courier.check_in.body` | `kind` `job_id` `code` `status` `support_phone` | `karwan://open/check-in/:kind/:job_id` | no |
 | applicant: review outcome | an operator approves, rejects or asks for more (`CourierProfile`) | `courier.review.approved.title` `courier.review.approved.body` `courier.review.needs_more.title` `courier.review.needs_more.body` `courier.review.rejected.title` `courier.review.rejected.body` | `status` `missing` (JSON) `note` | `karwan://apply-rider` | no |
 
@@ -432,6 +433,7 @@ practice; nothing here is a finding, and nothing has been removed.
 |---|---|
 | shop: new order | the shop's device token; `order_id`, `order_code`, `item_count`, **`merchant_payout`**, `currency`; the title and body **as rendered text** in the owner's language (the order code and item count, by our decision, so a closed app can draw it) |
 | customer: courier at the gate | `kind`, `job_id`, `code` |
+| customer: your order ended | `kind`, `order_id`, `code`, `ended`, `reason` |
 | courier: are you all right? | `kind`, `job_id`, `code`, `status` |
 | applicant: review outcome | `status`; `missing` (the CODES of the documents still needed) |
 
