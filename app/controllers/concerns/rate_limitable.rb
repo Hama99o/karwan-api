@@ -32,13 +32,13 @@
 module RateLimitable
   extend ActiveSupport::Concern
 
-  # Rate limiting needs a cache store that can INCREMENT. **Production does NOT
-  # use solid_cache**, whatever this line said until 25 Sept 2026:
-  # `config/environments/production.rb` sets no `cache_store`, so Rails' default
-  # applies, a FileStore under the container's `tmp/cache`. That counts
-  # correctly for ONE web container (FileStore locks around increment), resets
-  # on every deploy, and would NOT be shared by a second container. Recorded in
-  # docs/NOTES.md;
+  # Rate limiting needs a cache store that can INCREMENT. Production uses
+  # solid_cache in its own database (`karwan_production_cache`), since
+  # 25 Sept 2026. Before that production set no `cache_store`, so every limit
+  # lived in a FileStore inside the container and was forgotten on every
+  # deploy. Proven at the production layer: a count survives a new process
+  # with an emptied tmp/ (docs/NOTES.md), and
+  # `spec/config/rate_limits_survive_a_deploy_spec.rb` keeps the wiring.
   # the test environment defaults to :null_store, whose increment always returns
   # nil — that would make every limit a silent no-op AND impossible to test,
   # which is the vacuously-green trap this project has already hit four times.

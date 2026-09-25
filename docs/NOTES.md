@@ -7234,7 +7234,7 @@ reached the limit. The throttle-loop specs now hold the clock still
 (`rate_limiting_spec` for the whole file, the shifts and routes loops inline).
 Routes' window is ONE MINUTE, so it was the likeliest to cross.
 
-**3. Production's cache is NOT solid_cache.** `config/environments/production.rb`
+**3. Production's cache was NOT solid_cache (fixed later the same night; see below).** `config/environments/production.rb`
 sets no `cache_store`, so Rails' default applies: a FileStore under the
 container's `tmp/cache`. Correction 3, `config/deploy.yml` and the
 RateLimitable comment all said solid_cache. For rate limits the FileStore
@@ -7244,8 +7244,24 @@ cache database in `database.yml` and its schema, which is deploy config. That
 is recorded here and not built. (solid_cache itself would have been fine:
 its increment keeps the entry's expiry.)
 
-**The trigger, so it is a condition and not a worry: this MUST move before a
-second web container exists.** From that moment every throttle becomes
+**BUILT, 25 Sept 2026, and the paragraph below is kept as history.** (It's
+the owner's ruling reversed by Hamma9901: with no production there was nothing
+live to break, and the deploy reset was already true with one container.)
+`bin/rails solid_cache:install` (the same three files as hatiwal-api), the
+cache database built from `db/cache_schema.rb` by `db:prepare`.
+**Proved at the production layer** (RAILS_ENV=production against Karwan's
+local Postgres, databases created for the probe and dropped after): process
+A counted 11 hits in a throttle window; process B, a NEW process started
+after emptying tmp/cache the way a new container would, read **11 with
+solid_cache**, and the refusal still stood. **With the default store planted
+back, B read 0** and the person would have been let in.
+`spec/config/rate_limits_survive_a_deploy_spec.rb` keeps the wiring (plant:
+the cache_store line commented out, red).
+**Same shape, NOT fixed:** `karwan_production_cable` is declared and
+cable.yml says solid_cable, but there is no `db/cable_schema.rb`, so the cable
+database is created empty. It goes in the launch-readiness inventory.
+
+**The trigger (history): From that moment every throttle becomes
 per-container, and each limit doubles without anyone changing a number. The
 cache DB is already declared in `database.yml`, and it is created empty. The
 move is `bin/rails solid_cache:install` (cache.yml plus db/cache_schema.rb) and

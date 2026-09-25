@@ -173,11 +173,11 @@ breakdown.
   the same database, and the failures would look like flakiness nobody can
   reproduce. **It now lives on its own raw PG connection** (`spec/rails_helper.rb`).
   A `reconnect!` probe is red on the old helper and green on the new one.
-- **Production's cache is not solid_cache.** It's the default FileStore in the
-  container. It **must move before a second web container exists**, or every
-  throttle becomes per-container. `config/deploy.yml` and NOTES have the
-  steps. Correction 3 in `CLAUDE.md` still says otherwise; that's for the
-  user to change.
+- **Production's cache is solid_cache, since 25 Sept.** Until then every rate
+  limit lived in the container's tmp/ and reset on each deploy. It's proven
+  to survive a restart (NOTES). The cable database is still created empty
+  (no schema), and that is in the readiness list. Correction 3 in `CLAUDE.md`
+  is now TRUE for the cache and still wrong for cable.
 - **Throttles now count per identifier** on sign-in and password reset, with
   per-IP backstops (1,200, 300 and 600 for registration). Every 429 carries
   `retry_after_seconds`.
