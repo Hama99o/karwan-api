@@ -129,6 +129,16 @@ module Customers
             closes_at: hours.closes_at.strftime("%H:%M") }
         end
       end
+
+      # THE SHOP'S TODAY, in the rows' own numbering (0 = Sunday), so the app
+      # can mark it without knowing any zone. Highlighting the PHONE's day
+      # would mark Thursday on a Kabul shop for a customer abroad, or for
+      # anyone after 19:30 UTC on a Thursday, when Kabul is already on
+      # Friday. The shop's zone is the app's (`config.time_zone`, Kabul).
+      # Asked for by karwan-42, 25 Sept 2026.
+      field :today_day_of_week do |_merchant|
+        Time.zone.today.wday
+      end
     end
 
     # ONE PLACE, because two fields need the same number and a second

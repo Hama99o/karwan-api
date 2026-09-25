@@ -70,7 +70,7 @@ RSpec.describe "payload key sets" do
         accepting_orders categories distance_km distance_source eta_minutes
         hours_known id is_open kind kind_name landmark_note location logo_url
         name next_opens_at opening_hours phone prep_time_minutes
-        storefront_photo_url
+        storefront_photo_url today_day_of_week
       ])
     end
 
