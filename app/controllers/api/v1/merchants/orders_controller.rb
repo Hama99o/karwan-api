@@ -28,7 +28,14 @@ class Api::V1::Merchants::OrdersController < Api::V1::Merchants::BaseController
     # phone (read from `users`, not the order), can be up to 59 s late —
     # Hamma9901's decision, 24 Sept 2026. At most one full recompute per shop
     # per minute, instead of six.
-    freshness = [ current_merchant&.id, params[:status], params[:page], params[:per_page],
+    #
+    # THE PAGE IS KEYED AS RESOLVED, never as it arrived. The app sends
+    # `page[number]=1&page[size]=100`, so `params[:page]` is a Parameters
+    # object, and hashing one raises UnfilteredParameters: every board poll
+    # the app really made was a 500 from e93db6e until 25 Sept 2026. Nothing
+    # caught it because every check sent no page, or a flat `?page=1`, which
+    # is a request the app never makes.
+    freshness = [ current_merchant&.id, params[:status].to_s, *pagy_page_options.values_at(:page, :items),
                   orders.unscope(:includes, :order).count, orders.unscope(:includes, :order).maximum(:updated_at)&.to_f,
                   Time.current.to_i / 60 ]
     return unless stale?(etag: freshness, public: false)
