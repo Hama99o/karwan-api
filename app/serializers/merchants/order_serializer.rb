@@ -52,6 +52,28 @@ module Merchants
     view :board do
       fields :placed_at, :accepted_at, :ready_at
 
+      # ── HOW LONG THE KITCHEN HAS TO ANSWER (25 Sept 2026) ──────────────────
+      #
+      # A placed order closes itself as `no_answer` when the shop doesn't
+      # answer (Dispatch::JobTimeoutsJob), and the card showed no clock at all.
+      # Both fields come from Order::TIMEOUTS[:placed], the same number the
+      # timeout job enforces, so the card and the rule can't disagree and the
+      # app never hardcodes "two minutes". Nil once the order is answered.
+      #
+      # `answer_within_seconds` is counted HERE, on the server's clock. The
+      # app counts it down from when it received it, so a cheap tablet whose
+      # clock is wrong still shows the right time left. `answer_by` is the
+      # same moment as an instant, for display.
+      field :answer_by do |order|
+        order.placed? ? order.placed_at + Order::TIMEOUTS.fetch(:placed) : nil
+      end
+
+      field :answer_within_seconds do |order|
+        next nil unless order.placed?
+
+        ((order.placed_at + Order::TIMEOUTS.fetch(:placed)) - Time.current).ceil.clamp(0, nil)
+      end
+
       # ── WHAT SILENCES THE ALARM ───────────────────────────────────────────
       #
       # PRODUCT.md's incoming order is "loud and repeating until acknowledged",

@@ -35,12 +35,18 @@ class Api::V1::Merchants::OrdersController < Api::V1::Merchants::BaseController
     # the app really made was a 500 from e93db6e until 25 Sept 2026. Nothing
     # caught it because every check sent no page, or a flat `?page=1`, which
     # is a request the app never makes.
+    #
+    # `last_missed` is in the key too, so a missed order changes the answer
+    # even on a board whose live orders didn't.
+    missed = Merchants::MissedOrders.new(current_merchant)
     freshness = [ current_merchant&.id, params[:status].to_s, *pagy_page_options.values_at(:page, :items),
                   orders.unscope(:includes, :order).count, orders.unscope(:includes, :order).maximum(:updated_at)&.to_f,
-                  Time.current.to_i / 60 ]
+                  missed.last_code, Time.current.to_i / 60 ]
     return unless stale?(etag: freshness, public: false)
 
-    paginate_blue(Merchants::OrderSerializer, orders, extra: { view: :board })
+    # The most recent order the kitchen never answered today, or null, so a
+    # notice survives the app having been backgrounded (Merchants::MissedOrders).
+    paginate_blue(Merchants::OrderSerializer, orders, extra: { view: :board }, also: { last_missed: missed.last })
   end
 
   def show

@@ -66,7 +66,9 @@ class ApplicationController < ActionController::API
   # the page is only known after pagination. Computing it per row would be N
   # round trips for one screen; computing it before pagination would ask about
   # merchants nobody is going to see.
-  def paginate_blue(serializer, collection, extra: {}, extra_for: nil)
+  # `also:` puts a few top-level keys beside the list, for a fact about the
+  # whole screen rather than any row (the board's `last_missed`).
+  def paginate_blue(serializer, collection, extra: {}, extra_for: nil, also: {})
     pagy, records = pagy(collection, **pagy_page_options)
     options = extra.merge(extra_for ? extra_for.call(records) : {})
 
@@ -74,6 +76,7 @@ class ApplicationController < ActionController::API
       serializer.model_name.plural => serializer.render_as_hash(
         records, view: options[:view] || :default, **options.except(:view)
       ),
+      **also,
       meta: { pagination: pagination_meta(pagy) }
     }
   end

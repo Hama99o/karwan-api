@@ -52,7 +52,10 @@ module Merchants
         from: day.begin,
         to: day.end,
         by_currency: totals_by_currency,
-        in_the_kitchen: live_orders_count
+        in_the_kitchen: live_orders_count,
+        # Orders the kitchen never answered today, closed as `no_answer`:
+        # the one loss nothing else counted (Merchants::MissedOrders).
+        missed: MissedOrders.new(@merchant, now: @now).count
       }
     end
 

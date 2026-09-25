@@ -11,5 +11,6 @@
       "net_received": "610.0"
     }
   ],
-  "in_the_kitchen": 1
+  "in_the_kitchen": 1,
+  "missed": 0
 }
