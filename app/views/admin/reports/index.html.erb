@@ -359,6 +359,30 @@
     </tbody>
   </table>
 
+  <h2>Priced by road, or by straight line — last 30 days, and today</h2>
+  <%# WHEN THE ROUTER IS DOWN, EVERY FARE IS QUIETLY LOW. The fallback to the
+      straight line is automatic and its only other trace is a log line, so
+      this count is what shows an outage: straight-line rows appearing while
+      routing_distance_source is osrm. "Unrecorded" is a row that never went
+      through a quote. See Routing::DistanceSources. %>
+  <table class="karwan-report">
+    <thead>
+      <tr><th></th><th>By road</th><th>By straight line</th><th>Unrecorded</th><th>Straight-line share</th><th>Today: road / straight / unrecorded</th></tr>
+    </thead>
+    <tbody>
+      <% @distance_sources.counts.each do |kind, spans| %>
+        <tr>
+          <td><%= kind %></td>
+          <td><%= spans[:window]["osrm"] %></td>
+          <td><strong><%= spans[:window]["straight_line"] %></strong></td>
+          <td><%= spans[:window]["unrecorded"] %></td>
+          <td><%= (share = @distance_sources.straight_line_share(kind)) ? "#{share}%" : "—" %></td>
+          <td><%= spans[:today].values.join(" / ") %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+
   <h2>Roads far longer than the straight line — last 30 days</h2>
   <%# A MEASUREMENT, NOT A RULE. The delivery fee is charged on the road
       distance, and nothing bounds it: across Kabul a road runs a median 1.6x

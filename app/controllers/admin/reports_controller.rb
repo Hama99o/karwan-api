@@ -66,6 +66,7 @@ module Admin
       #
       # What a cap on the charged distance would have touched, on his own
       # orders. Measures only; see `Routing::Detours`.
+      @distance_sources = Routing::DistanceSources.new
       @detours = Routing::Detours.new(ratio: params[:detour_ratio].presence || Routing::Detours::DEFAULT_RATIO)
       @couriers_to_ring = Couriers::Reliability.ranked
       people = @couriers_to_ring.flat_map { |row| [ row[:courier_id], *row[:repeated_passengers].keys ] }

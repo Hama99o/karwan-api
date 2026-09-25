@@ -54,9 +54,14 @@ module Routing
       # what its description says.
       route.with(duration_minutes: Geo::Distance.travel_minutes(route.distance_km))
     rescue OsrmClient::Error => e
-      # Reported, never swallowed silently: a permanently unreachable router
-      # would otherwise look like nothing at all while every fare quietly
-      # changed method.
+      # THIS LOG LINE IS NOT WHAT CATCHES AN OUTAGE. It used to call itself
+      # "reported, never swallowed silently", but a warn line on a VPS nobody
+      # tails IS silent, and the fee drops by roughly the road/straight ratio
+      # (1.35-1.6x across Kabul) for as long as the router is down. What catches
+      # it is the `distance_source` every order and trip records, counted per
+      # day on the console's reports page (`Routing::DistanceSources`). In dev,
+      # on 25 Sept 2026, every order placed through the real path had fallen
+      # back and nobody had noticed.
       Rails.logger.warn("[routing] falling back to straight line: #{e.class}: #{e.message}")
       nil
     end
