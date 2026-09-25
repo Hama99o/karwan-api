@@ -20,5 +20,11 @@ module Merchants
     field :closes_at do |hour|
       hour.closes_at&.strftime("%H:%M")
     end
+
+    # Derived from the two times, never stored, so it cannot disagree with
+    # them: 23:00-01:00 closes the next day. Said so no client infers it.
+    field :closes_next_day do |hour|
+      hour.closes_next_day?
+    end
   end
 end

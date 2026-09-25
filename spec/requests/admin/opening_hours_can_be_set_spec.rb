@@ -98,12 +98,26 @@ RSpec.describe "an operator can set a shop's opening hours", type: :request do
   end
 
   # The model refuses it; the console must refuse it too rather than 500.
-  it "refuses hours that close before they open" do
+  # (Closing BEFORE opening has meant "closes the next day" since 25 Sept
+  # 2026, so the invalid case here is a close equal to the open.)
+  it "refuses hours that close when they open" do
     expect {
       post "/admin/merchant_opening_hours", params: {
         merchant_opening_hour: {
-          merchant_id: merchant.id, day_of_week: 1, opens_at: "22:00", closes_at: "09:00"
+          merchant_id: merchant.id, day_of_week: 1, opens_at: "22:00", closes_at: "22:00"
         }
+      }
+    }.not_to change(MerchantOpeningHour, :count)
+  end
+
+  # The console writes one row at a time and has no form-side guard, so the
+  # overlap rule has to hold here too.
+  it "refuses a row that overlaps one already posted" do
+    merchant.opening_hours.create!(day_of_week: 1, opens_at: "09:00", closes_at: "17:00")
+
+    expect {
+      post "/admin/merchant_opening_hours", params: {
+        merchant_opening_hour: { merchant_id: merchant.id, day_of_week: 1, opens_at: "14:00", closes_at: "20:00" }
       }
     }.not_to change(MerchantOpeningHour, :count)
   end

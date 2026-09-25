@@ -126,7 +126,9 @@ module Customers
       field :opening_hours do |merchant|
         merchant.opening_hours.order(:day_of_week, :opens_at).map do |hours|
           { day_of_week: hours.day_of_week, opens_at: hours.opens_at.strftime("%H:%M"),
-            closes_at: hours.closes_at.strftime("%H:%M") }
+            closes_at: hours.closes_at.strftime("%H:%M"),
+            # Derived, never stored: 23:00-01:00 closes the next day.
+            closes_next_day: hours.closes_next_day? }
         end
       end
 

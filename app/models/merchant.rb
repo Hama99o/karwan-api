@@ -131,6 +131,7 @@ class Merchant < ApplicationRecord
   # Asking the authority first makes the field mean one thing: **when will this
   # shop next be open**, which a shop that is open now has no answer to.
   def next_opens_at(from = Time.zone.now)
+    from = from.in_time_zone(Time.zone) # a Kabul clock, whatever the caller passed
     rows = opening_hours.to_a
     return nil if rows.empty?
     return nil if accepting_orders?
@@ -264,14 +265,12 @@ class Merchant < ApplicationRecord
   # `at` must be a zone-aware time. `placed_at` read through Active Record is
   # already in `Time.zone`, which is Kabul — the same double-conversion trap the
   # reports page hit is avoided by never touching the raw UTC value.
+  #
+  # Since 25 Sept 2026 a window may cross midnight, so this LOOKS BACK A DAY:
+  # 00:30 on Tuesday is inside Monday's 23:00-01:00. The rule lives in
+  # `MerchantOpeningHour.covers?`, the one place that knows the week wraps.
   def self.open_per_schedule?(at, rows)
-    rows.any? do |hours|
-      next false unless hours.day_of_week == at.to_date.wday
-
-      minutes = (at.hour * 60) + at.min
-      minutes >= (hours.opens_at.hour * 60) + hours.opens_at.min &&
-        minutes < (hours.closes_at.hour * 60) + hours.closes_at.min
-    end
+    MerchantOpeningHour.covers?(rows, at)
   end
 
   # `is_open` is a MANUAL toggle and is the authority. Opening hours are

@@ -230,7 +230,7 @@ may be undeclared, nothing declared may be unemitted.
 | **ordering** | `no_merchant` `merchant_is_a_lead` `tier_unavailable` `not_cancellable` `invalid_transition` `reason_required` |
 | **dispatch** | `offer_expired` `not_your_job` `cannot_advance` `wrong_step` `too_early_to_arrive` `wallet_blocked` `job_taken` |
 | ~~**courier access**~~ | ~~`no_courier_profile`~~ | **Renamed 25 Sept 2026 to `no_profile`** (in the eligibility row below). It's the 403 from any `/courier/*` route for an account with no courier profile, and it's the same fact Eligibility already called `no_profile`. The order was: karwan-mobile `7e60b6e` accepts both, then the server switches. An app build from before `7e60b6e` would show its generic message for this one refusal; no build was in a store, so that window was empty |
-| **merchant self-service** | `invalid_opening_hours` |
+| **merchant self-service** | `invalid_opening_hours` — since 25 Sept 2026 with `row` (the 0-based index in the array sent) and `reason` (`same_open_and_close`, `overlaps`, or a validator kind such as `blank`). The whole week rolls back. A window whose close is earlier than its open closes the NEXT day; every served hour row says so as `closes_next_day` |
 | **geography** | `outside_service_area` `unroutable` |
 | **infrastructure** | `bad_request` `not_found` `bad_platform` `rate_limited` `pending_migration` — `rate_limited` (429) carries `retry_after_seconds` and a `Retry-After` header since 25 Sept 2026, on every throttled endpoint. On sign-in it is the same answer whether the per-identifier or the per-address limit refused, and whether or not the account exists |
 | **account deletion** — `me#destroy`, 422 | `holding_cash` `wallet_unsettled` `live_job` `live_order` `merchant_orders_in_flight` |

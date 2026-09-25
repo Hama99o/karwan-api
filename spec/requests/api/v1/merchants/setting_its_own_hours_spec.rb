@@ -87,10 +87,12 @@ RSpec.describe "A merchant sets its own opening hours", type: :request do
     put_week([ { day_of_week: 3, opens_at: "08:00", closes_at: "20:00" } ])
     expect(merchant.reload.opening_hours.count).to eq(1)
 
-    # closes_at before opens_at — the model refuses it.
+    # Close equal to open: still refused (a window closing BEFORE it opens
+    # has meant "closes the next day" since 25 Sept 2026; this example used
+    # that as its invalid row).
     put_week([
       { day_of_week: 4, opens_at: "08:00", closes_at: "20:00" },
-      { day_of_week: 5, opens_at: "20:00", closes_at: "08:00" }
+      { day_of_week: 5, opens_at: "20:00", closes_at: "20:00" }
     ])
 
     expect(response).to have_http_status(:unprocessable_content)

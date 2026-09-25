@@ -21,9 +21,11 @@ class Api::V1::Merchants::OpeningHoursController < Api::V1::Merchants::BaseContr
     before = week_for(current_merchant)
     rows = Array(params[:opening_hours])
 
+    refused_row = nil
     MerchantOpeningHour.transaction do
       current_merchant.opening_hours.destroy_all
-      rows.each do |row|
+      rows.each_with_index do |row, index|
+        refused_row = index
         current_merchant.opening_hours.create!(
           day_of_week: row[:day_of_week], opens_at: row[:opens_at], closes_at: row[:closes_at]
         )
@@ -38,8 +40,12 @@ class Api::V1::Merchants::OpeningHoursController < Api::V1::Merchants::BaseContr
     render_week
   rescue ActiveRecord::RecordInvalid => e
     # The transaction rolled the whole week back, so the shop still advertises
-    # what it advertised before this call. Say which row was wrong.
-    render_unprocessable_entity(e.record.errors.full_messages.to_sentence, code: "invalid_opening_hours")
+    # what it advertised before this call. Say WHICH row was wrong, as its index
+    # in the array that was sent, and WHY, as a kind the app can put words to
+    # (`same_open_and_close`, `overlaps`, `blank`, …), never the English.
+    reason = e.record.errors.details.values.flatten.first&.dig(:error).to_s
+    render_unprocessable_entity(e.record.errors.full_messages.to_sentence, code: "invalid_opening_hours",
+                                                                          details: { row: refused_row, reason: reason })
   end
 
   def show

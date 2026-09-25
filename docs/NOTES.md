@@ -7405,3 +7405,41 @@ or the log line. Plants, each red:
 The console gates noticed the new page by themselves: the page sweep, the
 route-derived policy sweep (114 → 116; the no-policy gap 104 → 106,
 counted) and the total-order scope list.
+
+## A GATE THAT READS PROSE CAN'T TELL A PROMISE FROM A DISCLAIMER — 25 Sept 2026
+
+`design_specs_get_their_fields_spec` reads every backticked name in
+karwan-mobile's design SPECs and requires the payload to carry it. karwan-mobile
+`2585fcf` named `today` inside a paragraph headed "**Not built, and why**",
+as the shape a performance summary would take IF the owner wants one, and the
+gate turned the whole suite red, treating a written refusal as a requirement.
+The same exposure applies to every doc-derived check here: the vocabulary
+counts, the push-copy mirror, and the design SPECs. **A name in prose is a
+candidate, not a requirement**, which is why `NOT_A_REQUIREMENT` exists and
+carries a reason per entry. The fix is always a judgment written down,
+never a field served to make a gate quiet.
+
+## A SHOP OPEN UNTIL 01:00 — 25 Sept 2026 (Hamma9901's ruling)
+
+A window whose close is earlier than its open closes the next day. It is
+stored implicitly (no flag, which would be a second statement of the same
+fact) and served explicitly (`closes_next_day`, derived from the times). The
+row belongs to the day it opens. Close equal to open is still refused.
+
+**The look-back is entirely the server's:** the app computes no "open now";
+it renders `next_opens_at`. So one rule, `MerchantOpeningHour.covers?`,
+works in minutes of a week that wraps, reads the moment in Kabul, and backs
+`Merchant.open_per_schedule?` (the reliability report) and `next_opens_at`.
+
+**Overlaps are refused across the whole week, and on the model,** because
+the console writes rows one at a time with no form guard. Once Monday can
+run to 01:00, a Tuesday 00:30 window collides with it, and so does Saturday
+night with Sunday morning. Touching windows (09-14, 14-18) are allowed.
+The refusal names the row (`row`, `reason`).
+
+Plants, each red: no overnight arithmetic (5); no look-back (2); the moment
+read in its own zone (1, in both the box's zone and New York); no wrap at the
+week's end (1); no overlap check (4); no row index (4).
+**Owed by the app, per the ruling:** the week view shows what the system
+understood ("17:00 – 09:00 (next day)"), so a typo can't silently become
+sixteen hours open.
