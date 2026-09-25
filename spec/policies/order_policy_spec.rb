@@ -97,10 +97,13 @@ RSpec.describe OrderPolicy do
       expect(described_class.new(customer, order).cancel?).to be true
     end
 
-    it "refuses the customer once the state machine says no" do
+    # WHETHER is the state machine's: the policy lets the owner ASK, and the
+    # endpoint answers `not_cancellable`, which a person can read (25 Sept 2026).
+    it "leaves 'too late' to the state machine rather than refusing the owner" do
       picked_up = create(:order, :picked_up, customer: customer, merchant: merchant)
 
-      expect(described_class.new(customer, picked_up).cancel?).to be false
+      expect(described_class.new(customer, picked_up).cancel?).to be true
+      expect(picked_up.can_transition_to?(:cancelled, actor_role: :customer)).to be false
     end
 
     it "refuses another customer even while the order is cancellable" do

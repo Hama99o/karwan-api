@@ -608,12 +608,17 @@ RSpec.describe "Api::V1::Customers::Orders", type: :request do
     end
 
     # Once the kitchen has started, somebody has spent money on it.
-    it "refuses once the order is being prepared" do
+    # Refused in words the app explains, not as a permission error: a
+    # customer a second too late is looking at a state change, not a lock
+    # (karwan-mobile F-77, "the shop has already accepted this order"; the
+    # wire agreed with karwan-42, 25 Sept 2026).
+    it "refuses once the order is being prepared, as not_cancellable" do
       order = create(:order, :preparing, customer: customer, merchant: merchant)
 
       post "/api/v1/customer/orders/#{order.id}/cancel", headers: auth
 
-      expect(response).to have_http_status(:forbidden)
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(JSON.parse(response.body)["code"]).to eq("not_cancellable")
       expect(order.reload.status).to eq("preparing")
     end
 

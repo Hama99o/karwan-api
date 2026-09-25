@@ -12,10 +12,14 @@ class OrderPolicy < ApplicationPolicy
   # Only the customer whose order it is may cancel, and only while nothing has
   # been committed. The state machine is the authority on when — this predicate
   # answers WHO.
+  # WHOSE order it is; not whether it is too late. That is the state
+  # machine's answer, and the endpoint turns it into `not_cancellable` (422),
+  # which the app explains ("the shop has already accepted this order").
+  # Until 25 Sept 2026 this also checked the state, so a customer a second
+  # too late got a bare 403 and that sentence was unreachable
+  # (ApplicationPolicy's header has the rule).
   def cancel?
-    return false unless own_order? || admin?
-
-    record.can_transition_to?(:cancelled, actor_role: admin? ? :admin : :customer)
+    own_order? || admin?
   end
 
   # One predicate per board action rather than a single `update?`, so each can
