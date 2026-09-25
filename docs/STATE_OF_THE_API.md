@@ -6,7 +6,7 @@ whom. Commit hashes point at the evidence. Deeper records:
 `docs/NOTES.md` (findings and lessons), `docs/RUNBOOK.md` §9.1 (backups),
 `docs/API_VOCABULARY.md` §B, §E, §E2 and §F (wire contracts).
 
-**The whole suite, twice, on two seeds:**
+**The whole suite, three times, on three seeds** (the third: `93e4f66`, seed 32509, 3,127 examples, 0 failures, 3 pending):
 - `4864764`, seed 47846: 204 files, 3,061 examples, 0 failures, 3 pending.
 - `e1bbdae`, seed 41528: **209 files, 3,082 examples, 0 failures, 3
   pending**, exit 0, no errors outside examples, 14m47s, memory stall zero
@@ -138,9 +138,11 @@ console policy sweep, now route-derived (`90d7bbf`).
   barriers (from the route shape; no ground truth);
 - one test order for each race spec, not every order.
 
-**Measured and NOT explained:** a whole dispatch decision took 330–1,000 ms
-over 95 couriers, and its queries explain about 80 ms. That was before the
-pooling; re-measure after it. The box was at load 9–19 throughout.
+**Re-measured after the pooling (25 Sept) and attributed:** a whole dispatch
+decision over 95 couriers is about **100 ms** (harness p50 130 ms and p95 157 ms,
+of which about 32 ms was the harness's own bulk update), with 16 queries and
+27 ms in the database. The old 330–1,000 ms is not today's cost. NOTES has the
+breakdown.
 
 ---
 
@@ -163,11 +165,24 @@ pooling; re-measure after it. The box was at load 9–19 throughout.
 - On the box: removing the zombie 9 GB buildx volume (one command, refused
   to us); a read-only look inside the 10.5 GB anonymous Postgres volume.
 
-## 4 · Waiting on a quiet box (1-minute load under about 6)
-- Re-measure a dispatch decision's wall time **after** tonight's pooling,
-  then attribute what's left.
-- Optionally, a second whole-suite run on a different seed. Parked until a
-  failing seed exists.
+## 4 · Things found on 25 Sept that the next session must know
+- **The suite's exclusive-database lock could vanish mid-run.** It was held
+  on ActiveRecord's pooled connection. When AR replaced that connection
+  (seen after `shifts_spec.rb:135` in a long run; the cause is not
+  established), the lock went too. From then on a second run could truncate
+  the same database, and the failures would look like flakiness nobody can
+  reproduce. **It now lives on its own raw PG connection** (`spec/rails_helper.rb`).
+  A `reconnect!` probe is red on the old helper and green on the new one.
+- **Production's cache is not solid_cache.** It's the default FileStore in the
+  container. It **must move before a second web container exists**, or every
+  throttle becomes per-container. `config/deploy.yml` and NOTES have the
+  steps. Correction 3 in `CLAUDE.md` still says otherwise; that's for the
+  user to change.
+- **Throttles now count per identifier** on sign-in and password reset, with
+  per-IP backstops (1,200, 300 and 600 for registration). Every 429 carries
+  `retry_after_seconds`.
+- Dispatch was re-measured under load 5–7 and attributed (§2): about 100 ms per
+  decision over 95 couriers. Nothing to fix at launch scale.
 
 ## 5 · Waiting on karwan-mobile (the app halves of contracts already live here)
 - Send `Idempotency-Key` from checkout-open, and `expected_amount_to_pay_in_cash`.
@@ -178,10 +193,9 @@ pooling; re-measure after it. The box was at load 9–19 throughout.
 - The push handler; words for the ride keys; the `open/…` routes.
 
 ## 6 · What I would do next
-1. **The whole suite** after any new commit (the last clean run was at `e1bbdae`).
-2. **The quiet-box dispatch re-measure** (§4). If the unexplained remainder
-   survives the pooling, it's the most important thing on the dispatch path,
-   because it sits inside a row lock.
+1. **The whole suite** after any new commit. The last clean whole run was at `93e4f66` (seed 32509: 3,127 examples, 0 failures, 3 pending). Since then there have been targeted runs only; the widest was 2,869 examples across models, requests, services and serializers at `e35578e`.
+2. ~~The dispatch re-measure~~: done 25 Sept (§2). At about 1,000 couriers,
+   filter by distance in SQL before instantiating the pool.
 3. **The rest of the ride door**, when the owner says go: NOTES "THE RIDE DOOR —
    build it from this list". Its first step, the console override, is built.
 4. **`bin/restore-check`**, when the owner says go. The two-part check

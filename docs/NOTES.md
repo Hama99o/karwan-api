@@ -7087,11 +7087,43 @@ every decline and expiry. The fix is one query per demand type ("which of these
 couriers hold a live job") before the loop: 2 queries in place of 2N. That
 changes a query's shape, so it is proposed, not built.
 
-**Measured but NOT attributed:** a whole dispatch decision took 330–1,000 ms
-wall time over 95 couriers. The queries explain only about 80 ms of it. The box
-was at load 9–19, shared with other sessions, and the remainder could not be
-pinned to a cause under that noise. It wants a quiet re-measurement before
-anyone claims one.
+**Measured but NOT attributed (24 Sept):** a whole dispatch decision took
+330–1,000 ms wall time over 95 couriers. The queries explain only about 80 ms
+of it. The box was at load 9–19, shared with other sessions, and the remainder
+could not be pinned to a cause under that noise.
+
+**RE-MEASURED AFTER THE POOLING, 25 Sept 2026, 03:17–03:22, and attributed.**
+The harness is `Dispatch::OfferService#call` on the dev database (95
+dispatchable couriers, 51 eligible), in rolled-back transactions, with every
+decision OFFERING. The first attempt offered nobody, because the seed
+positions were stale; a decision that stops early is not the one to time.
+Load was 5–7 (1-min), not idle.
+- **36 warm decisions: wall p50 130 ms, p95 157 ms, max 179 ms.** Queries:
+  p50 27 ms (16 queries).
+- **About 32 ms of that belongs to the harness, not the code.** It refreshed
+  every courier's position with one `update_all` inside the same transaction
+  before each decision, and reading 141 fresh tuple versions made
+  `candidates` 85 ms instead of 53 ms (measured side by side). Production
+  positions arrive one courier at a time, so **a realistic decision is about
+  100 ms.**
+- **Where the ~53 ms of candidate selection goes:**
+  - loading the pool with users and wallets: 15 ms;
+  - the pooled busy check: 3 ms;
+  - the pooled cash check: 4 ms;
+  - the 95 eligibility checks: 16 ms;
+  - distances, the already-asked list and the pickup point: about 15 ms.
+  The rest of the decision (creating the offer, its audit row and
+  bookkeeping) is about 37 ms.
+- **Instrumentation lies at this scale:** wrapping every Eligibility method
+  (about 20,000 calls) made the same decision read 278 ms. Only the coarse
+  wrappers were kept.
+
+So the 330–1,000 ms is not today's cost. The pooling took the query count
+from 17–41 to 16 with no growth per courier. What's left is ordinary Ruby
+and AR instantiation that grows linearly with the pool, at about 0.5 ms per
+courier. **Nothing here needs fixing at launch scale.** At 1,000 couriers
+the pool load and the eligibility loop would be the first to matter, and
+the fix then is to filter by distance in SQL before instantiating.
 
 **Projection** at 50 open shops, 200 couriers on shift and 100 live deliveries
 (assumptions: today's poll intervals, one tab per role):
