@@ -7286,3 +7286,63 @@ shown otherwise.
 latency.** 21 of 25 ride cancellations in the rig were "nobody available".
 The path the ride side runs most is the one with an empty pool. That path
 is cheap by construction, and its real cost is the passenger told "no".
+
+## A WHOLE-SUITE RUN DIED AT 14 MIN 22 S, TWICE — 25 Sept 2026
+
+Two runs on seed 13225 each ended with `EXIT 143` (SIGTERM). The first
+stopped at 14 min 23 s after 2,485 examples, the second at 14 min 22 s
+after 2,962. RSpec printed "0 failures" both times, **and neither was a
+complete run.** A run that finished normally earlier that night took
+14 min 18 s. Both dying runs were started as the coding tool's own
+background tasks.
+
+**Cleared:**
+- systemd-oomd (it logs every kill; empty);
+- the kernel OOM killer (`/var/log/kern.log` is readable and was being
+  written at 03:56 and 04:04, and its last OOM entry is from 17:46 the day
+  before);
+- peer sessions (timestamped: no kill touched ruby or rspec);
+- my own stall guard (it logs before it signals; nothing logged);
+- any spec signalling its own process (none does).
+
+**Explanation, now tested:** a wall-clock ceiling of about 15 minutes on
+the tool's background tasks, which the 14 min 18 s run slipped under. The
+test: the suite run fully detached (`setsid nohup`, out of the tool's
+process tree) at `92d5e2d`, seed 13225. It **passed 14 min 22 s and
+finished: 19 min 8 s, EXIT 0, 3,162 examples, 0 failures, 3 pending.**
+**Run whole suites detached.** The script is a plain loop: rspec in the
+background, the stall guard polling `/proc/pressure/memory`, and the exit
+code written to a side file. The first detached start was refused by the
+guard at `full avg10` 1.21, and it started once pressure was zero.
+
+**Two things to carry:**
+- **"0 failures" is not "passed" without the example count.** An
+  interrupted RSpec still prints its summary.
+- **Pieces of a run can be tested against mixed code.** Both runs overlapped
+  edits to app files, and a lazily loaded file is read at whatever state it
+  is in when first touched. A whole run is trustworthy only against a tree
+  that doesn't change under it.
+
+## TWO THOUSAND SEEDED ORDERS IN A SHAPE THE PRODUCT NEVER MAKES — 25 Sept 2026
+
+In the dev database, 2,019 orders carry a delivery fee and no `distance_km`
+or `distance_source`. The seeds write fees directly, and real placement
+always goes through a quote, which records both. That's the same family as
+the seeded `vehicle_type` (F-92), but worse: it doesn't just fail to tell
+two states apart, it **creates** the impossible one. Any query that reasons
+over orders (a report, a measurement like the distance-source count) meets
+two thousand rows that production can't have. Not fixed tonight; the
+reports page shows them honestly as `unrecorded`.
+
+## A PASS IS AN EXIT CODE PLUS AN EXPECTED EXAMPLE COUNT — 25 Sept 2026
+
+**The summary line is not evidence.** An RSpec process killed partway
+through still prints `Finished in … N examples, 0 failures`. Twice tonight
+it printed "0 failures" for runs that had stopped two-thirds of the way
+through (2,485 and 2,962 of 3,162 examples), and the only tells were
+`EXIT 143` and a count that was too small. It lies in the safe-looking
+direction, from the tool everyone trusts, and it isn't in anyone's code.
+
+So a whole-suite result is reported as **three facts**: the exit code, the
+example count against the last known count (3,162 at `92d5e2d`), and the
+seed. Any one missing, and it isn't a pass.

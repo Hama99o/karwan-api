@@ -6,7 +6,7 @@ whom. Commit hashes point at the evidence. Deeper records:
 `docs/NOTES.md` (findings and lessons), `docs/RUNBOOK.md` §9.1 (backups),
 `docs/API_VOCABULARY.md` §B, §E, §E2 and §F (wire contracts).
 
-**The whole suite, three times, on three seeds** (the third: `93e4f66`, seed 32509, 3,127 examples, 0 failures, 3 pending):
+**The whole suite, four times, on four seeds** (the latest: `92d5e2d`, seed 13225, EXIT 0, 3,162 examples, 0 failures, 3 pending; before it `93e4f66`, seed 32509, 3,127 examples):
 - `4864764`, seed 47846: 204 files, 3,061 examples, 0 failures, 3 pending.
 - `e1bbdae`, seed 41528: **209 files, 3,082 examples, 0 failures, 3
   pending**, exit 0, no errors outside examples, 14m47s, memory stall zero
@@ -193,7 +193,7 @@ breakdown.
 - The push handler; words for the ride keys; the `open/…` routes.
 
 ## 6 · What I would do next
-1. **The whole suite** after any new commit. The last clean whole run was at `93e4f66` (seed 32509: 3,127 examples, 0 failures, 3 pending). Since then there have been targeted runs only; the widest was 2,869 examples across models, requests, services and serializers at `e35578e`.
+1. **The whole suite** after any new commit. The last clean whole run was at `92d5e2d`: seed 13225, EXIT 0, 3,162 examples, 0 failures, 3 pending, run DETACHED (a tool background task is killed at about 14 min 22 s; NOTES has it). A pass is an exit code plus the expected count, never the summary line alone.
 2. ~~The dispatch re-measure~~: done 25 Sept (§2). At about 1,000 couriers,
    filter by distance in SQL before instantiating the pool.
 3. **The rest of the ride door**, when the owner says go: NOTES "THE RIDE DOOR —
