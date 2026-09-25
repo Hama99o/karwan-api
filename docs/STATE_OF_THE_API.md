@@ -193,7 +193,7 @@ breakdown.
 - The push handler; words for the ride keys; the `open/…` routes.
 
 ## 6 · What I would do next
-1. **The whole suite** after any new commit. The last clean whole run was at `92d5e2d`: seed 13225, EXIT 0, 3,162 examples, 0 failures, 3 pending, run DETACHED (a tool background task is killed at about 14 min 22 s; NOTES has it). A pass is an exit code plus the expected count, never the summary line alone.
+1. **The whole suite** after any new commit. The last complete coverage was at `0cfaafd`, seed 62031, in TWO detached halves (alternate files): 1,711 + 1,498 = **3,209 examples, exactly the dry-run count**, both EXIT 0, 0 failures, 3 pending. It was split because four single 19-minute runs in one night were stopped by the memory stall guard (pressure from elsewhere). Before that: `92d5e2d`, 3,162 in one run. A pass is an exit code plus the expected count, never the summary line alone.
 2. ~~The dispatch re-measure~~: done 25 Sept (§2). At about 1,000 couriers,
    filter by distance in SQL before instantiating the pool.
 3. **The rest of the ride door**, when the owner says go: NOTES "THE RIDE DOOR —
