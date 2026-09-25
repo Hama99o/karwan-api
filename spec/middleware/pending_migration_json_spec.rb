@@ -136,8 +136,10 @@ RSpec.describe PendingMigrationJson do
     # and the ignore list have to stay in step.
     it "is required rather than autoloaded, and excluded from autoload_lib" do
       expect(source).to include('require Rails.root.join("lib/middleware/pending_migration_json")')
-      expect(Rails.root.join("config/application.rb").read)
-        .to include("config.autoload_lib(ignore: %w[assets tasks middleware])")
+      # The RULE, not the literal: `middleware` must be in the ignore list,
+      # whatever else joins it (`error_reporting` did on 25 Sept 2026).
+      ignored = Rails.root.join("config/application.rb").read[/config\.autoload_lib\(ignore: %w\[([^\]]*)\]\)/, 1]
+      expect(ignored.to_s.split).to include("middleware")
     end
 
     # DEVELOPMENT ONLY, and the commit says so — `CheckPending` is not in the

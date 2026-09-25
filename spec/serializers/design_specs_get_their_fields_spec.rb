@@ -84,7 +84,12 @@ RSpec.describe "every design SPEC gets the fields it names", type: :request do
     [ "customer/home", "opening_hours" ] =>
       "superseded. The SPEC asks in prose for one line — \"opens at ۸:۰۰\" when the shop is " \
       "closed — and the list now serves `hours_known` + `next_opens_at`, which is that answer. " \
-      "A week of rows for twenty merchants is the payload we deliberately did not send."
+      "A week of rows for twenty merchants is the payload we deliberately did not send.",
+    [ "merchant/board", "today" ] =>
+      "named under \"Not built, and why: a performance summary\" (karwan-mobile 2585fcf) as the SHAPE " \
+      "a summary would take IF Hamma9900 wants one: \"the same number is help to one kitchen and a " \
+      "scorecard to another, which is Hamma9900's to decide\". An undecided proposal, not a field the " \
+      "board is blocked on."
   }.freeze
 
   let(:customer) { create(:user, :customer) }
