@@ -147,8 +147,8 @@ breakdown.
 ---
 
 ## 3 · Waiting on Hamma9900 (decisions, not work)
-- **Console logins:** will anyone else hold one? It decides whether the 104
-  console actions with no policy need 104 policies (`every_action_consults_a_policy_spec`
+- **Console logins:** will anyone else hold one? It decides whether the 106
+  console actions with no policy (104 before the Errors page) need policies (`every_action_consults_a_policy_spec`
   holds the list honestly).
 - **The detour cap**, and who pays if the fee is capped (a cap cuts the
   courier's pay unless the platform tops it up). Costed in NOTES: at k = 3,

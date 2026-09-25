@@ -29,6 +29,7 @@ RSpec.describe "Every ops console page renders", type: :request do
     case resource
     when "orders" then create(:order, :with_items)
     when "trips" then create(:trip)
+    when "error_reports" then create(:error_report)
     when "merchants" then create(:merchant)
     when "courier_profiles" then create(:user, :courier).courier_profile
     when "courier_wallets" then create(:user, :courier).courier_wallet
@@ -60,7 +61,7 @@ RSpec.describe "Every ops console page renders", type: :request do
   # never asked for an edit form it does not have.
   RESOURCES = %w[
     orders trips merchants courier_profiles courier_wallets users
-    settings pricing_rates audit_logs wallet_entries settlements
+    settings pricing_rates audit_logs error_reports wallet_entries settlements
     courier_shifts merchant_statements
     merchant_opening_hours catalog_categories catalog_items merchant_categories
     catalog_item_options catalog_item_option_values

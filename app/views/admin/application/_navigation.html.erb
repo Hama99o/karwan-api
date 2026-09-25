@@ -28,7 +28,8 @@
        [ "Ledger", admin_wallet_entries_path, "wallet_entries" ],
        [ "Config", admin_settings_path, "settings" ],
        [ "Reports", admin_reports_path, "reports" ],
-       [ "Audit log", admin_audit_logs_path, "audit_logs" ]
+       [ "Audit log", admin_audit_logs_path, "audit_logs" ],
+       [ "Errors", admin_error_reports_path, "error_reports" ]
      ].each do |label, path, controller| %>
     <%= link_to label, path,
                 class: "navigation__link navigation__link--#{'active' if controller_name == controller}" %>

@@ -31,7 +31,7 @@ module KarwanApi
     # `middleware` is ignored because a Rack middleware must be a real constant
     # while the stack is being BUILT, and autoloading during boot is not
     # supported — `config/environments/development.rb` requires it explicitly.
-    config.autoload_lib(ignore: %w[assets tasks middleware])
+    config.autoload_lib(ignore: %w[assets tasks middleware error_reporting])
 
     # Configuration for the application, engines, and railties goes here.
     #

@@ -35,6 +35,12 @@ production: &tasks
     # one and a double run writes nothing twice.
     schedule: every day at 3am
 
+  # The error table's retention (30 days, 500 distinct errors), enforced here
+  # rather than by a comment. See app/models/error_report.rb.
+  prune_error_reports:
+    class: PruneErrorReportsJob
+    schedule: every day at 4am
+
   # Kept from solid_queue's own template: finished jobs accumulate forever
   # otherwise, and the queue tables are on the same VPS as everything else.
   clear_solid_queue_finished_jobs:

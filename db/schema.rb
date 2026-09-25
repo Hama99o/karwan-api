@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_25_010000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_25_040000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pg_trgm"
@@ -234,6 +234,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_25_010000) do
     t.index ["token"], name: "index_device_tokens_on_token", unique: true
     t.index ["user_id", "active"], name: "index_device_tokens_on_user_id_and_active"
     t.index ["user_id"], name: "index_device_tokens_on_user_id"
+  end
+
+  create_table "error_reports", force: :cascade do |t|
+    t.text "backtrace", default: "", null: false
+    t.jsonb "context", default: {}, null: false
+    t.string "error_class", null: false
+    t.string "fingerprint", null: false
+    t.datetime "first_seen_at", null: false
+    t.boolean "handled", default: false, null: false
+    t.datetime "last_seen_at", null: false
+    t.text "message", default: "", null: false
+    t.integer "occurrences", default: 1, null: false
+    t.string "severity", null: false
+    t.string "source"
+    t.index ["fingerprint"], name: "index_error_reports_on_fingerprint", unique: true
+    t.index ["last_seen_at"], name: "index_error_reports_on_last_seen_at"
   end
 
   create_table "merchant_categories", force: :cascade do |t|

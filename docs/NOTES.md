@@ -7362,3 +7362,46 @@ direction, from the tool everyone trusts, and it isn't in anyone's code.
 So a whole-suite result is reported as **three facts**: the exit code, the
 example count against the last known count (3,162 at `92d5e2d`), and the
 seed. Any one missing, and it isn't a pass.
+
+## WHERE AN ERROR GOES — 25 Sept 2026 (launch readiness A6, our half)
+
+**Before:** Rails reported every unhandled request error
+(ActionDispatch::Executor) and every job error to `Rails.error`, and nothing
+subscribed. A checkout 500 lived in a container log until the next deploy.
+
+**Now:** `lib/error_reporting/subscriber.rb`, subscribed in
+`config/initializers/error_reporting.rb`. There are four decisions, each made
+before the first row:
+1. **The log comes first, the database second.** One greppable
+   `[error-report] …` line to STDOUT, unconditionally; then
+   `ErrorReport.record!`, allowed to fail (logged as "could not be kept",
+   swallowed). An error store in Postgres can't report Postgres being down.
+   The log line can.
+2. **Redaction at capture** (`ErrorReport::Redaction`). The message keeps its
+   shape and loses its values: quoted text, Postgres `DETAIL:` rows,
+   `Key (x)=(y)`, emails, phone-like digit runs, coordinates. Context keeps
+   only an allowlist of WHERE keys. Params, headers and bodies are never
+   captured. The same redacted text goes to the log line.
+3. **Retention by something that runs:** `PruneErrorReportsJob`, daily at
+   04:00 (config/recurring.yml). It keeps 30 days and at most 500 distinct
+   errors.
+4. **Deduplication:** one row per fingerprint (the class plus the first frame
+   in our code, without its line number or message), counted by an atomic
+   upsert.
+
+A hosted service remains his choice. It would be a second subscriber in the
+same initializer.
+
+**Proof** (`spec/requests/every_error_is_seen_spec.rb`, 9 examples): a real
+request path raising, with a message stuffed with a phone, an email, a
+quoted landmark, coordinates and a DETAIL row. None of them reached the row
+or the log line. Plants, each red:
+- no subscription: 6 red;
+- persist-before-log without rescue (the outage order): the "still logs"
+  example;
+- redaction off: 3 red;
+- a per-occurrence fingerprint: the dedup example;
+- the prune job unscheduled: the schedule example.
+The console gates noticed the new page by themselves: the page sweep, the
+route-derived policy sweep (114 → 116; the no-policy gap 104 → 106,
+counted) and the total-order scope list.

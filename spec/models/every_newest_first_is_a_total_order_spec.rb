@@ -44,7 +44,7 @@ RSpec.describe "every newest_first is a total order" do
   # MerchantStatement first: it is the one where ties are guaranteed rather
   # than unlikely, and the one whose list is money.
   NEWEST_FIRST_MODELS = [ MerchantStatement, Settlement, CourierShift, Order, Trip,
-                          WalletEntry, OtpVerification, AuditLog ].freeze
+                          WalletEntry, OtpVerification, AuditLog, ErrorReport ].freeze
 
   it "covers every model that declares one" do
     # Eager load first: without it `descendants` is whatever this run happened

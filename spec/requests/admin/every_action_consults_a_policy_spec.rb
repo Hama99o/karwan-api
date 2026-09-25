@@ -12,7 +12,7 @@ require "rails_helper"
 # signed-in admin, and Pundit is asked afterwards whether the action consulted
 # a policy (`pundit_policy_authorized?`).
 #
-# ── THE ANSWER ON 2026-09-24: 6 OF 108, then 6 OF 110, then 10 OF 114 ──────
+# ── THE ANSWER ON 2026-09-24: 6 OF 108, then 6 OF 110, then 10 OF 114, then 10 OF 116 ──
 #
 # (The last four are the rides override — reassign, cancel, fail and
 # redispatch on admin/trips — which consult TripPolicy, so they joined the
@@ -80,6 +80,8 @@ RSpec.describe "every console action consults a policy", type: :request do
     "admin/settings" => %w[index show edit update],
     "admin/pricing_rates" => %w[index show new create edit update],
     "admin/audit_logs" => %w[index show],
+    # Read-only, like the audit log; redacted at capture (launch readiness A6).
+    "admin/error_reports" => %w[index show],
     "admin/wallet_entries" => %w[index show],
     "admin/courier_shifts" => %w[index show],
     "admin/merchant_statements" => %w[index show],
@@ -157,7 +159,7 @@ RSpec.describe "every console action consults a policy", type: :request do
   it "found the whole console" do
     # A table-driven spec over an empty table is the vacuously-green suite this
     # project has been bitten by before.
-    expect(CONSOLE_ACTIONS.size).to eq(114)
+    expect(CONSOLE_ACTIONS.size).to eq(116)
   end
 
   it "lists nothing that is not a route" do
@@ -166,8 +168,9 @@ RSpec.describe "every console action consults a policy", type: :request do
     expect(WITHOUT_POLICY - routed).to be_empty
   end
 
-  it "records 104 actions without a policy — the gap, counted" do
-    expect(WITHOUT_POLICY.size).to eq(104)
+  it "records 106 actions without a policy — the gap, counted" do
+    # 104 until 25 Sept 2026; +2 for the read-only error reports page.
+    expect(WITHOUT_POLICY.size).to eq(106)
   end
 
   CONSOLE_ACTIONS.each do |route|

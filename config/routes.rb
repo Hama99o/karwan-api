@@ -129,6 +129,9 @@ Rails.application.routes.draw do
     # Read-only by design: an editable audit log is not an audit log, and a
     # ledger whose entries can be rewritten cannot be reconciled.
     resources :audit_logs, only: %i[index show]
+    # What went wrong, counted per distinct error (launch readiness A6).
+    # Read-only for the same reason as the audit log.
+    resources :error_reports, only: %i[index show]
     resources :wallet_entries, only: %i[index show]
 
     # Read-only for the same reason as the ledger above: a shift is a record of
