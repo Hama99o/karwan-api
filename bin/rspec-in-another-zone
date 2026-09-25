@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# THE DATE-TOUCHING SPECS AGAIN, WITH THE PROCESS CLOCK IN ANOTHER ZONE.
+#
+# `config.time_zone` is Kabul, but `Date.today`, `Time.now` and `DateTime.now`
+# read the PROCESS zone: Paris on the dev box, UTC in production and CI. A
+# process-clock bug hides whenever that zone's date matches Kabul's at the
+# moment a spec pins, and 03:00 in Kabul is still the same date in Paris.
+# New York (UTC-4/-5) sits across the date line from Kabul for about half of
+# every day, so a bug the box hides shows here. karwan-mobile uses the same
+# pairing, and it is what caught a mobile bug on 25 Sept 2026.
+#
+# Files are SELECTED BY WHAT THEY CONTAIN (a pinned clock or a day boundary),
+# not from a hand list, so a new dated spec is covered without anyone
+# remembering to add it. The static half of the guard is rubocop's
+# Rails/Date, Rails/TimeZone and Style/DateTime on app/ and lib/.
+#
+#   bin/rspec-in-another-zone                      # America/New_York
+#   ZONE=Pacific/Kiritimati bin/rspec-in-another-zone
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+zone="${ZONE:-America/New_York}"
+mapfile -t files < <(grep -rlE 'travel_to|beginning_of_day|end_of_day|wday|Kabul|Time\.zone\.today' spec --include='*_spec.rb' | sort)
+echo "TZ=${zone}: ${#files[@]} spec files that pin a clock or cross a day"
+TZ="$zone" exec bundle exec rspec "${files[@]}" "$@"

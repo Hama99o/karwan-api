@@ -50,7 +50,8 @@ RSpec.describe "bin/ci and the workflow agree" do
       "bundler-audit" => "bin/bundler-audit",
       "brakeman" => "bin/brakeman",
       "zeitwerk:check" => "zeitwerk:check",
-      "rspec" => "rspec"
+      "rspec" => "rspec",
+      "second zone" => "bin/rspec-in-another-zone"
     }
 
     missing = gated.select { |_name, fragment| workflow.include?(fragment) && !local.include?(fragment) }

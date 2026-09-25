@@ -104,3 +104,9 @@ jobs:
       # already cost this owner four separate times.
       - name: Run tests
         run: bundle exec rspec --format progress
+
+      # The date-touching specs again with the process clock in New York: CI
+      # runs in UTC, which hides a `Date.today` bug whenever UTC's date is
+      # Kabul's. See bin/rspec-in-another-zone.
+      - name: Run date-touching tests in another zone
+        run: bin/rspec-in-another-zone --format progress

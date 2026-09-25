@@ -6,3 +6,23 @@ inherit_gem: { rubocop-rails-omakase: rubocop.yml }
 # # Use `[a, [b, c]]` not `[ a, [ b, c ] ]`
 # Layout/SpaceInsideArrayLiteralBrackets:
 #   Enabled: false
+
+# ── THE KABUL CLOCK, ENFORCED (25 Sept 2026) ────────────────────────────────
+#
+# `config.time_zone = "Kabul"`, but `Date.today`, `Time.now` and `DateTime.now`
+# read the PROCESS zone: Paris on this box, UTC in production. Three
+# Kabul-clock defects were fixed across the two repos in one night (opening
+# hours, the wallet's day boundaries, today's day of week). app/ and lib/ were
+# clean only because everybody happened to write `Time.current`. Omakase ships
+# all three cops DISABLED, so nothing stopped the next one. Now they run in CI
+# (`bin/rubocop`) for application code. spec/ is left alone: a test often wants
+# the process clock deliberately.
+Rails/Date:
+  Enabled: true
+  Include: [ "app/**/*.rb", "lib/**/*.rb" ]
+Rails/TimeZone:
+  Enabled: true
+  Include: [ "app/**/*.rb", "lib/**/*.rb" ]
+Style/DateTime:
+  Enabled: true
+  Include: [ "app/**/*.rb", "lib/**/*.rb" ]

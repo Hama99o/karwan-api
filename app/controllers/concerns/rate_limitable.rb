@@ -98,7 +98,7 @@ module RateLimitable
   private
 
   def enforce_throttle(to:, within:, by:, name:)
-    window = rate_limit_window(["rate-limit", controller_path, name, rate_limit_key(by)].join(":"), within)
+    window = rate_limit_window([ "rate-limit", controller_path, name, rate_limit_key(by) ].join(":"), within)
     count = rate_limit_safely { window.hit! }
     render_too_many_requests(window.retry_after_seconds) if count && count > to
   end

@@ -17,6 +17,13 @@ RSpec.describe "The shop's own today", type: :request do
     travel_to(Time.utc(2026, 9, 24, 21, 0)) { expect(today_at_the_shop).to eq(5) }
   end
 
+  # Early morning in Kabul is still the same date in Paris (this box) but
+  # the day before in New York, so a process-clock bug hides here on the
+  # box and shows under bin/rspec-in-another-zone.
+  it "is Kabul's day at 03:00 in Kabul, which is yesterday in New York" do
+    travel_to(Time.utc(2026, 9, 21, 22, 30)) { expect(today_at_the_shop).to eq(2) } # Tuesday in Kabul
+  end
+
   it "numbers days the way the opening-hours rows do (0 = Sunday)" do
     travel_to(Time.utc(2026, 9, 27, 8, 0)) { expect(today_at_the_shop).to eq(0) }
   end

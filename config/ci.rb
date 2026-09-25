@@ -27,6 +27,7 @@ CI.run do
   # time, so an autoload mistake is a boot failure rather than a style one.
   step "Autoloading", "bin/rails zeitwerk:check"
   step "Tests", "bundle exec rspec --format progress"
+  step "Tests: another zone", "bin/rspec-in-another-zone --format progress"
 
 
   # Optional: set a green GitHub commit status to unblock PR merge.
