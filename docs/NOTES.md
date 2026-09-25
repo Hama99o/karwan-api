@@ -7463,3 +7463,22 @@ first to reach a decision-maker. **The rule it adds: a number from dev data is
 about the fixtures until its origin is checked**, and "measured on the rig"
 says where it was counted, not that anything real happened. No screen in the
 app requests a ride yet, so every trip in any dev database is seeded.
+
+## WHY THE RIDE CANCEL CAME OUT RIGHT AND THE FOOD CANCEL DID NOT — 25 Sept 2026
+
+Both were written carefully. The food door answers a too-late cancel with 403
+`forbidden`: `OrderPolicy#cancel?` checks the STAGE as well as ownership, so
+the policy refuses before the state machine is asked, and `not_cancellable`
+(which karwan-42's F-77 copy explains to a person) is reachable only on a
+race. The ride door answers 422 `not_cancellable`, because its policy asks
+only WHOSE ride it is and leaves WHEN to the state machine.
+
+The difference wasn't care; it was sequence. The ride door was designed on
+paper first (docs/RIDE_DOOR_API.md), from the question "what does the person
+see when it is too late?". The food door grew: the policy was the first
+thing written, it was made strict, and the endpoint's refusal was added
+around it. **A policy answers "may this person act on this thing"; "is it too
+late" is the state machine's question, and a refusal a person reads needs
+the second.** Held as a rule now: a policy that also checks state turns an
+explanation into a permission error. (The food door's alignment is
+coordinated with karwan-42 before it ships; Hamma9901's ruling.)

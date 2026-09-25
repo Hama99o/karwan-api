@@ -25,6 +25,7 @@ RSpec.describe "POST /api/v1/auth/otp", type: :request do
 
   describe "the happy path" do
     it "sends a code to a new number" do
+      allow(Notifications::SmsClient).to receive(:production_ready?).and_return(true)
       post "/api/v1/auth/otp", params: { phone: phone }
 
       expect(response).to have_http_status(:ok)

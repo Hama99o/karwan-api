@@ -45,7 +45,13 @@ class Api::V1::Auth::PasswordResetsController < ApplicationController
     # learning nothing. Saying "no account with that email" here would reopen
     # the existence oracle that `PasswordSignInService` closes — a login form
     # and a reset form are two doors to the same question.
-    render_ok({ sent: true, channel: result[:channel] })
+    #
+    # `sent` IS TRUE ONLY IF THE CHANNEL CAN DELIVER (Notifications::Channels).
+    # It used to be true always, and with only a log adapter behind SMS the app
+    # truthfully said "we have sent a code to your phone" when nothing was sent.
+    # It depends on the channel alone, never on the account, so it stays the
+    # same answer for a real number and an unknown one.
+    render_ok({ sent: Notifications::Channels.can_deliver?(result[:channel]), channel: result[:channel] })
   rescue Users::PasswordResetService::Throttled => e
     render json: { error: e.message, code: "reset_throttled" }, status: :too_many_requests
   end

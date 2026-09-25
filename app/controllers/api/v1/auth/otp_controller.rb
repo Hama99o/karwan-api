@@ -32,7 +32,10 @@ class Api::V1::Auth::OtpController < ApplicationController
     _verification, code = OtpVerification.issue!(phone)
     deliver(phone, code)
 
-    render_ok({ sent: true, expires_in_seconds: OtpVerification::TTL.to_i }.merge(development_hint(code)))
+    # `sent` only if a real gateway is behind SMS (Notifications::Channels);
+    # the log adapter reaches nobody.
+    render_ok({ sent: Notifications::Channels.can_deliver?(:sms), expires_in_seconds: OtpVerification::TTL.to_i }
+                .merge(development_hint(code)))
   rescue OtpVerification::Throttled => e
     # 429 with a NUMBER. "Too many attempts" with no indication of when to try
     # again is the dead end that loses a first-time user.

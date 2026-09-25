@@ -226,7 +226,7 @@ may be undeclared, nothing declared may be unemitted.
 |---|---|
 | **auth** | `unauthorized` `forbidden` `invalid_credentials` `account_unavailable` `already_registered` `registration_invalid` `role_not_held` `phone_required` |
 | **otp** — unreachable, correction 2 | `otp_disabled` `otp_expired` `otp_invalid` `otp_not_issued` `otp_throttled` |
-| **reset** | `reset_code_invalid` `reset_invalid` `reset_throttled` |
+| **reset** | `reset_code_invalid` `reset_invalid` `reset_throttled` — and on a successful POST, `sent` is true ONLY when the channel (`channel: sms|email`) can reach a person (a real SMS gateway; SMTP actually configured). It says the same for a real and an unknown account, so it is no oracle. Until 25 Sept 2026 it was always true, including when SMS went only to a log. The OTP endpoint follows the same rule |
 | **ordering** | `no_merchant` `merchant_is_a_lead` `tier_unavailable` `not_cancellable` `invalid_transition` `reason_required` |
 | **dispatch** | `offer_expired` `not_your_job` `cannot_advance` `wrong_step` `too_early_to_arrive` `wallet_blocked` `job_taken` |
 | ~~**courier access**~~ | ~~`no_courier_profile`~~ | **Renamed 25 Sept 2026 to `no_profile`** (in the eligibility row below). It's the 403 from any `/courier/*` route for an account with no courier profile, and it's the same fact Eligibility already called `no_profile`. The order was: karwan-mobile `7e60b6e` accepts both, then the server switches. An app build from before `7e60b6e` would show its generic message for this one refusal; no build was in a store, so that window was empty |
