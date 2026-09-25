@@ -170,7 +170,7 @@ RSpec.describe "payload key sets" do
 
       expect(keys_of(JSON.parse(response.body)["profile"])).to eq(%w[
         accepting_orders commission_rate contact_person_name contact_person_phone
-        id is_open kind landmark_note location logo_url name phone
+        description id is_open kind landmark_note location logo_url name phone
         prep_time_minutes status storefront_photo_url today verified
       ])
     end

@@ -6,7 +6,10 @@ module Merchants
     identifier :id
 
     fields :name, :phone, :status, :is_open, :prep_time_minutes, :commission_rate,
-           :landmark_note, :contact_person_name, :contact_person_phone
+           :landmark_note, :contact_person_name, :contact_person_phone,
+           # Writable since the profile endpoint existed and never served, so
+           # a form could not prefill it and a save overwrote it blind.
+           :description
 
     field :kind do |merchant|
       merchant.merchant_kind&.slug

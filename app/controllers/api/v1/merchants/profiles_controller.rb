@@ -54,6 +54,11 @@ class Api::V1::Merchants::ProfilesController < Api::V1::Merchants::BaseControlle
     )
 
     render_blue(Merchants::ProfileSerializer, current_merchant)
+  # A refused field is a 422 the form can mark (`field_errors`), not a 500:
+  # until 25 Sept 2026 nothing rescued this, so even a blank phone was an
+  # error page.
+  rescue ActiveRecord::RecordInvalid => e
+    render_unprocessable_entity(e.record)
   end
 
   def open_now
@@ -66,7 +71,11 @@ class Api::V1::Merchants::ProfilesController < Api::V1::Merchants::BaseControlle
 
   private
 
-  EDITABLE = %w[phone description prep_time_minutes landmark_note].freeze
+  # `contact_person_name` / `_phone` since 25 Sept 2026: served, never writable,
+  # with no recorded reason. A shop that hires someone new shouldn't have to
+  # ring the office to say so, and the contact phone is the one the
+  # unanswered-order escalation rings. Both phones are checked on the model.
+  EDITABLE = %w[phone description prep_time_minutes landmark_note contact_person_name contact_person_phone].freeze
 
   # ── THE TWO PHOTOGRAPHS A SHOP OWNS ───────────────────────────────────────
   #

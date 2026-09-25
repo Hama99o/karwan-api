@@ -172,6 +172,19 @@ class Merchant < ApplicationRecord
 
   validates :name, presence: true
   validates :phone, presence: true
+
+  # ── THE NUMBER COURIERS AND CUSTOMERS RING IS A NUMBER ──────────────────
+  #
+  # `phone` had `presence` only: PATCH /merchant/profile took "not a phone"
+  # and served it back (karwan-42, live, 25 Sept 2026). The contact person's
+  # phone is the one the unanswered-order escalation rings
+  # (`MerchantOrderAlertJob`), so a wrong one sends the call nowhere. Same
+  # rule as a user's phone (`PhoneNumbers`, one definition, never a second
+  # one on the device): normalise, so `0700…` and `+93 700…` are one number,
+  # and refuse what can't be a phone with the kind `invalid`, which
+  # field_errors carries to the form.
+  before_validation :normalise_phones
+  validate :phones_are_phones
   # Nullable: a book has no preparation time. Validated only when given, so a
   # non-food merchant carries no meaningless number.
   validates :prep_time_minutes, numericality: { greater_than: 0 }, allow_nil: true
@@ -397,5 +410,19 @@ class Merchant < ApplicationRecord
     return if previous_owner.owned_merchants.kept.exists?
 
     previous_owner.revoke_role!(:merchant_owner)
+  end
+
+  def normalise_phones
+    %i[phone contact_person_phone].each do |attr|
+      normalised = PhoneNumbers.normalise(self[attr])
+      self[attr] = normalised if normalised.present? && PhoneNumbers.plausible?(normalised)
+    end
+  end
+
+  def phones_are_phones
+    errors.add(:phone, :invalid) if phone.present? && !PhoneNumbers.plausible?(phone)
+    return if contact_person_phone.blank?
+
+    errors.add(:contact_person_phone, :invalid) unless PhoneNumbers.plausible?(contact_person_phone)
   end
 end
