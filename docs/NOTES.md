@@ -7211,3 +7211,21 @@ deploy, and is not shared across containers. Moving to solid_cache needs a
 cache database in `database.yml` and its schema, which is deploy config. That
 is recorded here and not built. (solid_cache itself would have been fine:
 its increment keeps the entry's expiry.)
+
+**The trigger, so it is a condition and not a worry: this MUST move before a
+second web container exists.** From that moment every throttle becomes
+per-container, and each limit doubles without anyone changing a number. The
+cache DB is already declared in `database.yml`, and it is created empty. The
+move is `bin/rails solid_cache:install` (cache.yml plus db/cache_schema.rb) and
+`config.cache_store = :solid_cache_store`. `config/deploy.yml` is corrected.
+**Correction 3 in `CLAUDE.md` still says solid_cache is in use.** That file
+is changed only on the user's instruction, not on a peer's.
+
+**Password reset, same shape as sign-in (25 Sept 2026).** Per identifier,
+equal to OtpVerification's per-phone limits (the same Settings) and checked
+first; per IP, 300 an hour (was 20). A real and a missing number get
+byte-identical refusals (asserted). **The residual leak, narrowed and not
+closed:** OtpVerification's window slides from the first send, and this one
+is anchored to the clock. Just after this window rolls over, OTP can still
+refuse a REAL account with `reset_throttled`, which implies the account.
+Before, that was every fourth request.

@@ -66,7 +66,9 @@ RSpec.describe "Rate limiting", type: :request do
     # OtpVerification cannot see a script working through a list of ADDRESSES,
     # which is what this limit is for.
     it "eventually limits PASSWORD RESET requests from one address" do
-      21.times { |i| post "/api/v1/auth/password_reset", params: { identifier: "someone#{i}@example.com" } }
+      # 300 since 25 Sept 2026 (was 20; a district shares one address). The
+      # money is capped per NUMBER, by the per-identifier limit.
+      301.times { |i| post "/api/v1/auth/password_reset", params: { identifier: "someone#{i}@example.com" } }
 
       expect(response).to have_http_status(:too_many_requests)
       expect(json["code"]).to eq("rate_limited")

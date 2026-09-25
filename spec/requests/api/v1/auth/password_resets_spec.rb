@@ -116,9 +116,10 @@ RSpec.describe "Api::V1::Auth::PasswordResets", type: :request do
       expect(OtpVerification.count).to eq(0)
     end
 
-    # Being throttled implies an account, and that is the one leak accepted
-    # here on purpose: a silent no-op leaves somebody who really did forget
-    # their password tapping a dead button with no idea they must wait.
+    # It says when to try again, so nobody taps a dead button. Since 25 Sept
+    # 2026 the refusal comes from the per-identifier limit, which counts
+    # before any account is looked up. It used to be OtpVerification's
+    # `reset_throttled`, which implied the account existed.
     it "says when to try again once the phone's counter is spent" do
       Setting.find_or_initialize_by(key: "otp_max_sends_per_day").update!(value: "1", value_type: :integer)
       post "/api/v1/auth/password_reset", params: { identifier: "ahmad@gmail.com" }
@@ -126,7 +127,8 @@ RSpec.describe "Api::V1::Auth::PasswordResets", type: :request do
       post "/api/v1/auth/password_reset", params: { identifier: "ahmad@gmail.com" }
 
       expect(response).to have_http_status(:too_many_requests)
-      expect(json["code"]).to eq("reset_throttled")
+      expect(json["code"]).to eq("rate_limited")
+      expect(json["retry_after_seconds"]).to be_between(1, 1.day.to_i)
     end
   end
 

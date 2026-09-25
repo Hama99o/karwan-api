@@ -12,14 +12,27 @@
 # A CODE, NOT A LINK: correction 16 means there is no web page for a reset link
 # to open. See Users::PasswordResetService.
 class Api::V1::Auth::PasswordResetsController < ApplicationController
-  # Tight, and by IP rather than by identifier, because the per-phone counter
-  # inside OtpVerification cannot see somebody working through a list of
-  # addresses. Lower than the sign-in throttle: nobody legitimately forgets
-  # their password twenty times an hour, and every attempt here costs an SMS.
-  throttle to: 20, within: 1.hour, by: :ip, only: :create
+  # ── PER IDENTIFIER, WITH THE ADDRESS AS A BACKSTOP (25 Sept 2026) ────────
+  #
+  # It was 20 an hour per IP. Behind carrier-grade NAT that is a district, so
+  # the 21st person on one network in an hour to forget a password was
+  # refused, at the door people use when they are already stuck. Hamma9901's
+  # decision: the same shape as sign-in. The SMS bill is incurred PER NUMBER,
+  # so a per-identifier limit caps exactly what costs money.
+  #
+  # The identifier limits EQUAL OtpVerification's per-phone limits, read from
+  # the same Settings, and are checked first. So for any identifier, real or
+  # not, the refusal comes from here in identical words. OtpVerification's own
+  # `reset_throttled`, which implied an account existed, is no longer reached
+  # by one identifier. Counted on every request, whether or not an account
+  # exists, because every request for a real one sends something.
+  throttle to: 300, within: 1.hour, by: :ip, only: :create
+
+  before_action :refuse_a_throttled_identifier, only: :create
 
   # POST — send me a code.
   def create
+    count_this_reset_request
     result = Users::PasswordResetService.request!(
       identifier: params[:identifier].presence || params[:phone] || params[:email],
       locale: params[:locale]
@@ -57,5 +70,29 @@ class Api::V1::Auth::PasswordResetsController < ApplicationController
     render_unprocessable_entity(e.message, code: "reset_code_invalid")
   rescue Users::PasswordResetService::Invalid => e
     render_unprocessable_entity(e.message, code: "reset_invalid")
+  end
+
+  private
+
+  def reset_windows
+    raw = params[:identifier].presence || params[:phone] || params[:email]
+    typed = Users::Identifier.resolve(raw)&.value || raw.to_s.strip.downcase
+    key = "reset-requests:#{OpenSSL::Digest::SHA256.hexdigest(typed)}"
+    [
+      [ rate_limit_window("#{key}:burst", Setting.fetch("otp_send_window_minutes").minutes),
+        Setting.fetch("otp_max_sends_per_window") ],
+      [ rate_limit_window("#{key}:day", 1.day), Setting.fetch("otp_max_sends_per_day") ]
+    ]
+  end
+
+  def refuse_a_throttled_identifier
+    reset_windows.each do |window, limit|
+      count = rate_limit_safely { window.count }
+      return render_too_many_requests(window.retry_after_seconds) if count && count >= limit
+    end
+  end
+
+  def count_this_reset_request
+    reset_windows.each { |window, _| rate_limit_safely { window.hit! } }
   end
 end

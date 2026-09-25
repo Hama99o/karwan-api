@@ -14,9 +14,20 @@
 #   karwan_api  → PG 5435 / NO REDIS   ← this app
 #
 # ── Karwan takes NO REDIS, unlike all three of its neighbours ─────────────
-# Correction 3: solid_queue, solid_cache and solid_cable all run on Postgres,
-# so a Redis container would be a process earning nothing. One fewer container,
-# one fewer port, one fewer thing to back up.
+# Correction 3: solid_queue and solid_cable run on Postgres, so a Redis
+# container would be a process earning nothing. One fewer container, one fewer
+# port, one fewer thing to back up.
+#
+# SOLID_CACHE IS NOT ACTUALLY IN USE (found 25 Sept 2026; this comment said it
+# was). The gem is installed and database.yml declares `karwan_production_cache`,
+# but there is no config/cache.yml, no db/cache_schema.rb, and production.rb
+# sets no `cache_store`. So Rails.cache (and therefore every rate limit) is the
+# default FileStore in the container's tmp/cache, and the cache database is
+# created empty and never used. That's fine for ONE web container. It MUST move
+# before a second web container exists, or every throttle silently becomes
+# per-container and doubles. The move: `bin/rails solid_cache:install`, then
+# `config.cache_store = :solid_cache_store` in production.rb. docs/NOTES.md
+# has the rest.
 #
 # ── FOUR databases, not one ───────────────────────────────────────────────
 # `config/database.yml` declares primary, cache, queue and cable in production.
