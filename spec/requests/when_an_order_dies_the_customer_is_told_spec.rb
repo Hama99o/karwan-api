@@ -26,11 +26,17 @@ RSpec.describe "When an order dies, the customer is told", type: :request do
     allow(Notifications::FcmClient).to receive(:new).and_return(client)
   end
 
-  def deliver_the_pushes = perform_enqueued_jobs(only: Notifications::CustomerOrderEndedJob)
+  # The push runs THE MOMENT it is enqueued (inside the request), so a caller
+  # that wrote the reason after the transition would push without it, and
+  # these examples would go red. The reason is written IN the transition.
+  def as_it_happens(&) = perform_enqueued_jobs(only: Notifications::CustomerOrderEndedJob, &)
+  def deliver_the_pushes = nil
 
   it "tells them when the shop rejects it, with the reason" do
-    post "/api/v1/merchant/orders/#{order.id}/reject", params: { reason: "out_of_stock" },
-                                                       headers: { "Authorization" => "Bearer #{UserSession.issue!(owner).last}" }
+    as_it_happens do
+      post "/api/v1/merchant/orders/#{order.id}/reject", params: { reason: "out_of_stock" },
+                                                         headers: { "Authorization" => "Bearer #{UserSession.issue!(owner).last}" }
+    end
     deliver_the_pushes
 
     expect(sent.sole).to include(tokens: [ "customers-phone" ], title_key: "customer.order_rejected.title")
@@ -41,8 +47,7 @@ RSpec.describe "When an order dies, the customer is told", type: :request do
   it "tells them when the shop never answered" do
     order # placed now, then left unanswered
     travel 3.minutes
-    Dispatch::JobTimeoutsJob.perform_now
-    deliver_the_pushes
+    as_it_happens { Dispatch::JobTimeoutsJob.perform_now }
 
     expect(sent.sole[:data]).to include(ended: "rejected", reason: "no_answer")
   end
@@ -50,8 +55,7 @@ RSpec.describe "When an order dies, the customer is told", type: :request do
   it "tells them when an operator cancels it" do
     admin = AdminUser.create!(name: "Najibullah", email: "ops@karwan.af", password: "a-long-test-password")
     post "/admin/login", params: { admin_user: { email: admin.email, password: "a-long-test-password" } }
-    patch "/admin/orders/#{order.id}/cancel"
-    deliver_the_pushes
+    as_it_happens { patch "/admin/orders/#{order.id}/cancel" }
 
     expect(sent.sole).to include(title_key: "customer.order_cancelled.title")
     expect(sent.sole[:data]).to include(ended: "cancelled", reason: "other")
@@ -59,9 +63,11 @@ RSpec.describe "When an order dies, the customer is told", type: :request do
 
   it "tells them when it failed at the gate" do
     order.update!(status: :picked_up, picked_up_at: Time.current)
-    order.transition_to!(:failed, actor: nil, actor_role: :admin)
-    order.update!(failure_reason: :nobody_home)
-    deliver_the_pushes
+    token = UserSession.issue!(courier = create(:user, :courier)).last
+    order.update!(courier: courier)
+    as_it_happens do
+      post "/api/v1/courier/jobs/delivery/#{order.id}/problem", params: { reason: "nobody_home" }, headers: { "Authorization" => "Bearer #{token}" }
+    end
 
     expect(sent.sole[:data]).to include(ended: "failed", reason: "nobody_home")
   end
@@ -82,10 +88,12 @@ RSpec.describe "When an order dies, the customer is told", type: :request do
     expect(sent).to be_empty
   end
 
-  it "waits long enough for the reason to be written after the transition" do
-    order.transition_to!(:rejected, actor: nil, actor_role: :admin)
+  # The whole point of `transition_to!(..., with:)`: no moment exists at which
+  # the order has ended but its reason is missing.
+  it "never shows an ended order without its reason" do
+    order.transition_to!(:rejected, actor: nil, actor_role: :admin, with: { rejection_reason: :too_busy })
 
     expect(Notifications::CustomerOrderEndedJob).to have_been_enqueued.with(order.id)
-      .at(a_value_within(1.second).of(Notifications::CustomerOrderEndedJob::SETTLE.from_now))
+    expect(Order.find(order.id).rejection_reason).to eq("too_busy")
   end
 end

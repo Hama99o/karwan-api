@@ -66,10 +66,10 @@ module Dispatch
       # the difference between "the merchant rejected it" and "the merchant
       # never answered", and support needs to tell them apart.
       moved = job.transition_to!(rule[:to], actor: nil, actor_role: :admin,
-                                            reason: "timed out in #{job.status} with no response")
+                                            reason: "timed out in #{job.status} with no response",
+                                            with: { reason_column(job) => rule[:reason] })
       return false unless moved
 
-      job.update(reason_column(job) => rule[:reason])
       AuditLog.record!(action: "#{job.class.name.downcase}.timed_out", actor: nil, target: job,
                        before: { status: rule[:state].to_s }, after: { status: rule[:to].to_s },
                        details: { note: "closed automatically; nothing had been committed" })

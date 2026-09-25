@@ -84,10 +84,10 @@ module Admin
       # tells the customer a person decided it rather than a machine.
       moved = order.transition_to!(:cancelled, actor: nil, admin_user: current_admin_user,
                                                actor_role: :admin,
-                                               reason: params[:reason].presence || "cancelled by operator")
+                                               reason: params[:reason].presence || "cancelled by operator",
+                                               with: { cancellation_reason: :other, cancelled_by_role: :admin })
 
       if moved
-        order.update(cancellation_reason: :other, cancelled_by_role: :admin)
         log_intervention("order.cancelled", target: order, after: { status: "cancelled" },
                                             details: { reason: params[:reason] })
         redirect_back fallback_location: admin_order_path(order), notice: "Order cancelled."
@@ -110,9 +110,8 @@ module Admin
       end
 
       moved = order.transition_to!(:failed, actor: nil, admin_user: current_admin_user,
-                                            actor_role: :admin, reason: reason)
+                                            actor_role: :admin, reason: reason, with: { failure_reason: reason })
       if moved
-        order.update!(failure_reason: reason)
         log_intervention("order.failed", target: order, after: { status: "failed", failure_reason: reason })
         redirect_back fallback_location: admin_order_path(order), notice: "Order marked failed."
       else

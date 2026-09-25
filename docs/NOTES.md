@@ -7482,3 +7482,27 @@ late" is the state machine's question, and a refusal a person reads needs
 the second.** Held as a rule now: a policy that also checks state turns an
 explanation into a permission error. (The food door's alignment is
 coordinated with karwan-42 before it ships; Hamma9901's ruling.)
+
+## IF EVERY CALLER MUST REMEMBER SOMETHING, THE CALLERS ARE THE WRONG PLACE — 25 Sept 2026
+
+Three times in one night, a rule that every caller had to repeat was moved
+onto the transition itself (`Dispatchable#transition_to!`):
+1. a job that ends withdraws its live offers (a cancelled job had stayed on
+   offer);
+2. a job that ends announces itself (`announce_ending`: the customer's
+   "your order ended" push);
+3. the ENDING'S REASON is written in the same update as the status
+   (`with:`). Before that, six callers wrote it just after, and the push
+   waited five seconds and hoped. That was a timing assumption about other
+   people's code, which fails silently on a slow box: a push saying an
+   order ended without saying why. Hamma9901 found it. A plant (one caller
+   writing its reason afterwards again) now turns the push spec red.
+
+## A COMMENT THAT DESCRIBES THE INTENDED BEHAVIOUR, NOT THE ACTUAL — 25 Sept 2026
+
+`OrderPolicy#cancel?`'s spec said the predicate "answers only WHO", while
+the code answered WHEN as well, and so a too-late cancel was a 403. It's
+the same family as a design board's stale ✓ and a runbook's stale step, and
+the most trusted of the three, because a comment sits inside the file the
+reader is already in. Treat a comment as a claim to check against the
+code, never as a description of it.

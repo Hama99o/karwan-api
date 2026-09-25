@@ -65,10 +65,10 @@ module Admin
       trip = requested_resource
       authorize trip, :cancel?
       moved = trip.transition_to!(:cancelled, actor: nil, admin_user: current_admin_user, actor_role: :admin,
-                                              reason: params[:reason].presence || "cancelled by operator")
+                                              reason: params[:reason].presence || "cancelled by operator",
+                                              with: { cancellation_reason: :other, cancelled_by_role: :admin })
 
       if moved
-        trip.update(cancellation_reason: :other, cancelled_by_role: :admin)
         log_intervention("trip.cancelled", target: trip, after: { status: "cancelled" },
                                            details: { reason: params[:reason] })
         redirect_back fallback_location: admin_trip_path(trip), notice: "Ride cancelled."
@@ -89,9 +89,9 @@ module Admin
                              alert: "Pick a reason: #{Trip.failure_reasons.keys.join(', ')}."
       end
 
-      moved = trip.transition_to!(:failed, actor: nil, admin_user: current_admin_user, actor_role: :admin, reason: reason)
+      moved = trip.transition_to!(:failed, actor: nil, admin_user: current_admin_user, actor_role: :admin, reason: reason,
+                                           with: { failure_reason: reason })
       if moved
-        trip.update!(failure_reason: reason)
         log_intervention("trip.failed", target: trip, after: { status: "failed", failure_reason: reason })
         redirect_back fallback_location: admin_trip_path(trip), notice: "Ride marked failed."
       else

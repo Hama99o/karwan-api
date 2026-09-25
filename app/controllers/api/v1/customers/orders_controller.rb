@@ -171,10 +171,10 @@ class Api::V1::Customers::OrdersController < Api::V1::BaseController
     authorize @order, :cancel?
 
     moved = @order.transition_to!(:cancelled, actor: current_user, actor_role: :customer,
-                                              reason: params[:reason])
+                                              reason: params[:reason],
+                                              with: { cancellation_reason: :customer_changed_mind, cancelled_by_role: :customer })
     return render_unprocessable_entity("this order can no longer be cancelled", code: "not_cancellable") unless moved
 
-    @order.update(cancellation_reason: :customer_changed_mind, cancelled_by_role: :customer)
     AuditLog.record!(action: "order.cancelled", actor: current_user, actor_role: :customer,
                      target: @order, after: { status: "cancelled" })
 

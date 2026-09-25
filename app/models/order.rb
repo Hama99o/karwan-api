@@ -362,6 +362,6 @@ class Order < ApplicationRecord
   def announce_ending(actor_role)
     return if actor_role.to_s == "customer" || delivered?
 
-    Notifications::CustomerOrderEndedJob.set(wait: Notifications::CustomerOrderEndedJob::SETTLE).perform_later(id)
+    Notifications::CustomerOrderEndedJob.perform_later(id)
   end
 end

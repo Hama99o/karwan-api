@@ -178,7 +178,12 @@ module Dispatchable
   # `admin_user` is the ops console's operator, who is an `AdminUser` and can
   # never be `actor`. Defaulted rather than required because every in-app path
   # has a real `actor` and none of them has one.
-  def transition_to!(to_status, actor:, actor_role:, reason: nil, admin_user: nil)
+  # `with:` writes the ENDING'S FACTS (a rejection, cancellation or failure
+  # reason, who cancelled) in the same update as the status, so nothing ever
+  # sees the state without its reason. Until 25 Sept 2026 every caller wrote
+  # them just after, and the customer's "your order ended" push had to wait
+  # five seconds and hope (Hamma9901 found that fragility).
+  def transition_to!(to_status, actor:, actor_role:, reason: nil, admin_user: nil, with: {})
     return false unless can_transition_to?(to_status, actor_role: actor_role)
 
     from = status
@@ -200,7 +205,7 @@ module Dispatchable
       # set on this record before asking to move it.
       next unless self.class.lock.where(id: id).pick(:status) == from
 
-      update!(status: to_status, "#{to_status}_at": Time.current)
+      update!(status: to_status, "#{to_status}_at": Time.current, **with)
       transitions.create!(
         from_status: from, to_status: to_status.to_s,
         actor: actor, admin_user: admin_user, actor_role: actor_role, reason: reason,

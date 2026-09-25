@@ -77,10 +77,10 @@ class Api::V1::Couriers::JobsController < Api::V1::Couriers::BaseController
                                          code: "reason_required")
     end
 
-    moved = @job.transition_to!(:failed, actor: current_user, actor_role: :courier, reason: reason)
+    moved = @job.transition_to!(:failed, actor: current_user, actor_role: :courier, reason: reason,
+                                         with: { failure_reason: reason })
     return render_unprocessable_entity("this job cannot be failed from #{@job.status}", code: "invalid_transition") unless moved
 
-    @job.update!(failure_reason: reason)
     AuditLog.record!(action: "#{@job.class.name.downcase}.failed", actor: current_user,
                      actor_role: :courier, target: @job,
                      details: { reason: reason, note: "reported by the courier; needs a human" })

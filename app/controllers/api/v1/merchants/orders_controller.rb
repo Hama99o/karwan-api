@@ -109,7 +109,7 @@ class Api::V1::Merchants::OrdersController < Api::V1::Merchants::BaseController
       )
     end
 
-    transition!(:rejected, already_authorized: true) { @order.update!(rejection_reason: reason) }
+    transition!(:rejected, already_authorized: true, with: { rejection_reason: reason })
   end
 
   # "We have started cooking." The step the board had no button for.
@@ -137,10 +137,10 @@ class Api::V1::Merchants::OrdersController < Api::V1::Merchants::BaseController
   # One path for every board action, so each is a real state transition with an
   # actor and a timestamp rather than a status being overwritten. Correction:
   # five buttons, five explicit transitions.
-  def transition!(to_status, already_authorized: false)
+  def transition!(to_status, already_authorized: false, with: {})
     authorize @order, :"#{to_status}?" unless already_authorized
 
-    moved = @order.transition_to!(to_status, actor: current_user, actor_role: :merchant_owner)
+    moved = @order.transition_to!(to_status, actor: current_user, actor_role: :merchant_owner, with: with)
     unless moved
       return render_unprocessable_entity(
         "an order that is #{@order.status} cannot become #{to_status}",
