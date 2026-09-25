@@ -230,6 +230,22 @@ RSpec.describe "the courier job contract", type: :request do
     end
   end
 
+  # ── THE CHANGE HANDED BACK IS THE SERVER'S NUMBER ───────────────────────
+  #
+  # The app used to subtract `bring_change_for - amount` itself (karwan-42,
+  # 25 Sept 2026), which made the cash a courier hands a customer at a door the
+  # one money figure computed off the server. `Monetary.change_at_the_door`
+  # now yields the note and the change from one total.
+  it "sends the change due, so no phone subtracts" do
+    travel_to(evening_in_kabul) do
+      ride!
+      collect = job_payload["job"]["steps"].last
+
+      expect(collect["change_due"]).to eq("340.0")
+      expect(collect["change_due"].to_d + collect["amount"].to_d).to eq(collect["bring_change_for"].to_d)
+    end
+  end
+
   # ── EVERY AMOUNT IS A STRING, INCLUDING THE ADVICE ABOUT ONE ─────────────
   #
   # `docs/API_VOCABULARY.md`: *"every amount is a JSON string ("500.0",

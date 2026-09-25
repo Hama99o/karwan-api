@@ -93,6 +93,7 @@
         "amount": "500.0",
         "amount_direction": "collect",
         "bring_change_for": null,
+        "change_due": null,
         "completed": false,
         "at": null,
         "current": false

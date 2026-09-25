@@ -138,7 +138,11 @@ cannot tell a delivered order from an unattributed rejection.
 **Money shapes:** every amount is a JSON **string** (`"500.0"`, `"-50.0"`),
 never a number, and each is paired with a `currency`. **That includes advice
 ABOUT an amount:** `bring_change_for` on a courier step and `suggested_notes` on
-the customer's order and quote are amounts and are strings. They came from
+the customer's order and quote are amounts and are strings. So is **`change_due`**
+(on each collect step since 25 Sept 2026): the change the courier hands back
+for `bring_change_for`, computed with it from ONE total by
+`Monetary.change_at_the_door`. The app must show it, never subtract. Both are
+null on a round hundred. They came from
 `Monetary.change_advice`, which returned an **Integer** — `.ceil` on a BigDecimal
 does — so all three served a bare `500` beside an `amount` of `"445.0"` until the
 courier-job fixture was captured with a 160 AFN fare. Every earlier example had

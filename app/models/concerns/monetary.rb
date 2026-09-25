@@ -50,10 +50,26 @@ module Monetary
   # the number is made. Value-equal to the Integer it replaces, so
   # `expect(...).to eq(1000)` still holds.
   def self.change_advice(total)
+    change_at_the_door(total)&.first
+  end
+
+  # ── THE NOTE, AND THE CHANGE HANDED BACK FOR IT, IN ONE RULE ────────────
+  #
+  # `[note, change_due]`, or nil when nothing needs saying. The courier's
+  # app used to subtract `bring_change_for - amount` itself (karwan-42 found
+  # it, 25 Sept 2026). That makes the one number a courier hands a customer
+  # at a door the one money figure computed outside the server. If rounding,
+  # a minimum or a future discount ever made the two disagree by one
+  # afghani, nothing would log it: a courier would just be short at the end
+  # of a shift. So both numbers come out of the same total, here, together.
+  # A serializer subtracting two fields at the last moment would only move
+  # the subtraction one host to the left.
+  def self.change_at_the_door(total)
     amount = total.to_d
     return nil if amount <= 0 || (amount % 100).zero?
 
-    ((amount / CHANGE_STEP).ceil * CHANGE_STEP).to_d
+    note = ((amount / CHANGE_STEP).ceil * CHANGE_STEP).to_d
+    [ note, (note - amount).to_d ]
   end
 
   # How far the parts may miss the whole before a record is rejected: one minor

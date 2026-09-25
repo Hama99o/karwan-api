@@ -100,7 +100,7 @@ module Couriers
           # The SAME rule the customer is given, from `Monetary.change_advice`,
           # so the two screens cannot advise differently about one order. Nil on
           # a round hundred, which is the quiet case a float already covers.
-          bring_change_for: Monetary.change_advice(@job.customer_total)
+          **change_fields(@job.customer_total)
         }
       ]
     end
@@ -147,9 +147,18 @@ module Couriers
           # Same method as the delivery's and as the customer's quote, so no two
           # screens can advise differently about one journey. Nil on a round
           # hundred, which is the case a float already covers.
-          bring_change_for: Monetary.change_advice(@job.fare)
+          **change_fields(@job.fare)
         }
       ]
+    end
+
+    # The note the customer is likely to pay with, and the change the courier
+    # hands back for it: both from ONE total, in one rule
+    # (`Monetary.change_at_the_door`), so no client subtracts. Both are nil on
+    # a round hundred, which a float covers.
+    def change_fields(total)
+      note, change = Monetary.change_at_the_door(total)
+      { bring_change_for: note, change_due: change }
     end
 
     # Exactly one step is `current`, and it is the first one not yet done. The
