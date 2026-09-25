@@ -24,9 +24,7 @@
 # tmp/ and reset on each deploy. `db:prepare` builds the cache database from
 # db/cache_schema.rb.
 #
-# NOT YET TRUE OF CABLE: database.yml declares `karwan_production_cable` and
-# cable.yml says solid_cable, but there is no db/cable_schema.rb, so that
-# database is created empty. See docs/NOTES.md.
+# CABLE TOO, since the same night: db/cable_schema.rb builds solid_cable_messages.
 #
 # ── FOUR databases, not one ───────────────────────────────────────────────
 # `config/database.yml` declares primary, cache, queue and cable in production.

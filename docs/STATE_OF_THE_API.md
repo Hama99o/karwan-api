@@ -175,9 +175,9 @@ breakdown.
   A `reconnect!` probe is red on the old helper and green on the new one.
 - **Production's cache is solid_cache, since 25 Sept.** Until then every rate
   limit lived in the container's tmp/ and reset on each deploy. It's proven
-  to survive a restart (NOTES). The cable database is still created empty
-  (no schema), and that is in the readiness list. Correction 3 in `CLAUDE.md`
-  is now TRUE for the cache and still wrong for cable.
+  to survive a restart (NOTES). The cable database now has its schema too,
+  so correction 3 in `CLAUDE.md` is true. `docs/LAUNCH_READINESS.md` is the
+  launch inventory.
 - **Throttles now count per identifier** on sign-in and password reset, with
   per-IP backstops (1,200, 300 and 600 for registration). Every 429 carries
   `retry_after_seconds`.
