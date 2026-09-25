@@ -127,8 +127,9 @@ RSpec.describe "Admin reports", type: :request do
   #
   # `cancellation_reason` has been written since the first cancel endpoint and
   # counted nowhere. One of its values is a different kind of number:
-  # `no_courier_available` means a passenger asked and we had nobody to send —
-  # 21 of 25 trip cancellations on the rig.
+  # `no_courier_available` means a passenger asked and we had nobody to send.
+  # (The "21 of 25 on the rig" once quoted here was a seed artefact, not
+  # demand; see the reports controller.)
   describe "demand we could not serve" do
     def unserved_ride
       trip = create(:trip)

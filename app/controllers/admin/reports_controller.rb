@@ -269,8 +269,16 @@ module Admin
     #
     # `no_courier_available` is not churn. `Dispatch::JobTimeoutsJob` writes it
     # when a ride sat in `requested` and nobody took it, which means **a
-    # passenger asked and we had nobody to send.** Measured on the rig: 21 of 25
-    # trip cancellations in fourteen days.
+    # passenger asked and we had nobody to send.**
+    #
+    # A FIGURE ONCE STOOD HERE AND WAS WRONG: "Measured on the rig: 21 of 25
+    # trip cancellations in fourteen days." It was relayed to the owner as a
+    # supply problem. It was a seed artefact: `db/seeds/stress.rb` bulk-inserts
+    # trips with `insert_all` (no callbacks, so no offer is ever made), and the
+    # timeout job cancels them. On 25 Sept 2026 none of the dev database's 403
+    # trips had ever been offered to anyone. The METRIC is sound; that number
+    # measured the timeout job acting on requests nobody could have taken. No
+    # app screen requests a ride yet, so there is no real figure to give.
     #
     # It belongs beside utilisation and is the other half of it. That figure
     # divides by couriers who FINISHED a job and so flatters the business — its

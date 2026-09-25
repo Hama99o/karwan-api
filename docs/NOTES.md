@@ -7298,10 +7298,12 @@ Time the coarse parts first, then time the pieces SEPARATELY and check that
 they add up to the whole. If they don't, the gap is the instrument until
 shown otherwise.
 
-**And the sentence that matters to the owner about dispatch cost isn't
-latency.** 21 of 25 ride cancellations in the rig were "nobody available".
-The path the ride side runs most is the one with an empty pool. That path
-is cheap by construction, and its real cost is the passenger told "no".
+**CORRECTED, same night: the next paragraph repeated a false figure.** It said
+"21 of 25 ride cancellations in the rig were 'nobody available'", and concluded
+the ride side mostly runs the empty-pool path. That figure was a seed artefact, not demand: `db/seeds/stress.rb` bulk-inserts trips with `insert_all` (no callbacks, so no offer is ever made), and `Dispatch::JobTimeoutsJob` then cancels them. On 25 Sept 2026 none of the dev database's 403 trips had ever been offered to anyone. True by construction, and about nothing; there is no ride flow in the app yet. What
+survives is only the reasoning: when the pool IS empty, that path is cheap by
+construction, and its real cost is a passenger told "no". How often that
+happens is unmeasured.
 
 ## A WHOLE-SUITE RUN DIED AT 14 MIN 22 S, TWICE — 25 Sept 2026
 
@@ -7443,3 +7445,21 @@ week's end (1); no overlap check (4); no row index (4).
 **Owed by the app, per the ruling:** the week view shows what the system
 understood ("17:00 – 09:00 (next day)"), so a typo can't silently become
 sixteen hours open.
+
+## A FIXTURE BECAME A BUSINESS SIGNAL — 25 Sept 2026
+
+"21 of 25 trip cancellations were nobody available" went from a dev report to
+the owner's board as evidence of a courier-supply problem. It was a seed
+artefact: `db/seeds/stress.rb` writes 400 trips with `insert_all`, which
+skips callbacks, so no trip was ever offered, and `Dispatch::JobTimeoutsJob`
+then cancelled them as `no_courier_available`. Checked in the dev database:
+403 trips, **0 ever offered**. The number measured the timeout job acting on
+requests nobody could have taken. It was repeated, unchecked, in this file,
+the reports controller and a spec comment, and corrected in all three.
+
+This is the second instance tonight of a fixture writing a state the product
+can't produce (after the 2,019 orders with a fee and no distance), and the
+first to reach a decision-maker. **The rule it adds: a number from dev data is
+about the fixtures until its origin is checked**, and "measured on the rig"
+says where it was counted, not that anything real happened. No screen in the
+app requests a ride yet, so every trip in any dev database is seeded.
