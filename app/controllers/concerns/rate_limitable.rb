@@ -32,8 +32,13 @@
 module RateLimitable
   extend ActiveSupport::Concern
 
-  # Rate limiting needs a cache store that can INCREMENT. Production uses
-  # solid_cache (shared across Puma workers, which is what makes a limit real);
+  # Rate limiting needs a cache store that can INCREMENT. **Production does NOT
+  # use solid_cache**, whatever this line said until 25 Sept 2026:
+  # `config/environments/production.rb` sets no `cache_store`, so Rails' default
+  # applies, a FileStore under the container's `tmp/cache`. That counts
+  # correctly for ONE web container (FileStore locks around increment), resets
+  # on every deploy, and would NOT be shared by a second container. Recorded in
+  # docs/NOTES.md;
   # the test environment defaults to :null_store, whose increment always returns
   # nil — that would make every limit a silent no-op AND impossible to test,
   # which is the vacuously-green trap this project has already hit four times.

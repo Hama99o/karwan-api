@@ -132,10 +132,15 @@ RSpec.describe "Api::V1::Couriers::Shifts", type: :request do
     # The read side of live tracking was capped and the write side was not.
     # Exercised rather than asserted from the config, because a limit that is
     # declared and not wired is the shape of check this project keeps finding.
+    # The clock is held still: limits count in windows anchored to the clock
+    # (RateLimitable::Window), so a loop that runs across a boundary starts a
+    # fresh count and never reaches the limit. Seen 25 Sept 2026 at 23:00 UTC.
     it "caps a runaway position loop, which a bad connection makes the normal case" do
-      1_201.times do
-        post "/api/v1/courier/shift/location",
-             params: { latitude: 34.5553, longitude: 69.2075 }, headers: auth
+      freeze_time do
+        1_201.times do
+          post "/api/v1/courier/shift/location",
+               params: { latitude: 34.5553, longitude: 69.2075 }, headers: auth
+        end
       end
 
       expect(response).to have_http_status(:too_many_requests)

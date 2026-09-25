@@ -111,7 +111,7 @@ RSpec.describe "Api::V1::Couriers::Wallet", type: :request do
             headers: { "Authorization" => "Bearer #{UserSession.issue!(customer).last}" }
 
         expect(response).to have_http_status(:forbidden)
-        expect(json["code"]).to eq("no_courier_profile")
+        expect(json["code"]).to eq("no_profile")
       end
 
       it "refuses a courier who is not approved yet" do

@@ -11,7 +11,7 @@ require "rails_helper"
 #   1. customer-only is refused every partner role
 #        switch   → spec/models/user_session_spec.rb, and below
 #        endpoint → spec/requests/api/v1/merchants/orders_spec.rb ("no_merchant"),
-#                   spec/requests/api/v1/couriers/wallet_spec.rb ("no_courier_profile"),
+#                   spec/requests/api/v1/couriers/wallet_spec.rb ("no_profile"),
 #                   and below, for both in one place
 #   2. the role never comes from the client                   → BELOW
 #      (`current_role` and `require_role!` are DELETED — they had no callers;
@@ -164,7 +164,7 @@ RSpec.describe "Identity and roles", type: :request do
 
       get "/api/v1/courier/job", headers: auth
       expect(response).to have_http_status(:forbidden)
-      expect(json["code"]).to eq("no_courier_profile")
+      expect(json["code"]).to eq("no_profile")
     end
 
     # ...and can still do everything a customer does, which is the other half

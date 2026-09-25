@@ -225,7 +225,7 @@ may be undeclared, nothing declared may be unemitted.
 | **reset** | `reset_code_invalid` `reset_invalid` `reset_throttled` |
 | **ordering** | `no_merchant` `merchant_is_a_lead` `tier_unavailable` `not_cancellable` `invalid_transition` `reason_required` |
 | **dispatch** | `offer_expired` `not_your_job` `cannot_advance` `wrong_step` `too_early_to_arrive` `wallet_blocked` `job_taken` |
-| **courier access** | `no_courier_profile` | 403 from any `/courier/*` route for an account with no courier profile. **Declared 24 Sept 2026 — it had gone out for weeks undeclared**, as a positional argument the `code:` scan could not see. The same fact Eligibility calls `no_profile`: two words for one thing, kept until the app can move with a rename |
+| ~~**courier access**~~ | ~~`no_courier_profile`~~ | **Renamed 25 Sept 2026 to `no_profile`** (in the eligibility row below). It's the 403 from any `/courier/*` route for an account with no courier profile, and it's the same fact Eligibility already called `no_profile`. The order was: karwan-mobile `7e60b6e` accepts both, then the server switches. An app build from before `7e60b6e` would show its generic message for this one refusal; no build was in a store, so that window was empty |
 | **merchant self-service** | `invalid_opening_hours` |
 | **geography** | `outside_service_area` `unroutable` |
 | **infrastructure** | `bad_request` `not_found` `bad_platform` `rate_limited` `pending_migration` — `rate_limited` (429) carries `retry_after_seconds` and a `Retry-After` header since 25 Sept 2026, on every throttled endpoint. On sign-in it is the same answer whether the per-identifier or the per-address limit refused, and whether or not the account exists |
@@ -265,7 +265,7 @@ after the countdown — the job went to somebody else and another will come),
 `not_cancellable` (a customer cancels as the merchant accepts — the restaurant
 has started cooking), and `outside_service_area`.
 
-`ErrorCodes.reachable_in_normal_use` returns the **57** that are not OTP,
+`ErrorCodes.reachable_in_normal_use` returns the **56** that are not OTP (57 until `no_courier_profile` became `no_profile`, 25 Sept 2026),
 malformed requests or server state. The thirteen it excludes are `otp_*` (switched
 off), `bad_request`, `bad_platform`, `not_found`, `registration_invalid`,
 `pending_migration`, `invalid_idempotency_key` (a client bug, like

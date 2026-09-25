@@ -11,6 +11,12 @@ RSpec.describe "Rate limiting", type: :request do
     JSON.parse(response.body)
   end
 
+  # THE CLOCK IS HELD STILL for every example here. Limits count in windows
+  # anchored to the clock (RateLimitable::Window), so a loop that runs across
+  # a boundary starts a fresh count and never reaches the limit: the shifts
+  # spec's 1,201 requests did exactly that at 23:00 UTC on 25 Sept 2026.
+  around { |example| freeze_time { example.run } }
+
   # Turns the retained code flow back on, for the examples that drive it. The
   # OTP endpoint refuses with `otp_disabled` otherwise, and a 422 is not a
   # statement about the limiter.

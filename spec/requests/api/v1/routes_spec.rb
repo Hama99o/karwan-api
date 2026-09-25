@@ -177,7 +177,11 @@ RSpec.describe "Api::V1::Routes", type: :request do
       enable_osrm!
       stub_request(:get, osrm).to_return(status: 200, body: recorded)
 
-      61.times { ask }
+      # Held still: this limit's window is ONE MINUTE, anchored to the clock
+      # (RateLimitable::Window), so an unfrozen loop crossing a minute boundary
+      # starts a fresh count. Of all the throttle loops, this was the likeliest
+      # to cross.
+      freeze_time { 61.times { ask } }
 
       expect(response).to have_http_status(:too_many_requests)
     end

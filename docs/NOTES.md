@@ -7182,3 +7182,32 @@ counter (3 per 15 minutes, 10 a day) already caps what one NUMBER can cost. The
 IP limit is the only cap on one address spending SMS across MANY numbers, so
 raising it raises the worst-case bill per address per hour by the same factor.
 The retained OTP endpoint (60 an hour per IP) is switched off and left as it is.
+
+## THREE THINGS FOUND WHILE LANDING THE THROTTLE — 25 Sept 2026
+
+**1. The suite's exclusive-database lock could vanish mid-run.** It was held on
+`ActiveRecord::Base.connection`. In a 2,396-example run, a watcher saw it
+disappear right after `shifts_spec.rb:135`: the main backend's pid changed
+there, so ActiveRecord had replaced the connection, and the session-scoped
+lock went with the old session. From then on a second run could have
+truncated the same database. **Why AR replaced it is not established**: it
+doesn't reproduce with that example alone. The lock now lives on a raw
+`PG.connect` of its own. A probe that calls `reconnect!` and then checks
+`pg_locks` fails on the old helper and passes on the new one. A second run
+started beside a holder is still refused.
+
+**2. Clock-anchored limit windows made request loops flaky.** The shifts
+spec's 1,201 requests ran across 23:00 UTC, started a fresh count, and never
+reached the limit. The throttle-loop specs now hold the clock still
+(`rate_limiting_spec` for the whole file, the shifts and routes loops inline).
+Routes' window is ONE MINUTE, so it was the likeliest to cross.
+
+**3. Production's cache is NOT solid_cache.** `config/environments/production.rb`
+sets no `cache_store`, so Rails' default applies: a FileStore under the
+container's `tmp/cache`. Correction 3, `config/deploy.yml` and the
+RateLimitable comment all said solid_cache. For rate limits the FileStore
+works with one web container (it locks around increment), resets on every
+deploy, and is not shared across containers. Moving to solid_cache needs a
+cache database in `database.yml` and its schema, which is deploy config. That
+is recorded here and not built. (solid_cache itself would have been fine:
+its increment keeps the entry's expiry.)

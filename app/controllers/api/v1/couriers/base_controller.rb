@@ -15,8 +15,12 @@ class Api::V1::Couriers::BaseController < Api::V1::BaseController
   # An approved profile AND a wallet. A courier without a wallet cannot be
   # charged commission, so they must not be able to take work — and the error
   # says which is missing, because "forbidden" sends an operator hunting.
+  #
+  # `no_profile` is Eligibility's word for the same fact, so the app says one
+  # sentence for both. Until 25 Sept 2026 this door said `no_courier_profile`
+  # (see ErrorCodes).
   def require_courier!
-    return render_courier_error("no courier profile on this account", "no_courier_profile") if courier_profile.nil?
+    return render_courier_error("no courier profile on this account", "no_profile") if courier_profile.nil?
     return render_courier_error("this courier account is not approved", "not_approved") unless courier_profile.verification_approved?
     return render_courier_error("no wallet on this courier account", "no_wallet") if courier_wallet.nil?
 

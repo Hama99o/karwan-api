@@ -83,11 +83,30 @@ RSpec.configure do |config|
     "(could not read pg_locks: #{e.class})"
   end
 
+  # ── HELD ON A CONNECTION OF ITS OWN, OUTSIDE ACTIVE RECORD ─────────────
+  #
+  # It used to be taken on `ActiveRecord::Base.connection`, the pool's
+  # connection that every example uses. That connection does not live as long
+  # as the process: on 25 Sept 2026 a watcher saw the lock vanish right after
+  # `shifts_spec.rb:135` (1,201 requests) in a 2,396-example run. The main
+  # backend's pid changed at that example, so ActiveRecord had replaced the
+  # connection, and the session-scoped lock left with the old one. For the
+  # rest of that run the database was unguarded, and `test_database_spec`
+  # failed. Why AR replaced it is NOT established (it didn't reproduce with
+  # the example alone). A raw PG connection that no example, pool, reaper or
+  # reconnect can touch makes the question irrelevant to the guard.
+  def exclusive_lock_connection
+    $exclusive_lock_connection ||= begin
+      info = ActiveRecord::Base.connection.raw_connection.conninfo_hash
+      PG.connect(info.slice(:host, :port, :user, :password, :dbname).compact)
+    end
+  end
+
   config.before(:suite) do
     database = ActiveRecord::Base.connection_db_config.database
-    acquired = ActiveRecord::Base.connection.select_value(
+    acquired = exclusive_lock_connection.exec(
       "SELECT pg_try_advisory_lock(#{EXCLUSIVE_DATABASE_LOCK_KEY})"
-    )
+    ).getvalue(0, 0)
 
     unless [ true, "t" ].include?(acquired)
       # `exit!` rather than `abort`, and this matters: `abort` raises
@@ -127,9 +146,8 @@ RSpec.configure do |config|
   config.after(:suite) do
     next unless @holds_exclusive_database_lock
 
-    ActiveRecord::Base.connection.select_value(
-      "SELECT pg_advisory_unlock(#{EXCLUSIVE_DATABASE_LOCK_KEY})"
-    )
+    exclusive_lock_connection.exec("SELECT pg_advisory_unlock(#{EXCLUSIVE_DATABASE_LOCK_KEY})")
+    exclusive_lock_connection.close
   rescue StandardError
     # The process is exiting and the lock dies with the session anyway. A
     # failure to release must never turn a green suite red.
