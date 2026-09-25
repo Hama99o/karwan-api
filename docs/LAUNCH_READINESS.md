@@ -1,0 +1,66 @@
+# Launch readiness: what must be true before Karwan takes one real order with real money
+
+Written 25 Sept 2026 at `b5ab84b`, as an **inventory, not a fix list**. Each
+line says what is true now, how I know, and whose move it is. **Ours** means
+code in this repo. **His** means Hamma9900's decision, account or money.
+Where both halves exist, they are split.
+
+The state this starts from: whole suite green, run detached (`92d5e2d`, seed
+13225: EXIT 0, 3,162 examples, 0 failures, 3 pending). Brakeman, bundler-audit,
+Zeitwerk and rubocop are clean. Nothing has ever been deployed: `KAMAL_HOST`
+is blank, and there is no VPS.
+
+---
+
+## A · Blockers: a real order must not happen until these are true
+
+| # | What | True now | Evidence | Whose |
+|---|---|---|---|---|
+| A1 | **Backups** | none. `bin/backup` and `bin/restore-check` are designed (RUNBOOK §9.1), not built | `ls bin` | **His** go-ahead and off-box storage (a few euros a month). **Ours** to build, about a day. The ledger is one-way door #4: entries lost are unrecoverable |
+| A2 | **Somewhere to run** | no VPS, no domain | `deploy.yml` needs `KAMAL_HOST` and `KAMAL_PROXY_HOST` | **His** |
+| A3 | **TLS flags** | `assume_ssl` and `force_ssl` are both **commented out**. hatiwal-api sets both | `config/environments/production.rb:25,28` | **Ours** (copy Hatiwal). Without them the console's session cookie isn't marked Secure, and there's no HSTS. kamal-proxy terminates TLS, but Rails doesn't know it |
+| A4 | **A forgotten password on a phone-only account** | the only SMS adapter is `log`. In production a reset code by SMS **goes nowhere**, so a user with no email is locked out for good | `Notifications::SmsClient::ADAPTERS` has one key; `bin/preflight` warns | **His**: choose the gateway (price per message to Afghan networks). **Ours**: one adapter class after that |
+| A5 | **Push stops an hour after each deploy** | `FcmClient` sends a static `FCM_ACCESS_TOKEN` from the environment. HTTP v1 tokens minted from a service account expire after about an hour, and nothing refreshes them | `fcm_client.rb:31,70`; no googleauth/JWT anywhere | **His**: the Firebase project and service account. **Ours**: mint and refresh the token from the service-account key. The merchant alarm has polling as its second channel, so this degrades rather than kills the alert |
+| A6 | **Seeing a failure** | no error subscriber. A 500 on checkout exists only in container logs (`RAILS_LOG_TO_STDOUT`), which nobody tails | no `Rails.error.subscribe` in app/, config/ or lib/ | **Ours** to propose, **his** to choose. Correction 14 rules out a crash reporter that phones home, so the self-hosted shape is `Rails.error.subscribe`, written to a table and counted on the console, the way the router fallback is now |
+| A7 | **Settings only he can fill** | `top_up_bank_name` and `top_up_account_number` are **empty**; `support_phone` is set in dev and must be the real number | `bin/preflight` "Settings only he can fill" | **His** |
+| A8 | **One rehearsal on the real box** | never done: `db:prepare` building four databases, the reference seed with `ADMIN_PASSWORD`, OSRM data present, and `/up` healthy | nothing has been deployed | **Both**: his box, our runbook |
+| A9 | **One order with real cash, end to end** | every step is covered by request specs (place → accept → pickup → deliver → commission → settle → reimburse), but no human has ever done it on the console with a real wallet | the specs | **Both**: the ops rehearsal. It is also the only test of the settlement screens as a person uses them |
+
+## B · Should be true, and cheap
+
+| # | What | True now | Whose |
+|---|---|---|---|
+| B1 | **OSRM image pinned** | `osrm-backend:latest`. The `.osrm` files are built by one version's `osrm-extract` and must be served by the same version. A pull of a newer `latest` can refuse them, and every fare then falls back to straight line (visible since `6ae3009`, but priced wrong until someone looks) | **Ours** |
+| B2 | **OSRM data on the host** | `/var/karwan/osrm` must be built before the accessory starts (RUNBOOK) | **Both** |
+| B3 | **SMTP** | secrets are declared; no provider chosen. Email reset and mail depend on it | **His** |
+| B4 | **Cable database** | declared, with solid_cable in cable.yml, but there is no `db/cable_schema.rb`, so it's created empty. **Harmless today: nothing broadcasts.** Drop it or give it its schema | **Ours** |
+| B5 | **Correction 3 in `CLAUDE.md`** | now true for the cache (`b5ab84b`) and still wrong for cable | **His** (I don't edit CLAUDE.md on a peer's word) |
+
+## C · Decisions still open that touch real money (his; recorded, not built)
+
+- The detour cap, and who pays if a fee is capped.
+- A maximum delivery distance from the shop (only the country is enforced).
+- The ride fare rule: honour the SHOWN fare exactly, or refuse-if-higher as with food.
+- Whether a fare priced by straight line during a router outage is repriced afterwards.
+- Console logins: will anyone else hold one? That decides whether 104 console actions need policies.
+- The three pending specs are the two open money decisions plus one empty design spec.
+- CLAUDE.md's standing open questions: the bank or HesabPay account, and the trusted person in Kabul.
+
+## D · Checked, and NOT a blocker
+
+- **The 2,019 seeded orders in a shape the product never makes are dev-only.**
+  `db/seeds.rb` refuses sample and e2e data in production, so they can't
+  reach a real database. They still distort any dev measurement over orders.
+- **Rate limits survive a deploy** (`b5ab84b`), proven at the production
+  layer, and count per identifier with per-IP backstops (`93e4f66`, `6703d8b`).
+- **Secrets** are all read from the environment in `.kamal/secrets`, and
+  `config/master.key` is not in git.
+- **The production admin** can't be seeded with a default password: the seed
+  raises without `ADMIN_PASSWORD`.
+- **Router outages are visible** on the reports page (`6ae3009`).
+
+## The order I would take these in
+
+A3, B1 and B4 are ours, small, and need nothing from anyone. Then A5's and
+A6's code halves once he says yes to their shape. A1 as soon as he says go.
+A2, A7, A8 and A9 are the launch itself.
